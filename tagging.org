@@ -1,0 +1,19 @@
+# Tagging to-do
+
+## Sql db setup
+
+## Servant API basics
+
+## Project documentation
+
+## Run servant doc & client generators
+
+## Auth setup
+
+## Render main stimulus page (ghcjs?)
+
+## Reporting
+
+## Docker image for deploying on lab computers?
+
+## Bot interface?
