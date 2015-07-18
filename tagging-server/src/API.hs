@@ -1,3 +1,6 @@
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds #-}
+
 module API where
 
 import Servant
@@ -8,5 +11,5 @@ import Tagging.Stimulus
 type API =
        "stim" :> Capture "set" Int :> Capture "item" Int
               :> Get '[JSON] Stimulus
-  :<|> "resp" :> Capture "set" Int :> Capture "item" Int 
-              :> POST '[JSON] Response
+  :<|> "resp" :> Capture "set" Int :> Capture "item" Int
+              :> Post '[JSON] Response

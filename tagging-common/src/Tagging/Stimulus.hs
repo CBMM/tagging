@@ -1,9 +1,27 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TypeFamilies  #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE FlexibleContexts  #-}
 
 module Tagging.Stimulus where
 
-import qualified Data.Aeson as A
+import Data.Aeson
 import GHC.Generics
+
+class IsTrial t where
+
+  type Stimulus t
+  type Question t
+  type Answer   t
+
+  sendTrialData
+    :: (ToJSON t, ToJSON (Stimulus t), ToJSON (Question t))
+    => t
+    -> Stimulus t
+    -> Question t
+    -> Object
+
+
 
 data StimType = Image | Audio | Video
   deriving (Eq, Show, Ord, Bounded, Enum)
@@ -16,6 +34,3 @@ data StimIndex = StimIndex {
     siSetID :: Int
   , siItemID :: Int
 } deriving (Eq, Show, Generic)
-
-instance A.FromJSON StimIndex where
-instance A.ToJSON   StimIndex where
