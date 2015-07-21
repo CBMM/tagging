@@ -16,7 +16,7 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Tagging.User, Tagging.Stimulus
+  exposed-modules:     Tagging.User, Tagging.Stimulus, Tagging.Serialize
   -- other-modules:
   -- other-extensions:
   build-depends:       base >=4.8 && <4.9
