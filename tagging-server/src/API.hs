@@ -8,8 +8,8 @@ import Servant.Server
 import Tagging.User
 import Tagging.Stimulus
 
-type API =
-       "stim" :> Capture "set" Int :> Capture "item" Int
-              :> Get '[JSON] Stimulus
-  :<|> "resp" :> Capture "set" Int :> Capture "item" Int
-              :> Post '[JSON] Response
+-- type API =
+--        "stim" :> Capture "set" Int :> Capture "item" Int
+--               :> Get '[JSON] Stimulus
+--   :<|> "resp" :> Capture "set" Int :> Capture "item" Int
+--               :> Post '[JSON] Response

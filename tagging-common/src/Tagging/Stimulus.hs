@@ -8,6 +8,7 @@ module Tagging.Stimulus where
 import Data.Aeson
 import GHC.Generics
 
+-----------------------------------------------------------------------------
 class IsTrial t where
 
   type Stimulus t
@@ -20,7 +21,6 @@ class IsTrial t where
     -> Stimulus t
     -> Question t
     -> Object
-
 
 
 data StimType = Image | Audio | Video

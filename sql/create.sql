@@ -1,40 +1,45 @@
 DROP TABLE IF EXISTS stimulus;
+DROP TABLE IF EXISTS stimSet;
+DROP TABLE IF EXISTS stimSeq;
+DROP TABLE IF EXISTS taggingUser;
+DROP TABLE IF EXISTS response;
+
+
+CREATE TABLE stimSet (
+	id uuid primary key DEFAULT uuid_generate_v4(),
+	name varchar(400),
+	description text,
+	baseUrl varchar(500)
+);
+
 CREATE TABLE stimulus (
-	id int primary key,
-	stimSet references stimSet(id) NOT NULL,
+	id uuid primary key DEFAULT uuid_generate_v4(),
+	stimSet uuid references stimSet(id) NOT NULL,
 	urlSuffix varchar(500) UNIQUE NOT NULL,
 	mimeType varchar (200)
 );
 
-CREATE TABLE stimSet (
-	id int primary key,
-	name varchar(400),
-	description text,
-	baseUrl varchar (500),
-);
-
 CREATE TABLE stimSeq (
-	seqId int,
-	seqIndex int,
-	stimId int references stimulus (id),
-	UNIQUE (seqId, seqIndex)
+	id uuid primary key DEFAULT uuid_generate_v4(),
+	seqId uuid DEFAULT uuid_generate_v4(),
+	seqIndex uuid,
+	stimId uuid references stimulus (id),
+	UNIQUE (seqId, seqIndex),
 	responseType varchar(50)
 );
 
-CREATE TABLE user (
-	id int primary key,
-	currentStimSeqId int references stimSeq(seqId),
-	currentStimSeqIndex int references stimSeq(seqIndex),
+CREATE TABLE taggingUser (
+	id uuid primary key DEFAULT uuid_generate_v4(),
+	currentStim uuid references stimSeq(id),
 	name varchar(200),
 	studentId varchar(50),
 	roles json
 );
 
 CREATE TABLE response (
-	user int references user(id),
-	seqId int references stimSeq(seqId),
-	seqIndex int references stimSeq(seqIndex),
+	taggingUser uuid references taggingUser(id),
+	stim uuid references stimSeq(id),
 	deliveredTime timestamp,
 	respondedTime timestamp,
-	response json 
+	response json
 );

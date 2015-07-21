@@ -30,6 +30,9 @@ case $yn in
         sudo -u postgres psql -c "ALTER ROLE $PGUSER WITH PASSWORD '$PASS';";
         sudo -u postgres createdb $DB;
         sudo -u postgres psql -d $DB -c "CREATE EXTENSION \"uuid-ossp\";";
-        sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB TO $PGUSER";;
+        sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB TO $PGUSER";
+
+        psql -U $PGUSER -h localhost -d $DB -f create.sql;;
+
     * ) echo "Didn't catch that. Try again, please answer y or n"
 esac

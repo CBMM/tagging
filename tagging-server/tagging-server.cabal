@@ -16,7 +16,9 @@ extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     API, Main, Site, Application
+  exposed-modules:     Main
+                     , Site
+                     , Application
   -- other-modules:
   other-extensions:    CPP, TemplateHaskell, OverloadedStrings
   build-depends:       base >=4.8 && <4.9
@@ -27,7 +29,7 @@ library
                      , map-syntax >= 0.2 && < 0.3
                      , mtl >= 2.2 && < 2.3
                      , servant >= 0.4 && < 0.6
-                     , servant-snap >= 0.4 && < 0.6
+                     -- , servant-snap >= 0.4 && < 0.6
                      , snap >= 0.9 && < 1.0
                      , snap-core >= 0.9 && < 1.0
                      , snap-server >= 0.9 && < 0.10
