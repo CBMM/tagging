@@ -9,13 +9,12 @@
 module Tagging.Stimulus where
 
 import Data.Aeson
+import qualified Data.Aeson as A
 import qualified Data.ByteString as BS
 import qualified Data.Text as T
-import Data.Typeable
-import GHC.Generics
 import Database.Groundhog
 import Database.Groundhog.TH
-import Database.Groundhog.Postgresql
+import GHC.Generics
 
 -----------------------------------------------------------------------------
 class IsTrial t where
@@ -33,35 +32,33 @@ class IsTrial t where
 
 
 data StimulusResource = StimResource
-  { urlSuffix :: BS.ByteString
+  { urlSuffix :: T.Text
   , mimeType  :: T.Text
   } deriving (Generic)
 
 data StimulusSet = StimSet
   { ssTitle       :: T.Text
   , ssDescription :: T.Text
-  , ssBaseUrl     :: BS.ByteString
+  , ssBaseUrl     :: T.Text
   } deriving (Generic)
 
 data StimulusSequenceItem = StimSeqItem
   { ssiStimSet      :: DefaultKey StimulusSet
   , ssiStimulus     :: DefaultKey StimulusResource
   , ssiIndex        :: Int
-  , ssiResponseType :: TypeRep
+  , ssiResponseType :: T.Text
   } deriving (Generic)
+
+instance A.FromJSON StimulusResource where
+instance A.ToJSON   StimulusResource where
+instance A.FromJSON StimulusSet where
+instance A.ToJSON   StimulusSet where
+instance A.FromJSON StimulusSequenceItem where
+instance A.ToJSON   StimulusSequenceItem where
 
 mkPersist defaultCodegenConfig [groundhog|
 definitions:
   - entity: StimulusResource
-    autoKey:
-      constrName: AutoKey
-      default: true
-    constructors:
-      - name: StimResource
-        fields:
-          - name: urlSuffix
-            dbName: urlSuffix
-          - name: mimeType
-            dbName: mimeType
   - entity: StimulusSet
+  - entity: StimulusSequenceItem
 |]
