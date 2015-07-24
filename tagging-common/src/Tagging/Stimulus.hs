@@ -60,5 +60,12 @@ mkPersist defaultCodegenConfig [groundhog|
 definitions:
   - entity: StimulusResource
   - entity: StimulusSet
+    keys:
+      - name: SsTitle
+    constructors:
+      - name: StimSet
+        uniques:
+          - name: SsTitle
+            fields: [ssTitle]
   - entity: StimulusSequenceItem
 |]

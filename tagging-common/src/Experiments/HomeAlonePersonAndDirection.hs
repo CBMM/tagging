@@ -1,8 +1,11 @@
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Experiments.HomeAlonePersonAndDirection where
 
+import Data.Monoid
+import qualified Data.Text as T
 import Tagging.Stimulus
 
 clipSet :: StimulusSet
@@ -11,8 +14,8 @@ clipSet =
   "/static/clips/HomeAlone2"
 
 clips :: [StimulusResource]
-clips = map (\n -> StimResource ("clip" <> show n <> ".mp4") "video/mp4")
-        [0..10]
+clips = map (\n -> StimResource ("clip" <> T.pack (show n) <> ".mp4")
+         "video/mp4") [0..10]
 
 
 data HomeAloneExperiment
