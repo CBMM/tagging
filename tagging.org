@@ -2,6 +2,8 @@
 
 ## Sql db setup
 
+ - via [groundhog](http://hackage.haskell.org/package/groundhog)
+
 ## Servant API basics
 
 ## Project documentation
