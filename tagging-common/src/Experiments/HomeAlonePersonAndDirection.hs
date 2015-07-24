@@ -14,7 +14,8 @@ clipSet =
   "/static/clips/HomeAlone2"
 
 clips :: [StimulusResource]
-clips = map (\n -> StimResource ("clip" <> T.pack (show n) <> ".mp4")
+clips = map (\n -> StimResource (T.pack (show n))
+                    ("clip" <> T.pack (show n) <> ".mp4")
          "video/mp4") [0..10]
 
 

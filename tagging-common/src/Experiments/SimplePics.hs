@@ -4,10 +4,12 @@
 
 module Experiments.SimplePics where
 
+import Control.Monad
 import Data.Monoid
 import Data.Proxy
 import qualified Data.Text as T
 import Data.Typeable
+import Database.Groundhog.Postgresql
 import Tagging.Stimulus
 
 picsSt = "Simple Pictures"
@@ -35,4 +37,16 @@ data OneToTen = OneToTen { oneToTenScore :: Int }
 
 -- TODO is this right?
 toTypeName :: Typeable t => Proxy t -> T.Text
-toTypeName p = T.pack . show . typeRep $ undefined `asTypeOf` p
+toTypeName p = T.pack . show $ typeRep (undefined `asTypeOf` p)
+
+initializeDB :: String -> Bool -> IO ()
+initializeDB dbString mig = withPostgresqlConn dbString $ runDbConn $ do
+  when mig $ runMigration $ do
+    migrate (undefined :: StimulusResource)
+    migrate (undefined :: StimulusSequenceItem)
+    migrate (undefined :: StimulusSet)
+  setKey   <- insert stimSet
+  zipWithM_ (\i stim -> do
+    stimResource <- insert stim
+    insert $ StimSeqItem setKey stimResource i
+             (toTypeName (Proxy :: Proxy OneToTen))) [0..] stimuli

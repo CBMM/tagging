@@ -6,6 +6,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module Tagging.Stimulus where
 
@@ -36,7 +37,7 @@ data StimulusResource = StimResource
   { srName      :: StimName
   , srUrlSuffix :: T.Text
   , srMimeType  :: T.Text
-  } deriving (Generic)
+  } deriving (Show, Generic)
 
 type StimName = T.Text
 
@@ -44,7 +45,7 @@ data StimulusSet = StimSet
   { ssName        :: StimSetName
   , ssDescription :: T.Text
   , ssBaseUrl     :: T.Text
-  } deriving (Generic)
+  } deriving (Show, Generic)
 
 type StimSetName = T.Text
 
@@ -54,6 +55,7 @@ data StimulusSequenceItem = StimSeqItem
   , ssiIndex        :: Int
   , ssiResponseType :: ResponseType
   } deriving (Generic)
+deriving instance Show StimulusSequenceItem
 
 type ResponseType = T.Text
 
@@ -69,11 +71,11 @@ definitions:
   - entity: StimulusResource
   - entity: StimulusSet
     keys:
-      - name: SsTitle
+      - name: SsName
     constructors:
       - name: StimSet
         uniques:
-          - name: SsTitle
-            fields: [ssTitle]
+          - name: SsName
+            fields: [ssName]
   - entity: StimulusSequenceItem
 |]
