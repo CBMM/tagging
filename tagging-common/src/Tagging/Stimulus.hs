@@ -5,6 +5,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Tagging.Stimulus where
 
@@ -32,22 +33,29 @@ class IsTrial t where
 
 
 data StimulusResource = StimResource
-  { urlSuffix :: T.Text
-  , mimeType  :: T.Text
+  { srName      :: StimName
+  , srUrlSuffix :: T.Text
+  , srMimeType  :: T.Text
   } deriving (Generic)
 
+type StimName = T.Text
+
 data StimulusSet = StimSet
-  { ssTitle       :: T.Text
+  { ssName        :: StimSetName
   , ssDescription :: T.Text
   , ssBaseUrl     :: T.Text
   } deriving (Generic)
+
+type StimSetName = T.Text
 
 data StimulusSequenceItem = StimSeqItem
   { ssiStimSet      :: DefaultKey StimulusSet
   , ssiStimulus     :: DefaultKey StimulusResource
   , ssiIndex        :: Int
-  , ssiResponseType :: T.Text
+  , ssiResponseType :: ResponseType
   } deriving (Generic)
+
+type ResponseType = T.Text
 
 instance A.FromJSON StimulusResource where
 instance A.ToJSON   StimulusResource where
