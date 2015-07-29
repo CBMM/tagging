@@ -32,12 +32,18 @@ data Role = Admin | Subject | Researcher
 
 mkPersist defaultCodegenConfig [groundhog|
   - entity: User
+    keys:
+      - name: TuId
+      - uniques:
+          - name: TuId
+            fields: [tuId]
   - entity: Role
     constructors:
       - name: Admin
       - name: Subject
       - name: Researcher
 |]
+
 
 instance A.FromJSON Role where
 instance A.ToJSON   Role where

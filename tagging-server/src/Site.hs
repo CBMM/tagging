@@ -10,6 +10,8 @@ module Site
 
 ------------------------------------------------------------------------------
 import           Control.Applicative
+import           Control.Error
+import qualified Data.ByteString as BS
 import           Data.ByteString (ByteString)
 import           Data.Map.Syntax ((##))
 import           Data.Monoid
@@ -19,12 +21,16 @@ import           Snap.Snaplet
 import           Snap.Snaplet.Auth
 import           Snap.Snaplet.PostgresqlSimple
 import           Snap.Snaplet.Auth.Backends.PostgresqlSimple
+import           Snap.Snaplet.Groundhog.Postgresql
 import           Snap.Snaplet.Heist
 import           Snap.Snaplet.Session.Backends.CookieSession
 import           Snap.Util.FileServe
 import qualified Heist.Interpreted as I
 ------------------------------------------------------------------------------
 import           Application
+import           Tagging.User
+import           Tagging.Stimulus
+import           Tagging.Response
 
 
 ------------------------------------------------------------------------------
@@ -60,6 +66,28 @@ handleNewUser = method GET handleForm <|> method POST handleFormSubmit
     handleForm = render "new_user"
     handleFormSubmit = registerUser "login" "password" >> redirect "/"
 
+getTaggingUser :: Handler App (AuthManager App) (Maybe User)
+getTaggingUser = runMaybeT $ do
+  cu <- MaybeT currentUser
+  withTop $ with gdb $ listToMaybe <$> select (TuId ==. userId cu)
+
+getTrial :: Handler App (AuthManager App) ()
+getTrial = maybeT (serverError "Must be logged in") $ do
+  User{..} <- MaybeT getTaggingUser
+  undefined
+
+finishEarly :: MonadSnap m => Int -> BS.ByteString -> m b
+finishEarly code str = do
+  modifyResponse $ setResponseStatus code str
+  modifyResponse $ addHeader "Content-Type" "text/plain"
+  writeBS str
+  getResponse >>= finishWith
+
+serverError :: MonadSnap m => BS.ByteString -> m b
+serverError =  finishEarly 500
+
+notFound :: MonadSnap m => BS.ByteString -> m b
+notFound = finishEarly 404
 
 ------------------------------------------------------------------------------
 -- | The application's routes.
@@ -85,6 +113,7 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     -- you'll probably want to change this to a more robust auth backend.
     a <- nestSnaplet "auth" auth $
            initPostgresAuth sess d
+    g <- nestSnaplet "gh" gdb initGroundhogPostgres
     addRoutes routes
     addAuthSplices h auth
-    return $ App h s a d
+    return $ App h s a d g

@@ -61,7 +61,7 @@ main = do
                       , "dbname=tagging user=tagging"
                       , "password=" ++ passwd
                       ]
-  withPostgresqlConn dbStr $ do
+  withPostgresqlConn dbStr $ runDbConn $ do
     let stimSet = StimSet title descr urlBase
-    existingKey <- either id id <$> insertBy (SsTitle) stimSet
+    existingKey <- either id id <$> insertBy (SsName) stimSet
     undefined
