@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 
 ------------------------------------------------------------------------------
 -- | This module is where all the routes and handlers are defined for your
@@ -11,7 +12,7 @@ module Site
 ------------------------------------------------------------------------------
 import           Control.Applicative
 import           Control.Error
-import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BS
 import           Data.ByteString (ByteString)
 import           Data.Map.Syntax ((##))
 import           Data.Monoid
@@ -66,15 +67,15 @@ handleNewUser = method GET handleForm <|> method POST handleFormSubmit
     handleForm = render "new_user"
     handleFormSubmit = registerUser "login" "password" >> redirect "/"
 
-getTaggingUser :: Handler App (AuthManager App) (Maybe User)
-getTaggingUser = runMaybeT $ do
+getTaggingUser :: MaybeT (Handler App (AuthManager App)) TaggingUser
+getTaggingUser = do
   cu <- MaybeT currentUser
-  withTop $ with gdb $ listToMaybe <$> select (TuId ==. userId cu)
+  undefined -- with gdb $ MaybeT $ listToMaybe <$> select (TuId ==. userId cu)
 
 getTrial :: Handler App (AuthManager App) ()
 getTrial = maybeT (serverError "Must be logged in") $ do
-  User{..} <- MaybeT getTaggingUser
-  undefined
+  u@TaggingUser{..} <- MaybeT getTaggingUser
+  writeBS $ BS.pack . show $ u
 
 finishEarly :: MonadSnap m => Int -> BS.ByteString -> m b
 finishEarly code str = do

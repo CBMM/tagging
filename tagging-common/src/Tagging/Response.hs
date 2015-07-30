@@ -20,13 +20,20 @@ import GHC.Generics
 import Tagging.User
 import Tagging.Stimulus
 
+-- | A particular response to one stimulus in a sequence
 data StimulusResponse = StimResponse
-  { srUser          :: DefaultKey User
+  { srUser          :: DefaultKey TaggingUser
+  -- ^ Tagging User
   , srStim          :: DefaultKey StimulusSequenceItem
+  -- ^ Stimulus in the sequence
   , srDeliveredTime :: UTCTime
+  -- ^ Trial start time (in server's timezone)
   , srRespondedTime :: UTCTime
+  -- ^ Trial end time (in server's timezone)
   , srResponseType  :: T.Text
+  -- ^ TypeRep text of the response
   , srResponseData  :: T.Text
+  -- ^ Response payload (serialized to T.Text)
   } deriving (Generic)
 
 instance A.FromJSON StimulusResponse where

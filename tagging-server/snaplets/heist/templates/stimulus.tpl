@@ -1,2 +1,4 @@
 <tagging:usergreeting/>
-<div class="
+<div class="stimulusdiv">
+  <tagging:stimulus/>
+</div>

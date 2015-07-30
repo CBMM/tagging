@@ -19,11 +19,15 @@ import Database.Groundhog.TH
 import GHC.Generics
 
 -----------------------------------------------------------------------------
+-- | Organizing class for experiments
 class IsTrial t where
 
   type Stimulus t
+  -- ^ Custom stimulus type for the experiment
   type Question t
+  -- ^ Custom question type
   type Answer   t
+  -- ^ Type of answers to the question
 
   sendTrialData
     :: (ToJSON t, ToJSON (Stimulus t), ToJSON (Question t))
@@ -31,6 +35,8 @@ class IsTrial t where
     -> Stimulus t
     -> Question t
     -> Object
+
+  getResource :: Stimulus t -> StimulusResource
 
 
 data StimulusResource = StimResource
