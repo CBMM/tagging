@@ -73,9 +73,10 @@ getTaggingUser = do
   undefined -- with gdb $ MaybeT $ listToMaybe <$> select (TuId ==. userId cu)
 
 getTrial :: Handler App (AuthManager App) ()
-getTrial = maybeT (serverError "Must be logged in") $ do
-  u@TaggingUser{..} <- MaybeT getTaggingUser
-  writeBS $ BS.pack . show $ u
+getTrial = maybeT (serverError "Must be logged in") (\_ -> return ()) $ do
+  u@TaggingUser{..} <- getTaggingUser
+  undefined
+  --writeBS $ BS.pack . show $ u
 
 finishEarly :: MonadSnap m => Int -> BS.ByteString -> m b
 finishEarly code str = do

@@ -20,14 +20,16 @@ import GHC.Generics
 
 -----------------------------------------------------------------------------
 -- | Organizing class for experiments
-class IsTrial t where
+class Experiment t where
 
-  type Stimulus t
+  type Stimulus t :: *
   -- ^ Custom stimulus type for the experiment
-  type Question t
+  type Question t :: *
   -- ^ Custom question type
-  type Answer   t
+  type Answer   t :: *
   -- ^ Type of answers to the question
+
+  experimentResources :: t -> [StimulusResource]
 
   sendTrialData
     :: (ToJSON t, ToJSON (Stimulus t), ToJSON (Question t))
