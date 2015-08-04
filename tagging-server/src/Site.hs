@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE RecordWildCards   #-}
 
 ------------------------------------------------------------------------------
@@ -12,8 +13,10 @@ module Site
 ------------------------------------------------------------------------------
 import           Control.Applicative
 import           Control.Error
+import qualified Data.Aeson as A
 import qualified Data.ByteString.Char8 as BS
 import           Data.ByteString (ByteString)
+import qualified Data.ByteString.Lazy as BSL
 import           Data.Map.Syntax ((##))
 import           Data.Monoid
 import qualified Data.Text as T
@@ -67,29 +70,40 @@ handleNewUser = method GET handleForm <|> method POST handleFormSubmit
     handleForm = render "new_user"
     handleFormSubmit = registerUser "login" "password" >> redirect "/"
 
-getTaggingUser :: MaybeT (Handler App (AuthManager App)) TaggingUser
+getTaggingUser :: MaybeT (Handler App App) TaggingUser
 getTaggingUser = do
-  cu <- MaybeT currentUser
-  undefined -- with gdb $ MaybeT $ listToMaybe <$> select (TuId ==. userId cu)
+  cu <- MaybeT $ with auth currentUser
+  case readMay . T.unpack . unUid =<< userId cu of
+    Nothing         -> MaybeT $ return Nothing
+    Just (i :: Int) ->
+      MaybeT $ fmap listToMaybe $ gh $ select (TuIdField ==. i)
+--
+-- getUserSequence :: Handler App App (Either String [StimSeqItem])
+-- getUserSequence = do
+--   mTaggingUser <- with auth $ runMaybeT getTaggingUser
+--   maybe (return (Left "Not logged in")) userSeq mTaggingUser
+--     where
+--       userSeq :: TaggingUser -> Handler App App (Either String [StimSeqItem])
+--       userSeq TaggingUser{..} = with gdb $
+--         case tuCurrentStimulus of
+--           Nothing -> return $ Left "Unassigned"
+--           Just ssiKey -> do
+--             maybeSSI <- undefined --get ssiKey
+--             case maybeSSI of
+--               Nothing -> return $ Left "Bad StimSeqItem lookup"
+--               Just StimSeqItem{..} ->
+--                 undefined
+        -- seqElem         <- fmap (note "Unassigned") (hoistMaybe tuCurrentStimulus)
+        -- StimSeqItem{..} <- noteT "Bad StimSeqItem lookup"
+        --                    . MaybeT . with gdb $ get seqElem
+        -- with gdb $ select (SsNameKey ==. ssiStimSeq)
+--
+-- getTrial :: Handler App (AuthManager App) ()
+-- getTrial = maybeT (serverError "Must be logged in") (\_ -> return ()) $ do
+--   u@TaggingUser{..} <- getTaggingUser
+--   undefined
+--   --writeBS $ BS.pack . show $ u
 
-getTrial :: Handler App (AuthManager App) ()
-getTrial = maybeT (serverError "Must be logged in") (\_ -> return ()) $ do
-  u@TaggingUser{..} <- getTaggingUser
-  undefined
-  --writeBS $ BS.pack . show $ u
-
-finishEarly :: MonadSnap m => Int -> BS.ByteString -> m b
-finishEarly code str = do
-  modifyResponse $ setResponseStatus code str
-  modifyResponse $ addHeader "Content-Type" "text/plain"
-  writeBS str
-  getResponse >>= finishWith
-
-serverError :: MonadSnap m => BS.ByteString -> m b
-serverError =  finishEarly 500
-
-notFound :: MonadSnap m => BS.ByteString -> m b
-notFound = finishEarly 404
 
 ------------------------------------------------------------------------------
 -- | The application's routes.
@@ -105,17 +119,45 @@ routes = [ ("login",    with auth handleLoginSubmit)
 -- | The application initializer.
 app :: SnapletInit App App
 app = makeSnaplet "app" "An snaplet example application." Nothing $ do
+
     h <- nestSnaplet "" heist $ heistInit "templates"
+
     d <- nestSnaplet "" db pgsInit
+
     s <- nestSnaplet "sess" sess $
            initCookieSessionManager "site_key.txt" "sess" (Just 3600)
 
-    -- NOTE: We're using initJsonFileAuthManager here because it's easy and
-    -- doesn't require any kind of database server to run.  In practice,
-    -- you'll probably want to change this to a more robust auth backend.
     a <- nestSnaplet "auth" auth $
            initPostgresAuth sess d
+
     g <- nestSnaplet "gh" gdb initGroundhogPostgres
+
     addRoutes routes
     addAuthSplices h auth
     return $ App h s a d g
+
+
+------------------------------------------------------------------------------
+forbidden :: MonadSnap m => m ()
+forbidden = finishEarly 403 "Can't access that"
+
+
+------------------------------------------------------------------------------
+-- | Utilities copied from Snap.Extras
+finishEarly :: MonadSnap m => Int -> BS.ByteString -> m b
+finishEarly code str = do
+  modifyResponse $ setResponseStatus code str
+  modifyResponse $ setHeader "Content-Type" "text/plain"
+  writeBS str
+  getResponse >>= finishWith
+
+serverError :: MonadSnap m => BS.ByteString -> m b
+serverError =  finishEarly 500
+
+notFound :: MonadSnap m => BS.ByteString -> m b
+notFound = finishEarly 404
+
+json :: (MonadSnap m, A.ToJSON a) => a -> m ()
+json a = do
+  modifyResponse $ addHeader "Content-Type" "application/json"
+  writeBS (BSL.toStrict . A.encode $ a)
