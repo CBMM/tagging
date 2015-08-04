@@ -19,7 +19,9 @@ import Database.Groundhog.TH
 import GHC.Generics
 
 -----------------------------------------------------------------------------
--- | Organizing class for experiments
+-- | Experiments define a @Stimulus@, @Question@, and @Answer@,
+--   as well as methods for deriving these types from untyped
+--   @StimulusResource@'s stored in the database
 class Experiment t where
 
   type Stimulus t :: *
@@ -30,6 +32,7 @@ class Experiment t where
   -- ^ Type of answers to the question
 
   experimentResources :: t -> [StimulusResource]
+  getResource         :: StimulusResource -> IO (Stimulus t)
 
   sendTrialData
     :: (ToJSON t, ToJSON (Stimulus t), ToJSON (Question t))
@@ -38,52 +41,50 @@ class Experiment t where
     -> Question t
     -> Object
 
-  getResource :: Stimulus t -> StimulusResource
 
-
-data StimulusResource = StimResource
-  { srName      :: StimName
+data StimulusResource = StimulusResource
+  { srName      :: StimulusName
   , srUrlSuffix :: T.Text
   , srMimeType  :: T.Text
   } deriving (Show, Generic)
 
-type StimName = T.Text
+type StimulusName = T.Text
 
-data StimulusSet = StimSet
-  { ssName        :: StimSetName
+data StimSeq = StimSeq
+  { ssName        :: StimSeqName
   , ssDescription :: T.Text
   , ssBaseUrl     :: T.Text
   } deriving (Show, Generic)
 
-type StimSetName = T.Text
+type StimSeqName = T.Text
 
-data StimulusSequenceItem = StimSeqItem
-  { ssiStimSet      :: DefaultKey StimulusSet
+data StimSeqItem = StimSeqItem
+  { ssiStimSeq      :: DefaultKey StimSeq
   , ssiStimulus     :: DefaultKey StimulusResource
   , ssiIndex        :: Int
   , ssiResponseType :: ResponseType
   } deriving (Generic)
-deriving instance Show StimulusSequenceItem
+deriving instance Show StimSeqItem
 
 type ResponseType = T.Text
 
 instance A.FromJSON StimulusResource where
 instance A.ToJSON   StimulusResource where
-instance A.FromJSON StimulusSet where
-instance A.ToJSON   StimulusSet where
-instance A.FromJSON StimulusSequenceItem where
-instance A.ToJSON   StimulusSequenceItem where
+instance A.FromJSON StimSeq where
+instance A.ToJSON   StimSeq where
+instance A.FromJSON StimSeqItem where
+instance A.ToJSON   StimSeqItem where
 
 mkPersist defaultCodegenConfig [groundhog|
 definitions:
   - entity: StimulusResource
-  - entity: StimulusSet
+  - entity: StimSeq
     keys:
       - name: SsName
     constructors:
-      - name: StimSet
+      - name: StimSeq
         uniques:
           - name: SsName
             fields: [ssName]
-  - entity: StimulusSequenceItem
+  - entity: StimSeqItem
 |]

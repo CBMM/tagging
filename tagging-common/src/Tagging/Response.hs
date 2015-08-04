@@ -24,7 +24,7 @@ import Tagging.Stimulus
 data StimulusResponse = StimResponse
   { srUser          :: DefaultKey TaggingUser
   -- ^ Tagging User
-  , srStim          :: DefaultKey StimulusSequenceItem
+  , srStim          :: DefaultKey StimSeqItem
   -- ^ Stimulus in the sequence
   , srDeliveredTime :: UTCTime
   -- ^ Trial start time (in server's timezone)

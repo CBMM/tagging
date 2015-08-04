@@ -19,28 +19,29 @@ import Tagging.Stimulus
 -- | A user in the Tagging system
 data TaggingUser = TaggingUser
   { tuId :: Int
-  -- ^ ID matching AuthUser id
+    -- ^ ID matching AuthUser id
   , tuStudentID :: Maybe Int
-  -- ^ Optional student ID number
+    -- ^ Optional student ID number
   , tuRealName  :: Maybe T.Text
-  -- ^ Optional student full name
-  , tuCurrentStimulus :: Maybe (AutoKey StimulusSequenceItem)
-  -- ^ Current stimulus assignment (`Nothing` for unassigned)
+    -- ^ Optional student full name
+  , tuCurrentStimulus :: Maybe (AutoKey StimSeqItem)
+    -- ^ Current stimulus assignment (`Nothing` for unassigned)
   , tuRoles     :: [Role]
-  -- ^ List of user Roles
+    -- ^ List of user Roles
   } deriving  (Generic)
 
 instance A.FromJSON TaggingUser where
 instance A.ToJSON TaggingUser where
 
 -- | User privileges
-data Role = Admin
-          -- ^ Create/delete any DB entities, assign stims, up/dnload any data
-          | Subject
-          -- ^ Unprivileged user, may only answer stim questions
-          | Researcher
-          -- ^ Upload and own stims, sequences. Download data, assign subjects
-          --   to stim sets
+data Role =
+    Admin
+    -- ^ Create and delete any DB entities, assign stims, up/dnload any data
+  | Subject
+    -- ^ Unprivileged user, may only answer stim questions
+  | Researcher
+    -- ^ Upload and own stims, sequences. Download data, assign subjects
+    --   to stim sets
   deriving (Eq, Show, Generic)
 
 mkPersist defaultCodegenConfig [groundhog|
