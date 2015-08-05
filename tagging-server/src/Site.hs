@@ -1,6 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RecordWildCards     #-}
 
 ------------------------------------------------------------------------------
 -- | This module is where all the routes and handlers are defined for your
@@ -32,6 +32,7 @@ import           Snap.Util.FileServe
 import qualified Heist.Interpreted as I
 ------------------------------------------------------------------------------
 import           Application
+import           Experimenter
 import           Tagging.User
 import           Tagging.Stimulus
 import           Tagging.Response
@@ -70,13 +71,8 @@ handleNewUser = method GET handleForm <|> method POST handleFormSubmit
     handleForm = render "new_user"
     handleFormSubmit = registerUser "login" "password" >> redirect "/"
 
-getTaggingUser :: MaybeT (Handler App App) TaggingUser
-getTaggingUser = do
-  cu <- MaybeT $ with auth currentUser
-  case readMay . T.unpack . unUid =<< userId cu of
-    Nothing         -> MaybeT $ return Nothing
-    Just (i :: Int) ->
-      MaybeT $ fmap listToMaybe $ gh $ select (TuIdField ==. i)
+
+
 --
 -- getUserSequence :: Handler App App (Either String [StimSeqItem])
 -- getUserSequence = do
@@ -135,29 +131,3 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     addRoutes routes
     addAuthSplices h auth
     return $ App h s a d g
-
-
-------------------------------------------------------------------------------
-forbidden :: MonadSnap m => m ()
-forbidden = finishEarly 403 "Can't access that"
-
-
-------------------------------------------------------------------------------
--- | Utilities copied from Snap.Extras
-finishEarly :: MonadSnap m => Int -> BS.ByteString -> m b
-finishEarly code str = do
-  modifyResponse $ setResponseStatus code str
-  modifyResponse $ setHeader "Content-Type" "text/plain"
-  writeBS str
-  getResponse >>= finishWith
-
-serverError :: MonadSnap m => BS.ByteString -> m b
-serverError =  finishEarly 500
-
-notFound :: MonadSnap m => BS.ByteString -> m b
-notFound = finishEarly 404
-
-json :: (MonadSnap m, A.ToJSON a) => a -> m ()
-json a = do
-  modifyResponse $ addHeader "Content-Type" "application/json"
-  writeBS (BSL.toStrict . A.encode $ a)
