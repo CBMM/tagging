@@ -17,7 +17,7 @@ import Application
 
 getUserSequence :: EitherT String (Handler App App) [StimSeqItem]
 getUserSequence = do
-  TaggingUser{..}  <- noteT "TaggingUser lookup error" getTaggingUser
+  TaggingUser{..}  <- noteT "TaggingUser lookup error" getCurrentTaggingUser
   seqElemKey       <- noteT "Usassigned" (hoistMaybe tuCurrentStimulus)
   StimSeqItem{..}  <- noteT "Bad StimSeqItem lookup"
                       . MaybeT . gh $ get seqElemKey

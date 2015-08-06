@@ -17,13 +17,19 @@ import qualified Data.ByteString.Lazy as BSL
 import Data.List (intersect)
 import qualified Data.Text as T
 import Database.Groundhog
+import GHC.Int
 
 import Tagging.User
 import Application
 
 
-getTaggingUser :: MaybeT (Handler App App) TaggingUser
-getTaggingUser = do
+getTaggingUserById :: AutoKey TaggingUser
+                   -> EitherT String (Handler App App) TaggingUser
+getTaggingUserById tId =
+  EitherT $ fmap (note "Bad TaggingUser lookup") $ gh $ get tId
+
+getCurrentTaggingUser :: MaybeT (Handler App App) TaggingUser
+getCurrentTaggingUser = do
   cu <- MaybeT $ with auth currentUser
   case readMay . T.unpack . unUid =<< userId cu of
     Nothing         -> MaybeT $ return Nothing
@@ -32,7 +38,7 @@ getTaggingUser = do
 
 assertRole :: [Role] -> Handler App App ()
 assertRole okRoles = void . runMaybeT $ do
-  TaggingUser{..} <- getTaggingUser
+  TaggingUser{..} <- getCurrentTaggingUser
   when (null (okRoles `intersect` tuRoles)) (lift forbidden)
   return ()
 

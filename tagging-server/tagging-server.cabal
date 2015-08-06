@@ -15,11 +15,14 @@ build-type:          Simple
 extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 
-library
-  exposed-modules:     Main
-                     , Site
+executable tagging-server
+  main-is:             Main.hs
+  other-modules:       Site
                      , Application
+                     , Experimenter
+                     , Resources
                      , Snap.Snaplet.Groundhog.Postgresql
+                     , Utils
   -- other-modules:
   other-extensions:    CPP, TemplateHaskell, OverloadedStrings
   build-depends:       base >=4.8 && <4.9
