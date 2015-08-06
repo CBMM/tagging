@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards     #-}
 
-module Utils where
+module Server.Utils where
 
 import Control.Error
 import Control.Monad
@@ -20,7 +20,7 @@ import Database.Groundhog
 import GHC.Int
 
 import Tagging.User
-import Application
+import Server.Application
 
 
 getTaggingUserById :: AutoKey TaggingUser

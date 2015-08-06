@@ -6,7 +6,7 @@
 -- | This module is where all the routes and handlers are defined for your
 -- site. The 'app' function is the initializer that combines everything
 -- together and is exported by this module.
-module Site
+module Server.Site
   ( app
   ) where
 
@@ -31,12 +31,16 @@ import           Snap.Snaplet.Session.Backends.CookieSession
 import           Snap.Util.FileServe
 import qualified Heist.Interpreted as I
 ------------------------------------------------------------------------------
-import           Application
-import           Experimenter
+import           Server.Utils
 import           Tagging.User
 import           Tagging.Stimulus
 import           Tagging.Response
-
+------------------------------------------------------------------------------
+import           Server.Application
+import           Server.Crud
+import           Server.Experimenter
+import           Server.Resources
+import           Server.User
 
 ------------------------------------------------------------------------------
 -- | Render login form
@@ -107,6 +111,10 @@ routes :: [(ByteString, Handler App App ())]
 routes = [ ("login",    with auth handleLoginSubmit)
          , ("logout",   with auth handleLogout)
          , ("new_user", with auth handleNewUser)
+         , ("all_users", getAllUsers >>= json)
+
+         -- Experimenter routes
+         , ("asasign_seq_start", assignUserSeqStart)
          , ("",          serveDirectory "static")
          ]
 

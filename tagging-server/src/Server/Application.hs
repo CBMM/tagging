@@ -4,7 +4,7 @@
 ------------------------------------------------------------------------------
 -- | This module defines our application's state type and an alias for its
 -- handler monad.
-module Application where
+module Server.Application where
 
 ------------------------------------------------------------------------------
 import Control.Lens

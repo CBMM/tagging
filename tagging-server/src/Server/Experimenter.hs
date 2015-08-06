@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Experimenter where
+module Server.Experimenter where
 
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.Text as T
@@ -12,11 +12,13 @@ import Control.Monad
 import Snap.Core
 import Snap.Snaplet
 import Snap.Snaplet.Groundhog.Postgresql
+
 import Tagging.User
 import Tagging.Stimulus
-import Resources
-import Utils
-import Application
+
+import Server.Resources
+import Server.Utils
+import Server.Application
 
 ------------------------------------------------------------------------------
 assignUserSeqStart :: Handler App App ()
@@ -34,5 +36,6 @@ assignUserSeqStart =
       update
       [TuCurrentStimulusField =. Just (seqItemId :: AutoKey StimSeqItem)]
       (TuIdField ==. (uId :: Int))
+
 
 

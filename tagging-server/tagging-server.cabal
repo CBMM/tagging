@@ -17,12 +17,14 @@ cabal-version:       >=1.10
 
 executable tagging-server
   main-is:             Main.hs
-  other-modules:       Site
-                     , Application
-                     , Experimenter
-                     , Resources
+  other-modules:       Server.Site
+                     , Server.Application
+                     , Server.Crud
+                     , Server.Experimenter
+                     , Server.Resources
                      , Snap.Snaplet.Groundhog.Postgresql
-                     , Utils
+                     , Server.Utils
+                     , Server.User
   -- other-modules:
   other-extensions:    CPP, TemplateHaskell, OverloadedStrings
   build-depends:       base >=4.8 && <4.9
