@@ -19,6 +19,7 @@ import           Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Map.Syntax ((##))
 import           Data.Monoid
+import           Data.Proxy
 import qualified Data.Text as T
 import           Snap.Core
 import           Snap.Snaplet
@@ -76,35 +77,6 @@ handleNewUser = method GET handleForm <|> method POST handleFormSubmit
     handleFormSubmit = registerUser "login" "password" >> redirect "/"
 
 
-
---
--- getUserSequence :: Handler App App (Either String [StimSeqItem])
--- getUserSequence = do
---   mTaggingUser <- with auth $ runMaybeT getTaggingUser
---   maybe (return (Left "Not logged in")) userSeq mTaggingUser
---     where
---       userSeq :: TaggingUser -> Handler App App (Either String [StimSeqItem])
---       userSeq TaggingUser{..} = with gdb $
---         case tuCurrentStimulus of
---           Nothing -> return $ Left "Unassigned"
---           Just ssiKey -> do
---             maybeSSI <- undefined --get ssiKey
---             case maybeSSI of
---               Nothing -> return $ Left "Bad StimSeqItem lookup"
---               Just StimSeqItem{..} ->
---                 undefined
-        -- seqElem         <- fmap (note "Unassigned") (hoistMaybe tuCurrentStimulus)
-        -- StimSeqItem{..} <- noteT "Bad StimSeqItem lookup"
-        --                    . MaybeT . with gdb $ get seqElem
-        -- with gdb $ select (SsNameKey ==. ssiStimSeq)
---
--- getTrial :: Handler App (AuthManager App) ()
--- getTrial = maybeT (serverError "Must be logged in") (\_ -> return ()) $ do
---   u@TaggingUser{..} <- getTaggingUser
---   undefined
---   --writeBS $ BS.pack . show $ u
-
-
 ------------------------------------------------------------------------------
 -- | The application's routes.
 routes :: [(ByteString, Handler App App ())]
@@ -116,7 +88,10 @@ routes = [ ("login",    with auth handleLoginSubmit)
          -- Experimenter routes
          , ("asasign_seq_start", assignUserSeqStart)
          , ("",          serveDirectory "static")
-         ]
+         ] ++ crudRoutes (Proxy :: Proxy TaggingUser)
+           ++ crudRoutes (Proxy :: Proxy StimSeq)
+           ++ crudRoutes (Proxy :: Proxy StimulusResource)
+           ++ crudRoutes (Proxy :: Proxy StimSeqItem)
 
 
 ------------------------------------------------------------------------------

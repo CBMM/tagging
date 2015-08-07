@@ -8,6 +8,6 @@
     <script src="/static/metia/js/libs/bootstrap.min.js"/>
   </head>
   <body>
-    <apply/>
+    <apply template="stimulus"/>
   </body>
 </html>

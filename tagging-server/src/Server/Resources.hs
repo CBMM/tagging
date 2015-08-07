@@ -21,6 +21,8 @@ instance Crud TaggingUser where
 
 instance Crud StimulusResource where
 
+instance Crud StimSeq where
+
 instance Crud StimSeqItem where
 
 -----------------------------------------------------------------------------
