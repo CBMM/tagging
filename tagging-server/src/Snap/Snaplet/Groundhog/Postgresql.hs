@@ -44,6 +44,8 @@ module Snap.Snaplet.Groundhog.Postgresql
 
 import           Prelude hiding ((++))
 import           Control.Applicative
+import           Control.Error
+import           Control.Monad
 import "MonadCatchIO-transformers" Control.Monad.CatchIO (MonadCatchIO)
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Logger
@@ -75,7 +77,9 @@ data GroundhogPostgres = GroundhogPostgres
 -- Taken from snaplet-postgresql-simple
 getConnectionString :: C.Config -> IO ByteString
 getConnectionString config = do
-    let params =
+    let params :: [[C.Name]]
+        params =
+
             [ ["host"]
             , ["hostaddr"]
             , ["port"]
@@ -110,9 +114,10 @@ getConnectionString config = do
     bs = TB.singleton '\\'
     sp = TB.singleton ' '
     eq = TB.singleton '='
+    a & f = f a
 
     lookupConfig = foldr (\name names -> do
-                            mval <- C.lookup config name
+                            mval <- C.lookup config ("postgresql-simple." <> name)
                             case mval of
                               Nothing -> names
                               Just _ -> return mval)
@@ -156,14 +161,27 @@ class (MonadCatchIO m) => HasGroundhogPostgres m where
 description :: T.Text
 description = "PostgreSQL abstraction using Groundhog"
 
+getConnectionString' :: C.Config -> IO T.Text
+getConnectionString' c = fmap T.unwords $ mapM paramStr params
+  where params     = --map ("postgresql-simple." <>)
+                     [("host","host"),("port","port"),("user","user"),("pass","password"),("db","dbname")]
+        paramStr (p,p') = do
+          case p of
+            "port" -> C.require c p >>= (\v -> return $ ((p' <> "=") <>) $ T.pack (show (v :: Int)))
+            _      -> C.require c p >>= (\v -> return $ ((p' <> "=") <>) $ T.pack (v :: String))
 
 initGroundhogPostgres :: SnapletInit b GroundhogPostgres
 initGroundhogPostgres = makeSnaplet "groundhog-postgresql" description Nothing $ do
     config <- getSnapletUserConfig
-    connstr <- liftIO $ getConnectionString config
-    pool <- createPostgresqlPool (B8.unpack connstr) 5
+    liftIO (print =<< C.getMap config)
+    --connstr <- liftIO $ getConnectionString config
+    --connstr <- liftIO $ maybeT (error "Couldn'd read connection string")
+    --           (return . T.encodeUtf8)
+    --           (getConnectionString' config)
+    connstr <- liftIO $ getConnectionString' config
+    liftIO $ print connstr
+    pool <- createPostgresqlPool (T.unpack connstr) 5
     return $ GroundhogPostgres pool
-
 
 gh :: (MonadSnap m, HasGroundhogPostgres m)
             => DbPersist Postgresql (NoLoggingT IO) a
