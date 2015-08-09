@@ -76,7 +76,6 @@ handleNewUser = method GET handleForm <|> method POST handleFormSubmit
     handleForm = render "new_user"
     handleFormSubmit = registerUser "login" "password" >> redirect "/"
 
-
 ------------------------------------------------------------------------------
 -- | The application's routes.
 routes :: [(ByteString, Handler App App ())]
@@ -92,6 +91,7 @@ routes = [ ("login",    with auth handleLoginSubmit)
            ++ crudRoutes (Proxy :: Proxy StimSeq)
            ++ crudRoutes (Proxy :: Proxy StimulusResource)
            ++ crudRoutes (Proxy :: Proxy StimSeqItem)
+           ++ [("migrateResources", migrateResources)]
 
 
 ------------------------------------------------------------------------------

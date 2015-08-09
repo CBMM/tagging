@@ -31,13 +31,15 @@ class (A.ToJSON v,
        Read (Key v BackendSpecific)
       ) => Crud v where
 
+  intToKey :: Proxy v -> Int64 -> Key v BackendSpecific
+
   ------------------------------------------------------------------------
   crudGet :: Key v BackendSpecific -> EitherT String (Handler App App) v
   crudGet = getEntity
 
   ------------------------------------------------------------------------
   handleGet :: Proxy v -> Handler App App ()
-  handleGet _ = do
+  handleGet p = do
     getId <- getParam "id"
     case getId of
       Nothing ->
@@ -45,7 +47,7 @@ class (A.ToJSON v,
       Just s  ->
         eitherT err300 json $ do
           k <- hoistEither . note "Bad id parse" . readMay $ B8.unpack s
-          crudGet (k :: Key v BackendSpecific)
+          crudGet (intToKey p k :: Key v BackendSpecific)
 
   ------------------------------------------------------------------------
   crudPost :: v -> Handler App App (AutoKey v)
@@ -89,7 +91,8 @@ class (A.ToJSON v,
              -> [(B8.ByteString, Handler App App ())]
   crudRoutes p =
     let tName = B8.pack $ show (typeRep p)
-    in  [(tName,        method GET    (handleGet p))
+        andId = (<> "/:id")
+    in  [(andId tName , method GET    (handleGet p))
         ,(tName <> "s", method GET    (handleGet p))
         ,(tName,        method POST   (handlePost p))
         ,(tName,        method PUT    (handlePut p))
