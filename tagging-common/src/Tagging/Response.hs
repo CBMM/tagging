@@ -21,7 +21,7 @@ import Tagging.User
 import Tagging.Stimulus
 
 -- | A particular response to one stimulus in a sequence
-data StimulusResponse = StimResponse
+data StimulusResponse = StimulusResponse
   { srUser          :: DefaultKey TaggingUser
   -- ^ Tagging User
   , srStim          :: DefaultKey StimSeqItem

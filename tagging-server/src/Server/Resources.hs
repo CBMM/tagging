@@ -19,6 +19,7 @@ import Snap.Snaplet.Auth
 import Snap.Snaplet.Groundhog.Postgresql
 import Tagging.Stimulus
 import Tagging.User
+import Tagging.Response
 -----------------------------------------------------------------------------
 import Server.Utils
 import Server.Application
@@ -36,14 +37,18 @@ instance Crud StimSeq where
 instance Crud StimSeqItem where
   intToKey _ = StimSeqItemKey . PersistInt64
 
+instance Crud StimulusResponse where
+  intToKey _ = StimulusResponseKey . PersistInt64
+
 migrateResources :: Handler App App ()
 migrateResources = do
   assertRole [Admin]
   gh $ runMigration $ do
     migrate (undefined :: TaggingUser)
---    migrate (undefined :: StimulusResource)
---    migrate (undefined :: StimSeq)
---    migrate (undefined :: StimSeqItem)
+    migrate (undefined :: StimulusResource)
+    migrate (undefined :: StimSeq)
+    migrate (undefined :: StimSeqItem)
+    migrate (undefined :: StimulusResponse)
 
 
 -----------------------------------------------------------------------------

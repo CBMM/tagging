@@ -5,6 +5,8 @@
 module Server.User where
 
 import Control.Error
+import Control.Monad
+import Control.Monad.Trans.Class
 import Database.Groundhog
 import GHC.Int
 import Snap.Core
@@ -12,34 +14,50 @@ import Snap.Snaplet
 import qualified Data.Aeson as A
 import Snap.Snaplet.Groundhog.Postgresql
 
+import Tagging.Stimulus
+import Tagging.Response
 import Tagging.User
 import Server.Application
-import Server.Utils
 import Server.Crud
+import Server.Resources
+import Server.Utils
 
--- instance Crud TaggingUser where
+------------------------------------------------------------------------------
+-- | Request the next stimulus in the user's assigned sequence
+--   @Nothing@ return values indicates the sequence is finished,
+--   Other sorts of errors are signaled with normal http response codes
+handleRequestCurrentStimulus :: Handler App App ()
+handleRequestCurrentStimulus = eitherT err300 json $ do
 
--- ------------------------------------------------------------------------------
--- getTaggingUser :: AutoKey TaggingUser
---                -> EitherT String (Handler App App) TaggingUser
--- getTaggingUser k = noteT "Bad TaggingUser lookup" . MaybeT $ gh $ get k
-
--- ------------------------------------------------------------------------------
--- postTaggingUser :: TaggingUser -> Handler App App (AutoKey TaggingUser)
--- postTaggingUser u@TaggingUser{..} = method POST $ do
---   assertRole [Admin, Researcher]
---   gh $ insert u
-
--- ------------------------------------------------------------------------------
--- putTaggingUser :: AutoKey TaggingUser -> TaggingUser -> Handler App App ()
--- putTaggingUser k u = do
---   assertRole [Admin, Researcher]
---   method PUT $ gh $ replace k u
+  TaggingUser{..} <- noteT "TaggingUser retrieval error" getCurrentTaggingUser
+  StimSeqItem{..} <- noteT "Problem" $ (MaybeT . gh . get)
+                     =<< hoistMaybe tuCurrentStimulus
+  noteT "Bad stimulus lookup" $ MaybeT $ gh $ get ssiStimulus
 
 
--- ------------------------------------------------------------------------------
--- deleteUser :: AutoKey TaggingUser -> Handler App App Bool
--- deleteUser k = do
---   u <- gh $ get k
---   gh $ deleteBy k
---   return (isJust u)
+------------------------------------------------------------------------------
+-- | Submit a response. Submission will update the user's current-stimulus
+--   field to @Just@ `the next sequence stimulus` if there is one, or to
+--   @Nothing@ if the sequence is done
+handleSubmitResponse :: Handler App App ()
+handleSubmitResponse = eitherT err300 (const $ return ()) $ do
+
+  loggedInUser           <- noteT "No logged in tagging user"
+                            getCurrentTaggingUser
+  r@StimulusResponse{..} <- (hoistEither . A.eitherDecode)
+                            =<< (lift $ readRequestBody 1000000)
+  respUser               <- crudGet srUser
+
+  when (tuId loggedInUser /= tuId respUser)
+    (lift $ err300 "Logged in user / reported user mismatch")
+
+
+  lift . gh $ do
+    insert r
+    stim' <- getNextStimulus (tuCurrentStimulus loggedInUser)
+    insert (loggedInUser {tuCurrentStimulus = stim'})
+
+
+getNextStimulus :: Maybe (AutoKey StimSeqItem)
+                -> Handler App App (Maybe (AutoKey StimSeqItem))
+getNextStimulus = undefined

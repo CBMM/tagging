@@ -129,10 +129,8 @@ deleteEntity
   => Key a BackendSpecific
   -> Handler App App Bool
 deleteEntity k = do
+  assertRole [Admin]
   u <- gh $ get k
   gh $ deleteBy k
   return (isJust u)
 
-------------------------------------------------------------------------------
-err300 :: String -> Handler App App b
-err300 = finishEarly 300 . B8.pack
