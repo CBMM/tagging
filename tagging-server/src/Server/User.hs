@@ -7,7 +7,9 @@ module Server.User where
 import Control.Error
 import Control.Monad
 import Control.Monad.Trans.Class
+import Control.Monad.Logger (NoLoggingT)
 import Database.Groundhog
+import Database.Groundhog.Postgresql (Postgresql)
 import GHC.Int
 import Snap.Core
 import Snap.Snaplet
@@ -57,7 +59,17 @@ handleSubmitResponse = eitherT err300 (const $ return ()) $ do
     stim' <- getNextStimulus (tuCurrentStimulus loggedInUser)
     insert (loggedInUser {tuCurrentStimulus = stim'})
 
-
+------------------------------------------------------------------------------
 getNextStimulus :: Maybe (AutoKey StimSeqItem)
-                -> Handler App App (Maybe (AutoKey StimSeqItem))
-getNextStimulus = undefined
+                -> DbPersist Postgresql (NoLoggingT IO)
+                   (Maybe (AutoKey StimSeqItem))
+getNextStimulus Nothing  = return Nothing
+getNextStimulus (Just k) = runMaybeT $ do
+  StimSeqItem{..} <- MaybeT $ get k
+  --lift $ insert (undefined :: StimSeqItem)
+  --lift $ return (undefined :: Maybe (AutoKey StimSeqItem))
+  k' <- lift $ 
+        select $ (SsiIndexField >. ssiIndex &&. SsiStimSeqField ==. ssiStimSeq)
+                 `orderBy` [Asc (SsiStimulusField)]
+  --lift (selectAll :: DbPersist Postgresql (NoLoggingT IO) [(AutoKey StimSeqItem, StimSeqItem)])
+  MaybeT $ return (listToMaybe k')
