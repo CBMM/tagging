@@ -43,26 +43,29 @@ class Experiment t where
 
 
 data StimulusResource = StimulusResource
-  { srName      :: StimulusName
-  , srUrlSuffix :: T.Text
-  , srMimeType  :: T.Text
+  { srName      :: !StimulusName
+  , srUrlSuffix :: !T.Text
+  , srMimeType  :: !T.Text
   } deriving (Show, Generic)
 
 type StimulusName = T.Text
 
-data StimSeq = StimSeq
-  { ssName        :: StimSeqName
-  , ssDescription :: T.Text
-  , ssBaseUrl     :: T.Text
-  } deriving (Show, Generic)
+data StimulusSequence = StimulusSequence
+  { ssName        :: !StimSeqName
+  , ssFirstItem   :: Maybe (DefaultKey StimSeqItem)
+  , ssDescription :: !T.Text
+  , ssBaseUrl     :: !T.Text
+  } deriving (Generic)
+deriving instance Show StimulusSequence
 
 type StimSeqName = T.Text
 
 data StimSeqItem = StimSeqItem
-  { ssiStimSeq      :: DefaultKey StimSeq
+  { ssiStimSeq      :: DefaultKey StimulusSequence
   , ssiStimulus     :: DefaultKey StimulusResource
-  , ssiIndex        :: Int
-  , ssiResponseType :: ResponseType
+  , ssiNextItem     :: Maybe (DefaultKey StimSeqItem)
+  , ssiIndex        :: !Int
+  , ssiResponseType :: !ResponseType
   } deriving (Generic)
 deriving instance Show StimSeqItem
 
@@ -70,19 +73,19 @@ type ResponseType = T.Text
 
 instance A.FromJSON StimulusResource where
 instance A.ToJSON   StimulusResource where
-instance A.FromJSON StimSeq where
-instance A.ToJSON   StimSeq where
+instance A.FromJSON StimulusSequence where
+instance A.ToJSON   StimulusSequence where
 instance A.FromJSON StimSeqItem where
 instance A.ToJSON   StimSeqItem where
 
 mkPersist defaultCodegenConfig [groundhog|
 definitions:
   - entity: StimulusResource
-  - entity: StimSeq
+  - entity: StimulusSequence
     keys:
       - name: SsName
     constructors:
-      - name: StimSeq
+      - name: StimulusSequence
         uniques:
           - name: SsName
             fields: [ssName]

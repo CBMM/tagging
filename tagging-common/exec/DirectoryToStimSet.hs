@@ -62,6 +62,6 @@ main = do
                       , "password=" ++ passwd
                       ]
   withPostgresqlConn dbStr $ runDbConn $ do
-    let stimSeq = StimSeq title descr urlBase
+    let stimSeq = StimulusSequence title Nothing descr urlBase
     existingKey <- either id id <$> insertBy SsName stimSeq
     undefined

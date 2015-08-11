@@ -8,9 +8,9 @@ import Data.Monoid
 import qualified Data.Text as T
 import Tagging.Stimulus
 
-clipSet :: StimSeq
+clipSet :: StimulusSequence
 clipSet =
-  StimSeq "HomeAloneClips" "Invididual shots from Home Alone 2"
+  StimulusSequence "HomeAloneClips" Nothing "Invididual shots from Home Alone 2"
   "/static/clips/HomeAlone2"
 
 clips :: [StimulusResource]
