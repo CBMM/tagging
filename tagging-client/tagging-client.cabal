@@ -24,7 +24,8 @@ library
                      , errors
                      , ghcjs-dom
                      , reflex
-                     , reflex-dom
+                     , reflex-dom >= 0.2.1 && < 0.3
+                     --, reflex-dom-contrib
                      , text
                      , tagging-common
   default-language:    Haskell2010

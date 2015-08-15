@@ -25,6 +25,8 @@ pageWidget TaggingUser{..} = mdo
 
   be <- getPostBuild
 
+  submissions <- ffilter 
+  return ()
 
 stimulusWidget :: MonadWidget t m
                => TaggingUser
