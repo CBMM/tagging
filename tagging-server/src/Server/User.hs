@@ -48,28 +48,36 @@ handleSubmitResponse = eitherT err300 (const $ return ()) $ do
                             getCurrentTaggingUser
   r@StimulusResponse{..} <- (hoistEither . A.eitherDecode)
                             =<< (lift $ readRequestBody 1000000)
+  stim                   <- noteT "Bad stim lookup from response"
+                            $ MaybeT $ gh $ get srStim
   respUser               <- crudGet srUser
 
   when (tuId loggedInUser /= tuId respUser)
     (lift $ err300 "Logged in user / reported user mismatch")
 
-
   lift . gh $ do
     insert r
-    stim' <- getNextStimulus (tuCurrentStimulus loggedInUser)
-    insert (loggedInUser {tuCurrentStimulus = stim'})
+    insert (loggedInUser {tuCurrentStimulus = ssiNextItem stim})
 
-------------------------------------------------------------------------------
-getNextStimulus :: Maybe (AutoKey StimSeqItem)
-                -> DbPersist Postgresql (NoLoggingT IO)
-                   (Maybe (AutoKey StimSeqItem))
-getNextStimulus Nothing  = return Nothing
-getNextStimulus (Just k) = runMaybeT $ do
-  StimSeqItem{..} <- MaybeT $ get k
-  --lift $ insert (undefined :: StimSeqItem)
-  --lift $ return (undefined :: Maybe (AutoKey StimSeqItem))
-  k' <- lift $ 
-        select $ (SsiIndexField >. ssiIndex &&. SsiStimSeqField ==. ssiStimSeq)
-                 `orderBy` [Asc (SsiStimulusField)]
-  --lift (selectAll :: DbPersist Postgresql (NoLoggingT IO) [(AutoKey StimSeqItem, StimSeqItem)])
-  MaybeT $ return (listToMaybe k')
+getCurrentStimulusResource :: Handler App App ()
+getCurrentStimulusResource = eitherT err300 json $ do
+  loggedInUser <- noteT "No logged it tagging user" getCurrentTaggingUser
+  itemKey      <- noteT "No sequence assigned"
+                  (hoistMaybe $ tuCurrentStimulus loggedInUser)
+  ssi          <- noteT "Bad seq lookup" $ MaybeT $ gh $ get itemKey
+  noteT "Bad resource lookup" $ MaybeT $ gh $ get (ssiStimulus ssi)
+
+-- ------------------------------------------------------------------------------
+-- getNextStimulus :: Maybe (AutoKey StimSeqItem)
+--                 -> DbPersist Postgresql (NoLoggingT IO)
+--                    (Maybe (AutoKey StimSeqItem))
+-- getNextStimulus Nothing  = return Nothing
+-- getNextStimulus (Just k) = runMaybeT $ do
+--   StimSeqItem{..} <- MaybeT $ get k
+--   --lift $ insert (undefined :: StimSeqItem)
+--   --lift $ return (undefined :: Maybe (AutoKey StimSeqItem))
+--   k' <- lift $ 
+--         select $ (SsiIndexField >. ssiIndex &&. SsiStimSeqField ==. ssiStimSeq)
+--                  `orderBy` [Asc (SsiStimulusField)]
+--   --lift (selectAll :: DbPersist Postgresql (NoLoggingT IO) [(AutoKey StimSeqItem, StimSeqItem)])
+--   MaybeT $ return (listToMaybe k')

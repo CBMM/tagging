@@ -31,8 +31,8 @@ instance Crud TaggingUser where
 instance Crud StimulusResource where
   intToKey _ = StimulusResourceKey . PersistInt64
 
-instance Crud StimSeq where
-  intToKey _ = StimSeqKey . PersistInt64
+instance Crud StimulusSequence where
+  intToKey _ = StimulusSequenceKey . PersistInt64
 
 instance Crud StimSeqItem where
   intToKey _ = StimSeqItemKey . PersistInt64
@@ -46,7 +46,7 @@ migrateResources = do
   gh $ runMigration $ do
     migrate (undefined :: TaggingUser)
     migrate (undefined :: StimulusResource)
-    migrate (undefined :: StimSeq)
+    migrate (undefined :: StimulusSequence)
     migrate (undefined :: StimSeqItem)
     migrate (undefined :: StimulusResponse)
 

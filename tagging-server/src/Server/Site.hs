@@ -86,9 +86,12 @@ routes = [ ("login",    with auth handleLoginSubmit)
 
          -- Experimenter routes
          , ("asasign_seq_start", assignUserSeqStart)
+
+         , ("getCurrentStimulus", getCurrentStimulusResource)
+         , ("submitResponse",     handleSubmitResponse)
          , ("",          serveDirectory "static")
          ] ++ crudRoutes (Proxy :: Proxy TaggingUser)
-           ++ crudRoutes (Proxy :: Proxy StimSeq)
+           ++ crudRoutes (Proxy :: Proxy StimulusSequence)
            ++ crudRoutes (Proxy :: Proxy StimulusResource)
            ++ crudRoutes (Proxy :: Proxy StimSeqItem)
            ++ [("migrateResources", migrateResources)]
