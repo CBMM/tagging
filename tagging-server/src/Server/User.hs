@@ -8,6 +8,7 @@ import Control.Error
 import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Logger (NoLoggingT)
+import qualified Data.List as L
 import Database.Groundhog
 import Database.Groundhog.Postgresql (Postgresql)
 import GHC.Int
@@ -23,6 +24,13 @@ import Server.Application
 import Server.Crud
 import Server.Resources
 import Server.Utils
+
+assignRoleTo :: AutoKey TaggingUser -> Role -> Bool -> Handler App App ()
+assignRoleTo targetKey r b = eitherT err300 (\_ -> return ()) $ do
+  lift $ assertRole [Admin]
+  tu <- noteT "Bad user lookup" $ MaybeT $ gh $ get targetKey
+  let roles' = (if b then L.union [r] else L.delete r) $ tuRoles tu
+  lift $ gh $ replace targetKey (tu {tuRoles = roles'})
 
 ------------------------------------------------------------------------------
 -- | Request the next stimulus in the user's assigned sequence
