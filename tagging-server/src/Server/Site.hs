@@ -70,11 +70,23 @@ handleLogout = logout >> redirect "/"
 
 ------------------------------------------------------------------------------
 -- | Handle new user form submit
-handleNewUser :: Handler App (AuthManager App) ()
+handleNewUser :: Handler App App ()
 handleNewUser = method GET handleForm <|> method POST handleFormSubmit
   where
     handleForm = render "new_user"
-    handleFormSubmit = registerUser "login" "password" >> redirect "/"
+    handleFormSubmit :: Handler App App ()
+    handleFormSubmit = do
+      AuthUser{..} <- with auth $ registerUser "login" "password" >> redirect "/"
+      tu <- TaggingUser
+            <$> pure (maybe (-1) id (readMay . T.unpack . unUid $ userId))
+            <*> parseStudentId =<< getParam "studentid"
+            <*> getParam "realname"
+            <*> pure Nothing
+            <*> pure [Subject]
+      gh $ insert tu
+
+parseStudentId :: String -> Maybe Int
+parseStudentId = readMay . filter (`notElem` ['-',' '])
 
 ------------------------------------------------------------------------------
 -- | The application's routes.

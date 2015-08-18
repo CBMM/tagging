@@ -6,9 +6,11 @@ module Server.User where
 
 import Control.Error
 import Control.Monad
-import Control.Monad.Trans.Class
+import Control.Monad.Trans.Class (lift)
 import Control.Monad.Logger (NoLoggingT)
+import qualified Data.ByteString.Char8 as B8
 import qualified Data.List as L
+import Data.Proxy
 import Database.Groundhog
 import Database.Groundhog.Postgresql (Postgresql)
 import GHC.Int
@@ -25,12 +27,22 @@ import Server.Crud
 import Server.Resources
 import Server.Utils
 
+------------------------------------------------------------------------------
+-- | Add or revoke roles on a user
 assignRoleTo :: AutoKey TaggingUser -> Role -> Bool -> Handler App App ()
 assignRoleTo targetKey r b = eitherT err300 (\_ -> return ()) $ do
   lift $ assertRole [Admin]
   tu <- noteT "Bad user lookup" $ MaybeT $ gh $ get targetKey
   let roles' = (if b then L.union [r] else L.delete r) $ tuRoles tu
   lift $ gh $ replace targetKey (tu {tuRoles = roles'})
+
+handleAssignRoleTo :: Handler App App ()
+handleAssignRoleTo = void $ runMaybeT $ do
+  --userKey <- fmap (intToKey Proxy . B8.unpack) =<< getParam "user"
+  userKey <- return undefined
+  theRole <- (MaybeT . fmap readMay . fmap B8.unpack) =<< MaybeT (getParam "role") :: MaybeT (Handler App App) Role
+  upDown  <- lift (readMay . B8.unpack) =<< MaybeT (getParam "bool") :: MaybeT (Handler App App) Bool
+  lift $ assignRoleTo userKey theRole upDown
 
 ------------------------------------------------------------------------------
 -- | Request the next stimulus in the user's assigned sequence
