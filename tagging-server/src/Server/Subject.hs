@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards     #-}
 
-module Server.User where
+module Server.Subject where
 
 import Control.Error
 import Control.Monad
@@ -14,6 +14,8 @@ import Data.Proxy
 import Database.Groundhog
 import Database.Groundhog.Postgresql (Postgresql)
 import GHC.Int
+import Servant
+import Servant.Server
 import Snap.Core
 import Snap.Snaplet
 import qualified Data.Aeson as A
@@ -22,15 +24,21 @@ import Snap.Snaplet.Groundhog.Postgresql
 import Tagging.Stimulus
 import Tagging.Response
 import Tagging.User
+import API
 import Server.Application
 import Server.Crud
 import Server.Resources
 import Server.Utils
 
+subjectServer :: Server (SubjectAPI) AppHandler
+subjectServer = resource :<|> response
+  where resource = lift $ getCurrentStimulusResource
+        response = undefined -- TODO
+
 ------------------------------------------------------------------------------
 -- | Add or revoke roles on a user
 assignRoleTo :: AutoKey TaggingUser -> Role -> Bool -> Handler App App ()
-assignRoleTo targetKey r b = eitherT err300 (\_ -> return ()) $ do
+assignRoleTo targetKey r b = eitherT Server.Utils.err300 (\_ -> return ()) $ do
   lift $ assertRole [Admin]
   tu <- noteT "Bad user lookup" $ MaybeT $ gh $ get targetKey
   let roles' = (if b then L.union [r] else L.delete r) $ tuRoles tu
@@ -38,18 +46,19 @@ assignRoleTo targetKey r b = eitherT err300 (\_ -> return ()) $ do
 
 handleAssignRoleTo :: Handler App App ()
 handleAssignRoleTo = void $ runMaybeT $ do
-  --userKey <- fmap (intToKey Proxy . B8.unpack) =<< getParam "user"
-  userKey <- return undefined
-  theRole <- (MaybeT . fmap readMay . fmap B8.unpack) =<< MaybeT (getParam "role") :: MaybeT (Handler App App) Role
-  upDown  <- lift (readMay . B8.unpack) =<< MaybeT (getParam "bool") :: MaybeT (Handler App App) Bool
-  lift $ assignRoleTo userKey theRole upDown
+  userKey   <- return undefined -- TODO
+  theRole   <- MaybeT (getParam "role")
+  role      <- hoistMaybe (readMay $ B8.unpack theRole)
+  theUpDown <- MaybeT (getParam "bool")
+  upDown    <- hoistMaybe (readMay $ B8.unpack theUpDown)
+  lift $ assignRoleTo userKey role upDown
 
 ------------------------------------------------------------------------------
 -- | Request the next stimulus in the user's assigned sequence
 --   @Nothing@ return values indicates the sequence is finished,
 --   Other sorts of errors are signaled with normal http response codes
 handleRequestCurrentStimulus :: Handler App App ()
-handleRequestCurrentStimulus = eitherT err300 json $ do
+handleRequestCurrentStimulus = eitherT Server.Utils.err300 json $ do
 
   TaggingUser{..} <- noteT "TaggingUser retrieval error" getCurrentTaggingUser
   StimSeqItem{..} <- noteT "Problem" $ (MaybeT . gh . get)
@@ -62,7 +71,7 @@ handleRequestCurrentStimulus = eitherT err300 json $ do
 --   field to @Just@ `the next sequence stimulus` if there is one, or to
 --   @Nothing@ if the sequence is done
 handleSubmitResponse :: Handler App App ()
-handleSubmitResponse = eitherT err300 (const $ return ()) $ do
+handleSubmitResponse = eitherT Server.Utils.err300 (const $ return ()) $ do
 
   loggedInUser           <- noteT "No logged in tagging user"
                             getCurrentTaggingUser
@@ -73,31 +82,16 @@ handleSubmitResponse = eitherT err300 (const $ return ()) $ do
   respUser               <- crudGet srUser
 
   when (tuId loggedInUser /= tuId respUser)
-    (lift $ err300 "Logged in user / reported user mismatch")
+    (lift $ Server.Utils.err300 "Logged in user / reported user mismatch")
 
   lift . gh $ do
     insert r
     insert (loggedInUser {tuCurrentStimulus = ssiNextItem stim})
 
-getCurrentStimulusResource :: Handler App App ()
-getCurrentStimulusResource = eitherT err300 json $ do
+getCurrentStimulusResource :: Handler App App StimulusResource
+getCurrentStimulusResource = eitherT Server.Utils.err300 return $ do
   loggedInUser <- noteT "No logged it tagging user" getCurrentTaggingUser
   itemKey      <- noteT "No sequence assigned"
                   (hoistMaybe $ tuCurrentStimulus loggedInUser)
   ssi          <- noteT "Bad seq lookup" $ MaybeT $ gh $ get itemKey
   noteT "Bad resource lookup" $ MaybeT $ gh $ get (ssiStimulus ssi)
-
--- ------------------------------------------------------------------------------
--- getNextStimulus :: Maybe (AutoKey StimSeqItem)
---                 -> DbPersist Postgresql (NoLoggingT IO)
---                    (Maybe (AutoKey StimSeqItem))
--- getNextStimulus Nothing  = return Nothing
--- getNextStimulus (Just k) = runMaybeT $ do
---   StimSeqItem{..} <- MaybeT $ get k
---   --lift $ insert (undefined :: StimSeqItem)
---   --lift $ return (undefined :: Maybe (AutoKey StimSeqItem))
---   k' <- lift $ 
---         select $ (SsiIndexField >. ssiIndex &&. SsiStimSeqField ==. ssiStimSeq)
---                  `orderBy` [Asc (SsiStimulusField)]
---   --lift (selectAll :: DbPersist Postgresql (NoLoggingT IO) [(AutoKey StimSeqItem, StimSeqItem)])
---   MaybeT $ return (listToMaybe k')

@@ -20,7 +20,7 @@ import Tagging.Stimulus
 data TaggingUser = TaggingUser
   { tuId :: Int
     -- ^ ID matching AuthUser id
-  , tuStudentID :: Maybe Int
+  , tuStudentID :: Maybe T.Text
     -- ^ Optional student ID number
   , tuRealName  :: Maybe T.Text
     -- ^ Optional student full name
@@ -42,7 +42,7 @@ data Role =
   | Researcher
     -- ^ Upload and own stims, sequences. Download data, assign subjects
     --   to stim sets
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Show, Read, Generic)
 
 mkPersist defaultCodegenConfig [groundhog|
   - entity: TaggingUser

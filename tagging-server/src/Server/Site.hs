@@ -13,6 +13,7 @@ module Server.Site
 ------------------------------------------------------------------------------
 import           Control.Applicative
 import           Control.Error
+import           Control.Monad.Trans.Class (lift)
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Char8 as BS
 import           Data.ByteString (ByteString)
@@ -21,6 +22,10 @@ import           Data.Map.Syntax ((##))
 import           Data.Monoid
 import           Data.Proxy
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import           GHC.Int
+import           Servant
+import           Servant.Server
 import           Snap.Core
 import           Snap.Snaplet
 import           Snap.Snaplet.Auth
@@ -37,11 +42,12 @@ import           Tagging.User
 import           Tagging.Stimulus
 import           Tagging.Response
 ------------------------------------------------------------------------------
+import           API
 import           Server.Application
 import           Server.Crud
 import           Server.Experimenter
 import           Server.Resources
-import           Server.User
+import           Server.Subject
 
 ------------------------------------------------------------------------------
 -- | Render login form
@@ -54,10 +60,10 @@ handleLogin authError = heistLocal (I.bindSplices errs) $ render "login"
 
 ------------------------------------------------------------------------------
 -- | Handle login submit
-handleLoginSubmit :: Handler App (AuthManager App) ()
+handleLoginSubmit :: Handler App App ()
 handleLoginSubmit =
-    loginUser "login" "password" Nothing
-              (\_ -> handleLogin err) (redirect "/")
+    with auth $ loginUser "login" "password" Nothing
+                (\_ -> handleLogin err) (redirect "/")
   where
     err = Just "Unknown user or password"
 
@@ -70,20 +76,30 @@ handleLogout = logout >> redirect "/"
 
 ------------------------------------------------------------------------------
 -- | Handle new user form submit
-handleNewUser :: Handler App App ()
-handleNewUser = method GET handleForm <|> method POST handleFormSubmit
+--handleNewUser :: Handler App App ()
+--handleNewUser = method GET handleForm <|> method POST handleFormSubmit
+handleNewUser :: Server (SessionAPI) AppHandler
+handleNewUser = lift handleLoginSubmit :<|> lift handleFormSubmit :<|> lift handleForm :<|> lift handleLogout
   where
-    handleForm = render "new_user"
-    handleFormSubmit :: Handler App App ()
-    handleFormSubmit = do
-      AuthUser{..} <- with auth $ registerUser "login" "password" >> redirect "/"
-      tu <- TaggingUser
-            <$> pure (maybe (-1) id (readMay . T.unpack . unUid $ userId))
-            <*> parseStudentId =<< getParam "studentid"
-            <*> getParam "realname"
-            <*> pure Nothing
-            <*> pure [Subject]
-      gh $ insert tu
+    handleForm :: AppHandler ()
+    handleForm = with auth $ render "new_user"
+    handleFormSubmit :: Maybe T.Text -> Maybe T.Text -> Bool -> Maybe T.Text -> Maybe T.Text -> AppHandler Int64
+    handleFormSubmit (Just uname) (Just pw) rem realNm stId =
+      maybeT Server.Utils.err300 return $ do
+        user <- hushT $ EitherT $ with auth $ createUser (uname) pw
+        uId   <- hoistMaybe (readMay . T.unpack =<< (unUid <$> userId user))
+        lift $ gh $ insert (TaggingUser (intToKey Proxy uId) stId realNm Nothing [Subject])
+
+     -- runMaybeT $ do
+     --  AuthUser{..} <- hushT $ EitherT $ with auth $ registerUser "login" "password"
+     --  tu <- maybeT err300 (gh . insert) $ TaggingUser
+     --        <$> pure (maybe (-1) id (readMay . T.unpack . unUid $ userId))
+     --        <*> MaybeT (fmap parseStudentId =<< getParam "studentid")
+     --        <*> getParam "realname"
+     --        <*> pure Nothing
+     --        <*> pure [Subject]
+     --  gh $ insert tu
+     --  redirect "/"
 
 parseStudentId :: String -> Maybe Int
 parseStudentId = readMay . filter (`notElem` ['-',' '])
@@ -91,17 +107,17 @@ parseStudentId = readMay . filter (`notElem` ['-',' '])
 ------------------------------------------------------------------------------
 -- | The application's routes.
 routes :: [(ByteString, Handler App App ())]
-routes = [ ("login",    with auth handleLoginSubmit)
-         , ("logout",   with auth handleLogout)
-         , ("new_user", with auth handleNewUser)
+routes = [ ("login",    handleLoginSubmit)
+         --, ("logout",   handleLogout)
+         --, ("new_user", handleNewUser)
          , ("all_users", getAllUsers >>= json)
 
          -- Experimenter routes
          , ("asasign_seq_start", assignUserSeqStart)
 
-         , ("getCurrentStimulus", getCurrentStimulusResource)
+         --, ("getCurrentStimulus", getCurrentStimulusResource)
          , ("submitResponse",     handleSubmitResponse)
-         , ("",          serveDirectory "static")
+         , ("",          Snap.Util.FileServe.serveDirectory "static")
          ] ++ crudRoutes (Proxy :: Proxy TaggingUser)
            ++ crudRoutes (Proxy :: Proxy StimulusSequence)
            ++ crudRoutes (Proxy :: Proxy StimulusResource)
