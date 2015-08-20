@@ -27,13 +27,13 @@ type CrudAPI n a = n :> Capture "id" :> Get    '[JSON] a
               :<|> Capture "id"      :> Delete '[]     ()
 
 
-type SessionAPI = "login"   :> Raw AppHandler (AppHandler ())
-             :<|> "newuser" :> QueryParam "username" T.Text
+type SessionAPI = --"login"   :> Raw AppHandler (AppHandler ())
+                  "newuser" :> QueryParam "username" T.Text
                             :> QueryParam "password" T.Text
                             :> QueryFlag  "remember"
                             :> QueryParam "realname" T.Text
                             :> QueryParam "studentid" T.Text
-                            :> Post '[] Int64
+                            :> Post '[] ()
              :<|> "newuser" :> Raw AppHandler (AppHandler ())
              :<|> "logout"  :> Raw AppHandler (AppHandler ())
 

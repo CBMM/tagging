@@ -79,16 +79,26 @@ handleLogout = logout >> redirect "/"
 --handleNewUser :: Handler App App ()
 --handleNewUser = method GET handleForm <|> method POST handleFormSubmit
 handleNewUser :: Server (SessionAPI) AppHandler
-handleNewUser = lift handleLoginSubmit :<|> lift handleFormSubmit :<|> lift handleForm :<|> lift handleLogout
+handleNewUser =      handleFormSubmit
+                :<|> lift handleForm
+                :<|> lift (with auth handleLogout)
   where
+
     handleForm :: AppHandler ()
     handleForm = with auth $ render "new_user"
-    handleFormSubmit :: Maybe T.Text -> Maybe T.Text -> Bool -> Maybe T.Text -> Maybe T.Text -> AppHandler Int64
+
+    handleFormSubmit :: Maybe T.Text
+                      -> Maybe T.Text
+                      -> Bool
+                      -> Maybe T.Text
+                      -> Maybe T.Text
+                      -> EitherT ServantErr AppHandler ()
     handleFormSubmit (Just uname) (Just pw) rem realNm stId =
-      maybeT Server.Utils.err300 return $ do
-        user <- hushT $ EitherT $ with auth $ createUser (uname) pw
+      lift $ maybeT (Server.Utils.err300 "New user error") return $ do
+        user <- hushT $ EitherT $ with auth $ createUser (uname) (T.encodeUtf8 pw)
         uId   <- hoistMaybe (readMay . T.unpack =<< (unUid <$> userId user))
-        lift $ gh $ insert (TaggingUser (intToKey Proxy uId) stId realNm Nothing [Subject])
+        lift $ gh $ insert (TaggingUser ((uId :: Int)) stId realNm Nothing [Subject])
+        return ()
 
      -- runMaybeT $ do
      --  AuthUser{..} <- hushT $ EitherT $ with auth $ registerUser "login" "password"
