@@ -78,8 +78,8 @@ handleLogout = logout >> redirect "/"
 -- | Handle new user form submit
 --handleNewUser :: Handler App App ()
 --handleNewUser = method GET handleForm <|> method POST handleFormSubmit
-handleNewUser :: Server (SessionAPI) AppHandler
-handleNewUser =      handleFormSubmit
+sessionServer :: Server (SessionAPI) AppHandler
+sessionServer = handleFormSubmit
                 :<|> lift handleForm
                 :<|> lift (with auth handleLogout)
   where
@@ -87,12 +87,6 @@ handleNewUser =      handleFormSubmit
     handleForm :: AppHandler ()
     handleForm = with auth $ render "new_user"
 
-    handleFormSubmit :: Maybe T.Text
-                      -> Maybe T.Text
-                      -> Bool
-                      -> Maybe T.Text
-                      -> Maybe T.Text
-                      -> EitherT ServantErr AppHandler ()
     handleFormSubmit (Just uname) (Just pw) rem realNm stId =
       lift $ maybeT (Server.Utils.err300 "New user error") return $ do
         user <- hushT $ EitherT $ with auth $ createUser (uname) (T.encodeUtf8 pw)
@@ -100,19 +94,6 @@ handleNewUser =      handleFormSubmit
         lift $ gh $ insert (TaggingUser ((uId :: Int)) stId realNm Nothing [Subject])
         return ()
 
-     -- runMaybeT $ do
-     --  AuthUser{..} <- hushT $ EitherT $ with auth $ registerUser "login" "password"
-     --  tu <- maybeT err300 (gh . insert) $ TaggingUser
-     --        <$> pure (maybe (-1) id (readMay . T.unpack . unUid $ userId))
-     --        <*> MaybeT (fmap parseStudentId =<< getParam "studentid")
-     --        <*> getParam "realname"
-     --        <*> pure Nothing
-     --        <*> pure [Subject]
-     --  gh $ insert tu
-     --  redirect "/"
-
-parseStudentId :: String -> Maybe Int
-parseStudentId = readMay . filter (`notElem` ['-',' '])
 
 ------------------------------------------------------------------------------
 -- | The application's routes.

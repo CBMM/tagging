@@ -79,7 +79,7 @@ handleSubmitResponse = eitherT Server.Utils.err300 (const $ return ()) $ do
                             =<< (lift $ readRequestBody 1000000)
   stim                   <- noteT "Bad stim lookup from response"
                             $ MaybeT $ gh $ get srStim
-  respUser               <- crudGet srUser
+  respUser               <- lift $ crudGet srUser
 
   when (tuId loggedInUser /= tuId respUser)
     (lift $ Server.Utils.err300 "Logged in user / reported user mismatch")

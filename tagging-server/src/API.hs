@@ -19,12 +19,23 @@ import           Server.Application
 
 
 -- TODO: These all end in an http verb. Is that necessary?
+------------------------------------------------------------------------------
 
-type CrudAPI n a = n :> Capture "id" :> Get    '[JSON] a
-              :<|> n :>                 Get    '[JSON] [a]
-              :<|> ReqBody '[JSON] a :> Post   '[]     (AutoKey a)
-              :<|> ReqBody '[JSON] a :> Put    '[]     ()
-              :<|> Capture "id"      :> Delete '[]     ()
+type CrudAPI a = GetAPI a :<|> GetsAPI a
+                 :<|> PostAPI a :<|> PutAPI a :<|> DeleteAPI a
+
+type GetAPI a  = Capture "id" Int64 :> Get '[JSON] a
+type GetsAPI a = Get '[JSON] [a]
+type PostAPI a = ReqBody '[JSON] a :> Post '[] Int64
+type PutAPI  a = Capture "id" Int64 :> ReqBody '[JSON] a :> Put '[] ()
+type DeleteAPI a = Capture "id" Int64 :> Delete '[] Bool
+
+type ResourcesAPI =
+       "tagginguser"      :> CrudAPI TaggingUser
+  :<|> "stimulusresource" :> CrudAPI StimulusResource
+  :<|> "stimulussequence" :> CrudAPI StimulusSequence
+  :<|> "stimseqitem"      :> CrudAPI StimSeqItem
+  :<|> "stimulusresponse" :> CrudAPI StimulusResponse
 
 
 type SessionAPI = --"login"   :> Raw AppHandler (AppHandler ())
@@ -53,8 +64,4 @@ type AdminAPI = "assignRole" :> QueryParam "id"     Int
 
 type API = SessionAPI
            :<|> SubjectAPI
-           :<|> CrudAPI "tagginguser"      TaggingUser
-           :<|> CrudAPI "stimulusresource" StimulusResource
-           :<|> CrudAPI "stimulussequence" StimulusSequence
-           :<|> CrudAPI "stimseqitem"      StimSeqItem
-           :<|> CrudAPI "stimulusresponse" StimulusResponse
+           :<|> ResourcesAPI

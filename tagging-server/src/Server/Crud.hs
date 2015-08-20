@@ -2,10 +2,13 @@
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE DataKinds           #-}
 
 module Server.Crud where
 
 import Control.Error
+import Control.Monad.Trans.Class (lift)
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Char8 as B8
 import Data.Monoid
@@ -17,7 +20,10 @@ import GHC.Int
 import Snap.Core
 import Snap.Snaplet
 import Snap.Snaplet.Groundhog.Postgresql
+import Servant        hiding (err300)
+import Servant.Server hiding (err300)
 
+import API
 import Server.Application
 import Server.Utils
 import Tagging.User
@@ -28,13 +34,17 @@ class (A.ToJSON v,
        PersistEntity v,
        PrimitivePersistField (Key v BackendSpecific),
        A.ToJSON (AutoKey v),
+       A.ToJSON (Key v BackendSpecific),
        Read (Key v BackendSpecific)
       ) => Crud v where
 
   intToKey :: Proxy v -> Int64 -> Key v BackendSpecific
+  keyToInt :: Key v BackendSpecific -> Int64
+  intToAuto :: Proxy v -> Int64 -> AutoKey v
+  autoToInt :: Proxy v -> AutoKey v -> Int64
 
   ------------------------------------------------------------------------
-  crudGet :: Key v BackendSpecific -> EitherT String (Handler App App) v
+  crudGet :: Key v BackendSpecific -> (Handler App App) v
   crudGet = getEntity
 
   ------------------------------------------------------------------------
@@ -47,17 +57,17 @@ class (A.ToJSON v,
       Just s  ->
         eitherT err300 json $ do
           k <- hoistEither . note "Bad id parse" . readMay $ B8.unpack s
-          crudGet (intToKey p k :: Key v BackendSpecific)
+          lift $ crudGet (intToKey p k :: Key v BackendSpecific)
 
   ------------------------------------------------------------------------
-  crudPost :: v -> Handler App App (AutoKey v)
+  crudPost :: v -> Handler App App (Key v BackendSpecific)
   crudPost = postEntity
 
   ------------------------------------------------------------------------
   handlePost :: Proxy v -> Handler App App ()
-  handlePost _ = eitherT err300 json $ do
+  handlePost _ = eitherT err300 (json) $ do
     (v :: v) <- EitherT $ A.eitherDecode <$> readRequestBody 100000
-    (k :: AutoKey v) <- EitherT . fmap Right $ postEntity v
+    (k :: Key v BackendSpecific) <- EitherT . fmap Right $ postEntity v
     return (k)
 
   ------------------------------------------------------------------------
@@ -102,16 +112,21 @@ class (A.ToJSON v,
 ------------------------------------------------------------------------------
 getEntity :: (PersistEntity a, PrimitivePersistField (Key a BackendSpecific))
              => Key a BackendSpecific
-             -> EitherT String (Handler App App) a
-getEntity k = noteT "Bad entity lookup" . MaybeT $ gh $ get k
-
+             -> Handler App App a
+getEntity k = maybe (err300 "Bad lookup") return =<< gh (get k)
 
 ------------------------------------------------------------------------------
-postEntity :: (PersistEntity a) => a -> Handler App App (AutoKey a)
+getAllEntities :: (PersistEntity a, PrimitivePersistField (Key a BackendSpecific))
+               => Proxy a
+               -> Handler App App [a]
+getAllEntities p = (fmap . fmap) snd $ gh $ selectAll
+
+------------------------------------------------------------------------------
+postEntity :: forall a.(PersistEntity a, Crud a) => a -> Handler App App (Key a BackendSpecific)
 postEntity u = method POST $ do
   assertRole [Admin, Researcher]
-  gh $ insert u
-
+  k <- gh $ insert u
+  return (intToKey Proxy $ autoToInt (Proxy :: Proxy a) k)
 
 ------------------------------------------------------------------------------
 putEntity :: (PersistEntity a, PrimitivePersistField (Key a BackendSpecific))
@@ -134,3 +149,55 @@ deleteEntity k = do
   gh $ deleteBy k
   return (isJust u)
 
+type ATest = Capture "hi" Int :> Get '[JSON] Char
+
+type ATest2 = ATest :<|> ATest
+
+--atestServer :: Server ATest AppHandler
+atestServer :: Int -> EitherT ServantErr AppHandler Char
+atestServer k = lift (return 'C')
+
+atestServer2 :: Server ATest2 AppHandler
+atestServer2 = atestServer :<|> atestServer
+
+-- crudServer :: Proxy v -> Server (CrudAPI v) AppHandler
+-- crudServer p =
+--   (getServer p)
+--   :<|> (lift . getAllEntities p)
+--   :<|> (\v -> lift $ eitherT err300 return $ postEntity v)
+--   :<|> (\k v -> lift $ eitherT err300 return $ putEntity k v)
+--   :<|> (\k -> lift $ eitherT err300 return $ deleteEntity k)
+
+-- crudServer :: forall v. Proxy v -> Server (CrudAPI v) AppHandler
+-- crudServer p =
+--   (getServer p)
+--   :<|> (lift $ getAllEntities p)
+--   :<|> (lift $ postEntity p)
+--   :<|> (lift $ putEntity p)
+--   :<|> (lift $ deleteEntity p)
+
+crudServer :: Crud v => Proxy v -> Server (CrudAPI v) AppHandler
+crudServer p =
+  getServer p :<|> getsServer p :<|> postServer p :<|> putServer :<|> deleteServer p
+
+--getServer :: Crud v => Proxy v -> Key v BackendSpecific -> Server (GetAPI v) AppHandler
+--getServer :: Crud v => Proxy v -> Int -> EitherT ServantErr AppHandler v
+getServer :: Crud v => Proxy v -> Server (GetAPI v) AppHandler
+getServer p k = lift $ crudGet (intToKey p k)
+
+getsServer :: Crud v => Proxy v -> Server (GetsAPI v) AppHandler
+getsServer p = lift $ getAllEntities p
+
+postServer :: forall v.Crud v => Proxy v -> Server (PostAPI v) AppHandler
+postServer p v = lift $ do
+  k <- postEntity v
+  return (keyToInt k)
+
+putServer :: Crud v => Server (PutAPI v) AppHandler
+putServer i v = lift $ do
+  let k  = intToKey Proxy i
+  putEntity k v
+
+deleteServer :: Crud v => Proxy v -> Server (DeleteAPI v) AppHandler
+deleteServer p i = lift $ deleteEntity (intToKey p i)
+--getServer :: Crud v => Proxy v -> Server
