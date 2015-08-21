@@ -26,6 +26,7 @@ import qualified Data.Text.Encoding as T
 import           GHC.Int
 import           Servant
 import           Servant.Server
+import           Servant.Server.Internal.SnapShims
 import           Snap.Core
 import           Snap.Snaplet
 import           Snap.Snaplet.Auth
@@ -94,6 +95,14 @@ sessionServer = handleFormSubmit
         lift $ gh $ insert (TaggingUser ((uId :: Int)) stId realNm Nothing [Subject])
         return ()
 
+apiServer :: Server API AppHandler
+apiServer = sessionServer :<|> subjectServer :<|> resourceServer
+
+apiProxy :: Proxy API
+apiProxy = Proxy
+
+apiApplication :: Application AppHandler
+apiApplication = serve apiProxy apiServer
 
 ------------------------------------------------------------------------------
 -- | The application's routes.
@@ -104,16 +113,19 @@ routes = [ ("login",    handleLoginSubmit)
          , ("all_users", getAllUsers >>= json)
 
          -- Experimenter routes
-         , ("asasign_seq_start", assignUserSeqStart)
+         --, ("asasign_seq_start", assignUserSeqStart)
 
          --, ("getCurrentStimulus", getCurrentStimulusResource)
-         , ("submitResponse",     handleSubmitResponse)
+         --, ("submitResponse",     handleSubmitResponse)
+         , ("api", applicationToSnap apiApplication)
+         , ("/", with auth $ handleLogin Nothing)
          , ("",          Snap.Util.FileServe.serveDirectory "static")
-         ] ++ crudRoutes (Proxy :: Proxy TaggingUser)
-           ++ crudRoutes (Proxy :: Proxy StimulusSequence)
-           ++ crudRoutes (Proxy :: Proxy StimulusResource)
-           ++ crudRoutes (Proxy :: Proxy StimSeqItem)
-           ++ [("migrateResources", migrateResources)]
+         --] ++ crudRoutes (Proxy :: Proxy TaggingUser)
+         --  ++ crudRoutes (Proxy :: Proxy StimulusSequence)
+         --  ++ crudRoutes (Proxy :: Proxy StimulusResource)
+         --  ++ crudRoutes (Proxy :: Proxy StimSeqItem)
+         --  ++ [("migrateResources", migrateResources)]
+         ]
 
 
 ------------------------------------------------------------------------------

@@ -51,7 +51,7 @@ executable SimplePics
                      , groundhog
                      , groundhog-postgresql
                      , reflex
-                     , reflex-dom
+                     , reflex-dom >= 0.2.1 && < 0.3
                      , tagging-common
                      , tagging-client
                      , text

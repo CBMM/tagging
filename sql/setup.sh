@@ -1,8 +1,9 @@
 PASS=$1
 LINUXUSER=$2
+ROOTUSER=$3
 
-if [ $# -ne 2 ]; then
-   echo "Please call setup.sh with password argument and linux user only"; exit;
+if [ $# -ne 3 ]; then
+   echo "Please call setup.sh with password argument, main linux, and root linux user only"; exit;
 fi
 
 PGUSER=tagging
@@ -24,13 +25,13 @@ case $yn in
         sudo echo >> $ROOTPG;
         sudo echo "localhost:5432:tagging:tagging:$PASS" >> $ROOTPG;
 
-        sudo -u postgres dropdb $DB;
-        sudo -u postgres dropuser $PGUSER;
-        sudo -u postgres createuser $PGUSER;
-        sudo -u postgres psql -c "ALTER ROLE $PGUSER WITH PASSWORD '$PASS';";
-        sudo -u postgres createdb $DB;
-        sudo -u postgres psql -d $DB -c "CREATE EXTENSION \"uuid-ossp\";";
-        sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB TO $PGUSER";
+        sudo -u $ROOTUSER dropdb $DB;
+        sudo -u $ROOTUSER dropuser $PGUSER;
+        sudo -u $ROOTUSER createuser $PGUSER;
+        sudo -u $ROOTUSER psql -c "ALTER ROLE $PGUSER WITH PASSWORD '$PASS';";
+        sudo -u $ROOTUSER createdb $DB;
+        sudo -u $ROOTUSER psql -d $DB -c "CREATE EXTENSION \"uuid-ossp\";";
+        sudo -u $ROOTUSER psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB TO $PGUSER";
 
         psql -U $PGUSER -h localhost -d $DB -f create.sql;;
 

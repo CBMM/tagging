@@ -26,9 +26,9 @@ type CrudAPI a = GetAPI a :<|> GetsAPI a
 
 type GetAPI a  = Capture "id" Int64 :> Get '[JSON] a
 type GetsAPI a = Get '[JSON] [a]
-type PostAPI a = ReqBody '[JSON] a :> Post '[] Int64
-type PutAPI  a = Capture "id" Int64 :> ReqBody '[JSON] a :> Put '[] ()
-type DeleteAPI a = Capture "id" Int64 :> Delete '[] Bool
+type PostAPI a = ReqBody '[JSON] a :> Post '[JSON] Int64
+type PutAPI  a = Capture "id" Int64 :> ReqBody '[JSON] a :> Put '[JSON] ()
+type DeleteAPI a = Capture "id" Int64 :> Delete '[JSON] Bool
 
 type ResourcesAPI =
        "tagginguser"      :> CrudAPI TaggingUser
@@ -44,22 +44,22 @@ type SessionAPI = --"login"   :> Raw AppHandler (AppHandler ())
                             :> QueryFlag  "remember"
                             :> QueryParam "realname" T.Text
                             :> QueryParam "studentid" T.Text
-                            :> Post '[] ()
+                            :> Post '[JSON] ()
              :<|> "newuser" :> Raw AppHandler (AppHandler ())
              :<|> "logout"  :> Raw AppHandler (AppHandler ())
 
 
 type SubjectAPI = "resource" :> Get '[JSON] StimulusResource
-             :<|> "response" :> ReqBody '[JSON] A.Value
+             :<|> "response" :> ReqBody '[JSON] StimulusResponse :> Post '[JSON] ()
 
 
-type ResearcherAPI = "assignStart" :> Capture "id" Int :> Put '[] ()
+type ResearcherAPI = "assignStart" :> Capture "id" Int :> Put '[JSON] ()
 
 
 type AdminAPI = "assignRole" :> QueryParam "id"     Int
                              :> QueryParam "role"   Role
                              :> QueryParam "revoke" Bool
-                             :> Put '[] ()
+                             :> Put '[JSON] ()
 
 
 type API = SessionAPI
