@@ -149,39 +149,10 @@ deleteEntity k = do
   gh $ deleteBy k
   return (isJust u)
 
-type ATest = Capture "hi" Int :> Get '[JSON] Char
-
-type ATest2 = ATest :<|> ATest
-
---atestServer :: Server ATest AppHandler
-atestServer :: Int -> EitherT ServantErr AppHandler Char
-atestServer k = lift (return 'C')
-
-atestServer2 :: Server ATest2 AppHandler
-atestServer2 = atestServer :<|> atestServer
-
--- crudServer :: Proxy v -> Server (CrudAPI v) AppHandler
--- crudServer p =
---   (getServer p)
---   :<|> (lift . getAllEntities p)
---   :<|> (\v -> lift $ eitherT err300 return $ postEntity v)
---   :<|> (\k v -> lift $ eitherT err300 return $ putEntity k v)
---   :<|> (\k -> lift $ eitherT err300 return $ deleteEntity k)
-
--- crudServer :: forall v. Proxy v -> Server (CrudAPI v) AppHandler
--- crudServer p =
---   (getServer p)
---   :<|> (lift $ getAllEntities p)
---   :<|> (lift $ postEntity p)
---   :<|> (lift $ putEntity p)
---   :<|> (lift $ deleteEntity p)
-
 crudServer :: Crud v => Proxy v -> Server (CrudAPI v) AppHandler
 crudServer p =
   getServer p :<|> getsServer p :<|> postServer p :<|> putServer :<|> deleteServer p
 
---getServer :: Crud v => Proxy v -> Key v BackendSpecific -> Server (GetAPI v) AppHandler
---getServer :: Crud v => Proxy v -> Int -> EitherT ServantErr AppHandler v
 getServer :: Crud v => Proxy v -> Server (GetAPI v) AppHandler
 getServer p k = lift $ crudGet (intToKey p k)
 
@@ -200,4 +171,3 @@ putServer i v = lift $ do
 
 deleteServer :: Crud v => Proxy v -> Server (DeleteAPI v) AppHandler
 deleteServer p i = lift $ deleteEntity (intToKey p i)
---getServer :: Crud v => Proxy v -> Server

@@ -1,13 +1,15 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <link rel="stylesheet" type="text/css" href="/static/media/css/screen.css"/>
-    <link rel="stylesheet" type="text/css" href="/static/media/css/bootstrap.min.css"/>
-    <link rel="stylesheet" type="text/css" href="/static/media/css/bootstrap-theme.min.css"
-    <script src="/static/media/js/libs/jquery.min.js"/>
-    <script src="/static/metia/js/libs/bootstrap.min.js"/>
+    <script src="/media/js/libs/jquery.min.js"/>
+    <script src="/media/js/libs/bootstrap.min.js"/>
+    <link rel="stylesheet" type="text/css" href="/media/css/screen.css"/>
+    <link rel="stylesheet" type="text/css" href="/media/css/libs/bootstrap.min.css"/>
+    <!-- <link rel="stylesheet" type="text/css" href="/media/css/libs/bootstrap-theme.min.css"> -->
   </head>
   <body>
-    <apply template="stimulus"/>
+    <div id="content">
+      <apply-content/>
+    </div>
   </body>
 </html>
