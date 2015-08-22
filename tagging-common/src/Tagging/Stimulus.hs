@@ -14,9 +14,8 @@ import Data.Aeson
 import qualified Data.Aeson as A
 import qualified Data.ByteString as BS
 import qualified Data.Text as T
-import Database.Groundhog
-import Database.Groundhog.TH
 import GHC.Generics
+import GHC.Int
 
 -----------------------------------------------------------------------------
 -- | Experiments define a @Stimulus@, @Question@, and @Answer@,
@@ -52,7 +51,7 @@ type StimulusName = T.Text
 
 data StimulusSequence = StimulusSequence
   { ssName        :: !StimSeqName
-  , ssFirstItem   :: Maybe (DefaultKey StimSeqItem)
+  , ssFirstItem   :: Maybe Int64 -- StimSeqItem
   , ssDescription :: !T.Text
   , ssBaseUrl     :: !T.Text
   } deriving (Generic)
@@ -61,9 +60,9 @@ deriving instance Show StimulusSequence
 type StimSeqName = T.Text
 
 data StimSeqItem = StimSeqItem
-  { ssiStimSeq      :: DefaultKey StimulusSequence
-  , ssiStimulus     :: DefaultKey StimulusResource
-  , ssiNextItem     :: Maybe (DefaultKey StimSeqItem)
+  { ssiStimSeq      :: Int64 -- StimulusSequence Key
+  , ssiStimulus     :: Int64 -- StimulusResource Key
+  , ssiNextItem     :: Maybe Int64 -- StimSeqItem Key
   , ssiIndex        :: !Int
   , ssiResponseType :: !ResponseType
   } deriving (Generic)
@@ -77,17 +76,3 @@ instance A.FromJSON StimulusSequence where
 instance A.ToJSON   StimulusSequence where
 instance A.FromJSON StimSeqItem where
 instance A.ToJSON   StimSeqItem where
-
-mkPersist defaultCodegenConfig [groundhog|
-definitions:
-  - entity: StimulusResource
-  - entity: StimulusSequence
-    keys:
-      - name: SsName
-    constructors:
-      - name: StimulusSequence
-        uniques:
-          - name: SsName
-            fields: [ssName]
-  - entity: StimSeqItem
-|]

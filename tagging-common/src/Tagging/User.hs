@@ -10,21 +10,20 @@ module Tagging.User where
 
 import qualified Data.Aeson as A
 import qualified Data.Text as T
-import Database.Groundhog
-import Database.Groundhog.TH
 import GHC.Generics
+import GHC.Int
 
 import Tagging.Stimulus
 
 -- | A user in the Tagging system
 data TaggingUser = TaggingUser
-  { tuId :: Int
+  { tuId :: Int64
     -- ^ ID matching AuthUser id
   , tuStudentID :: Maybe T.Text
     -- ^ Optional student ID number
   , tuRealName  :: Maybe T.Text
     -- ^ Optional student full name
-  , tuCurrentStimulus :: Maybe (AutoKey StimSeqItem)
+  , tuCurrentStimulus :: Maybe Int64 -- StimSeqItem
     -- ^ Current stimulus assignment (`Nothing` for unassigned)
   , tuRoles     :: [Role]
     -- ^ List of user Roles
@@ -43,22 +42,6 @@ data Role =
     -- ^ Upload and own stims, sequences. Download data, assign subjects
     --   to stim sets
   deriving (Eq, Show, Read, Generic)
-
-mkPersist defaultCodegenConfig [groundhog|
-  - entity: TaggingUser
-    keys:
-      - name: TuId
-    constructors:
-      - name: TaggingUser
-        uniques:
-          - name: TuId
-            fields: [tuId]
-  - entity: Role
-    constructors:
-      - name: Admin
-      - name: Subject
-      - name: Researcher
-|]
 
 
 instance A.FromJSON Role where

@@ -22,6 +22,7 @@ import Snap.Snaplet.Groundhog.Postgresql
 
 import Tagging.User
 import Server.Application
+import Server.Database
 
 
 ------------------------------------------------------------------------------

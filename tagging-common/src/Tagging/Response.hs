@@ -13,18 +13,17 @@ import qualified Data.ByteString as BS
 import Data.Time
 import Data.Typeable
 import qualified Data.Text as T
-import Database.Groundhog
-import Database.Groundhog.TH
 import GHC.Generics
+import GHC.Int
 
 import Tagging.User
 import Tagging.Stimulus
 
 -- | A particular response to one stimulus in a sequence
 data StimulusResponse = StimulusResponse
-  { srUser          :: DefaultKey TaggingUser
+  { srUser          :: Int64 -- TaggingUser Key
   -- ^ Tagging User
-  , srStim          :: DefaultKey StimSeqItem
+  , srStim          :: Int64 -- StimSeqItem Key
   -- ^ Stimulus in the sequence
   , srDeliveredTime :: UTCTime
   -- ^ Trial start time (in server's timezone)
@@ -38,7 +37,3 @@ data StimulusResponse = StimulusResponse
 
 instance A.FromJSON StimulusResponse where
 instance A.ToJSON   StimulusResponse where
-
-mkPersist defaultCodegenConfig [groundhog|
-  - entity: StimulusResponse
-|]
