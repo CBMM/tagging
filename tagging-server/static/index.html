@@ -1,0 +1,36 @@
+<html><head>
+
+<script src="/media/js/libs/jquery.min.js"></script>
+<script src="/media/js/libs/jquery.dynatable.js"></script>
+
+
+<script>
+$('#stimulusresource-table').dynatable({ 
+  features: { 
+    paginate: false, 
+    recordCount: false 
+  }, 
+  dataset: { 
+    ajax: true, 
+    ajaxUrl: '/api/stimulusresource', 
+    ajaxOnLoad: true, 
+    records: [] 
+  }, 
+  params: { 
+    records: '_root' 
+  } 
+}); 
+var a = $.ajax('http://localhost:8000/api/stimulusresource');
+  </script>
+</head>
+<body>
+<table id="stimulusresource-table">
+  <thead>
+    <th data-dynatable-column="srUrlSuffix">User Id</th>
+    <th data-dynatable-column="srMimeType">Student ID</th>
+    <th data-dynatable-column="srName">Real name</th>
+  </thead>
+  <tbody>
+  </tbody>
+</table>
+</body></html>

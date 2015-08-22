@@ -23,7 +23,6 @@ import Snap.Snaplet.Groundhog.Postgresql
 import Servant        hiding (err300)
 import Servant.Server hiding (err300)
 
-import API
 import Server.Application
 import Server.Utils
 import Tagging.User
@@ -152,6 +151,17 @@ deleteEntity k = do
 crudServer :: Crud v => Proxy v -> Server (CrudAPI v) AppHandler
 crudServer p =
   getServer p :<|> getsServer p :<|> postServer p :<|> putServer :<|> deleteServer p
+
+
+type CrudAPI a = GetAPI a :<|> GetsAPI a
+                 :<|> PostAPI a :<|> PutAPI a :<|> DeleteAPI a
+
+type GetAPI a  = Capture "id" Int64 :> Get '[JSON] a
+type GetsAPI a = Get '[JSON] [a]
+type PostAPI a = ReqBody '[JSON] a :> Post '[JSON] Int64
+type PutAPI  a = Capture "id" Int64 :> ReqBody '[JSON] a :> Put '[JSON] ()
+type DeleteAPI a = Capture "id" Int64 :> Delete '[JSON] Bool
+
 
 getServer :: Crud v => Proxy v -> Server (GetAPI v) AppHandler
 getServer p k = lift $ crudGet (intToKey p k)
