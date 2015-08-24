@@ -49,7 +49,7 @@ executable SimplePics
                      , bytestring
                      , ghcjs-dom
                      , groundhog
-                     , groundhog-postgresql
+--                     , groundhog-postgresql
                      , reflex
                      , reflex-dom >= 0.2.1 && < 0.3
                      , tagging-common
