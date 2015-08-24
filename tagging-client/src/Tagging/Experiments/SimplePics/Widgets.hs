@@ -22,6 +22,7 @@ import           Tagging.Stimulus
 import           Tagging.User
 import           Experiments.SimplePics
 
+
 pageWidget :: forall t m.MonadWidget t m => TaggingUser -> m ()
 pageWidget TaggingUser{..} = mdo
 

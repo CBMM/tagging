@@ -1,13 +1,14 @@
 LIB=$(wildcard collabplot/src/*.hs)
-SERVER=tagging_server/dist/build/server/server
-CLIENT=tagging_server/static/all.js
-CLIENT_SRC=$(wildcard tagging_client/src/*.hs)
+SERVER=tagging-server/dist/build/tagging-server/tagging-server
+SERVER_SRC=$(wildcard tagging_server/src/*.hs)
+CLIENT=tagging-server/static/all.js
+CLIENT_SRC=$(wildcard tagging-client/src/*.hs)
 
 all: $(LIB) $(SERVER) $(CLIENT)
 
-$(SERVER): $(LIB) tagging_server/server.cabal tagging_server/src/*.hs
-	(cd tagging_server && cabal build)
+$(SERVER): $(LIB) tagging-server/tagging-server.cabal $(SERVER_SRC)
+	(cd tagging-server && cabal build)
 
-$(CLIENT): $(LIB) tagging_client/client.cabal $(CLIENT_SRC)
-	(cd tagging_client && cabal configure --ghcjs && cabal build)
-	cp tagging_client/dist/build/tagging_client/tagging_client.jsexe/*.js tagging_server/static/
+$(CLIENT): $(LIB) tagging-client/tagging-client.cabal $(CLIENT_SRC)
+	(cd tagging-client && cabal configure --ghcjs && cabal install --ghcjs)
+	cp -r tagging-client/.cabal-sandbox/bin/*.jsexe tagging-server/static/media/js/

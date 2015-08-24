@@ -17,3 +17,4 @@ cabal.sandbox.config
 *.hp
 *.cfg
 site_key.txt
+*.jsexe

@@ -7,4 +7,6 @@ import Tagging.User
 import Tagging.Experiments.SimplePics.Widgets
 
 main :: IO ()
-main = mainWidget (pageWidget (TaggingUser 0 Nothing Nothing (Just 0) [Subject]))
+main = mainWidget
+       (text "Hello tagging!" >> pageWidget
+         (TaggingUser 0 Nothing Nothing (Just 0) [Subject]))

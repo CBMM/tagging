@@ -34,6 +34,6 @@ crudTableWidget dynElems validate = mdo
   submitButton <- button "Add"
   newEntityDyn <- inputWidget
   isOk         <- combineDyn validate newEntityDyn
-  
+
   vs           <- holdDyn [] =<< (getAllEntities)
   elClass "table" "crud-table" $ listViewWithKey vs crudRowWidget

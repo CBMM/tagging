@@ -26,6 +26,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import           GHC.Generics
 import           GHC.Int
+import qualified Heist.Interpreted as I
 import           Servant
 import           Servant.Docs
 import           Servant.Server
@@ -37,9 +38,9 @@ import           Snap.Snaplet.PostgresqlSimple
 import           Snap.Snaplet.Auth.Backends.PostgresqlSimple
 import           Snap.Snaplet.Groundhog.Postgresql
 import           Snap.Snaplet.Heist
+import qualified Snap.Snaplet.Heist.Interpreted as I
 import           Snap.Snaplet.Session.Backends.CookieSession
 import           Snap.Util.FileServe
-import qualified Heist.Interpreted as I
 ------------------------------------------------------------------------------
 import           Server.Utils
 import           Tagging.User
@@ -70,7 +71,7 @@ routes = [ ("login",    handleLoginSubmit)
          --, ("logout",   handleLogout)
          --, ("new_user", handleNewUser)
          , ("all_users", getAllUsers >>= json)
-
+         , ("client/:taskname", handleTaggingClient)
          -- Experimenter routes
          --, ("asasign_seq_start", assignUserSeqStart)
 
@@ -82,6 +83,16 @@ routes = [ ("login",    handleLoginSubmit)
          , ("",          Snap.Util.FileServe.serveDirectory "static")
          ]
 
+
+handleTaggingClient :: AppHandler ()
+handleTaggingClient = do
+  taskName <- getParam "taskname"
+  case taskName of
+    Nothing -> writeBS "hello"
+    Just tn ->
+      let jsFile = T.decodeUtf8 $ "/media/js/" <> tn <> ".jsexe/all.js"
+      --in  writeText jsFile
+      in  I.renderWithSplices "_taggingclient" ("jsfile" ## I.textSplice jsFile)
 
 ------------------------------------------------------------------------------
 -- | The application initializer.

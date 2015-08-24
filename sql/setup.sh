@@ -1,6 +1,6 @@
 PASS=$1
 LINUXUSER=$2
-ROOTUSER=$3
+ROOTUSER=$3  #On Ubuntu, use root. On osx, the user with postgres admin access
 
 if [ $# -ne 3 ]; then
    echo "Please call setup.sh with password argument, main linux, and root linux user only"; exit;
