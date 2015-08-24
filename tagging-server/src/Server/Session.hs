@@ -15,6 +15,7 @@ import qualified Data.Aeson as A
 import           Data.Aeson ((.:), (.=), (.:?), (.!=))
 import           Database.Groundhog.Postgresql
 import           GHC.Generics
+import           GHC.Int
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Heist.Interpreted as I
@@ -99,7 +100,7 @@ sessionServer = apiLogin
       lift $ maybeT (Server.Utils.err300 "New user error") return $ do
         user <- hushT $ EitherT $ with auth $ createUser (uname) (T.encodeUtf8 pw)
         uId   <- hoistMaybe (readMay . T.unpack =<< (unUid <$> userId user))
-        lift $ gh $ insert (TaggingUser ((uId :: Int)) stId realNm Nothing [Subject])
+        lift $ gh $ insert (TaggingUser ((uId :: Int64)) stId realNm Nothing [Subject])
         return ()
     apiNewuser Nothing _ _ _ _ = error "Username is required"
     apiNewuser _ Nothing _ _ _ = error "password is required"

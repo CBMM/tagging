@@ -8,7 +8,7 @@ import Database.Groundhog.Postgresql
 import Tagging.User
 import Tagging.Stimulus
 import Tagging.Response
-import qualified Experiments.SimplePics as SimplePics
+import qualified Server.Experiments.SimplePics as SimplePics
 
 main :: IO ()
 main = do

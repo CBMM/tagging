@@ -24,23 +24,25 @@ import Servant        hiding (err300)
 import Servant.Server hiding (err300)
 
 import Server.Application
+import Server.Database
 import Server.Utils
 import Tagging.User
 
 -------------------------------------------------------------------------------
 class (A.ToJSON v,
        A.FromJSON v,
-       PersistEntity v,
-       PrimitivePersistField (Key v BackendSpecific),
-       A.ToJSON (AutoKey v),
-       A.ToJSON (Key v BackendSpecific),
-       Read (Key v BackendSpecific)
+       HasKey v
+       --PersistEntity v,
+       --PrimitivePersistField (Key v BackendSpecific),
+       --A.ToJSON (AutoKey v),
+       --A.ToJSON (Key v BackendSpecific),
+       --Read (Key v BackendSpecific)
       ) => Crud v where
 
-  intToKey :: Proxy v -> Int64 -> Key v BackendSpecific
-  keyToInt :: Key v BackendSpecific -> Int64
-  intToAuto :: Proxy v -> Int64 -> AutoKey v
-  autoToInt :: Proxy v -> AutoKey v -> Int64
+  -- intToKey :: Proxy v -> Int64 -> Key v BackendSpecific
+  -- keyToInt :: Key v BackendSpecific -> Int64
+  -- intToAuto :: Proxy v -> Int64 -> AutoKey v
+  -- autoToInt :: Proxy v -> AutoKey v -> Int64
 
   ------------------------------------------------------------------------
   crudGet :: Key v BackendSpecific -> (Handler App App) v

@@ -20,6 +20,7 @@ library
   hs-source-dirs:     src
   exposed-modules:    API
                     , APIDocs
+                    , Server.Experiments.SimplePics
                     , Server.Site
                     , Server.Application
                     , Server.Crud
@@ -110,6 +111,7 @@ executable fixtures
                   , groundhog
                   , groundhog-postgresql
                   , tagging-common
+                  , tagging-server
 
 executable directoryToStimSet
   hs-source-dirs:   exec
@@ -119,6 +121,8 @@ executable directoryToStimSet
                   , bytestring
                   , directory
                   , filepath
+                  , groundhog
+                  , groundhog-postgresql
                   , monad-logger
                   , optparse-applicative
                   , tagging-common

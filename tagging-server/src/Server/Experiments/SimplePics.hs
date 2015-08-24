@@ -3,7 +3,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Experiments.SimplePics where
+module Server.Experiments.SimplePics where
 
 import Control.Monad
 import Control.Monad.IO.Class
@@ -15,33 +15,35 @@ import Data.Typeable
 import Database.Groundhog
 import Database.Groundhog.Postgresql
 import System.FilePath ((</>))
-import Tagging.Database
+import Server.Database
 import Tagging.Stimulus
-import Tagging.Experiments.SimplePics
+import Experiments.SimplePics
+import Server.Resources
+import Server.Utils
 
 
-data SimplePics
+-- data SimplePics
 
-instance Experiment SimplePics where
-  type Stimulus SimplePics = String -- Path to picture
-  type Question SimplePics = OneToTen
-  type Answer   SimplePics = Int
+-- instance Experiment SimplePics where
+--   type Stimulus SimplePics = String -- Path to picture
+--   type Question SimplePics = OneToTen
+--   type Answer   SimplePics = Int
 
-  -- | To get a stimulus from a resource for SimplePics,
-  --   just return the url of the picture
-  getResource = \StimulusResource{..} -> return $
-    T.unpack srUrlSuffix </> T.unpack srName
+--   -- | To get a stimulus from a resource for SimplePics,
+--   --   just return the url of the picture
+--   getResource = \StimulusResource{..} -> return $
+--     T.unpack srUrlSuffix </> T.unpack srName
 
-picsSt = "Simple Pictures"
+-- picsSt = "Simple Pictures"
 
-data PrefsRange = PrefsRange { rangeMin :: Int, rangeMax :: Int }
+-- data PrefsRange = PrefsRange { rangeMin :: Int, rangeMax :: Int }
 
-data OneToTen = OneToTen { oneToTenScore :: Int }
-  deriving (Eq, Show)
+-- data OneToTen = OneToTen { oneToTenScore :: Int }
+--   deriving (Eq, Show)
 
--- TODO is this right?
-toTypeName :: Typeable t => Proxy t -> T.Text
-toTypeName p = T.pack . show $ typeRep p
+-- -- TODO is this right?
+-- toTypeName :: Typeable t => Proxy t -> T.Text
+-- toTypeName p = T.pack . show $ typeRep p
 
 
 ------------------------------------------------------------------------------
@@ -57,7 +59,7 @@ setupStimuli = do
     return (k,r)
 
   let stimSeq = StimulusSequence
-                { ssName        = picsSt
+                { ssName        = T.pack picsSt
                 , ssFirstItem   = Nothing
                 , ssDescription = "Minimal framework test"
                 , ssBaseUrl     = "web.mit.edu/greghale/Public/pics"
@@ -69,8 +71,8 @@ setupStimuli = do
   let seqItems = zipWith f [0.. length resourceEntities - 1] resourceEntities
         where f i (k,r) =
                    StimSeqItem
-                   { ssiStimSeq = seqKey
-                   , ssiStimulus = k
+                   { ssiStimSeq = keyToInt seqKey
+                   , ssiStimulus = keyToInt k
                    , ssiNextItem = Nothing
                    , ssiIndex    = i
                    , ssiResponseType = toTypeName (Proxy :: Proxy OneToTen)

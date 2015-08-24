@@ -16,6 +16,7 @@ import Tagging.Response
 import Tagging.Stimulus
 import Tagging.User
 import API
+import Server.Database
 import Server.Session
 import Server.Crud
 
@@ -50,9 +51,9 @@ instance ToSample [StimSeqItem] [StimSeqItem] where
   toSample _ = Just [sampleStimSeqItem]
 
 sampleStimSeqItem =
-  StimSeqItem (StimulusSequenceKey (PersistInt64 1))
-  (StimulusResourceKey (PersistInt64 1))
-  (Just $ (StimSeqItemKey (PersistInt64 3))) 1 "Preference"
+  StimSeqItem ((1))
+  ((1))
+  (Just $ ((3))) 1 "Preference"
 
 instance ToSample StimulusSequence StimulusSequence where
   toSample _ = Just sampleSequence
@@ -61,7 +62,7 @@ instance ToSample [StimulusSequence] [StimulusSequence] where
   toSample _ = Just [sampleSequence]
 
 sampleSequence =
-  StimulusSequence "SimplePictures" (Just (StimSeqItemKey (PersistInt64 1))) "Three pictures of shapes" "http://web.mit.edu/greghale/Public/shapes"
+  StimulusSequence "SimplePictures" (Just ((1))) "Three pictures of shapes" "http://web.mit.edu/greghale/Public/shapes"
 
 instance ToSample StimulusResource StimulusResource where
   toSample _ = Just sampleResource
@@ -80,8 +81,8 @@ instance ToSample [StimulusResponse] [StimulusResponse] where
 
 sampleResponse =
   StimulusResponse
-  (TaggingUserKey (PersistInt64 1))
-  (StimSeqItemKey (PersistInt64 1))
+  ((1))
+  ((1))
   (UTCTime (fromGregorian 2015 08 21) 0)
   (UTCTime (fromGregorian 2015 08 21) 1)
   "SimplePicturePreference (todo fix)"

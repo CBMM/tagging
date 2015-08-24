@@ -7,7 +7,7 @@ module Server.Resources where
 
 -----------------------------------------------------------------------------
 import Control.Error
-import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Data.ByteString.Char8 as B8
 import Data.Monoid
 import Data.Proxy
@@ -29,40 +29,47 @@ import API
 import Server.Utils
 import Server.Application
 import Server.Crud
+import Server.Database
 
-instance Crud TaggingUser where
+instance HasKey TaggingUser where
   intToKey _ = TaggingUserKey . PersistInt64
   intToAuto _ = TaggingUserKey . PersistInt64
   keyToInt (TaggingUserKey (PersistInt64 i)) = i
   autoToInt Proxy (TaggingUserKey (PersistInt64 i)) = i
 
-instance Crud StimulusResource where
+instance Crud TaggingUser where
+
+instance HasKey StimulusResource where
   intToKey _ = StimulusResourceKey . PersistInt64
   intToAuto _ = StimulusResourceKey . PersistInt64
   keyToInt (StimulusResourceKey (PersistInt64 i)) = i
   autoToInt Proxy (StimulusResourceKey (PersistInt64 i)) = i
 
+instance Crud StimulusResource
 
-instance Crud StimulusSequence where
+instance HasKey StimulusSequence where
   intToKey _ = StimulusSequenceKey . PersistInt64
   intToAuto _ = StimulusSequenceKey . PersistInt64
   keyToInt (StimulusSequenceKey (PersistInt64 i)) = i
   autoToInt Proxy (StimulusSequenceKey (PersistInt64 i)) = i
 
+instance Crud StimulusSequence
 
-instance Crud StimSeqItem where
+instance HasKey StimSeqItem where
   intToKey _ = StimSeqItemKey . PersistInt64
   intToAuto _ = StimSeqItemKey . PersistInt64
   keyToInt (StimSeqItemKey (PersistInt64 i)) = i
   autoToInt Proxy (StimSeqItemKey (PersistInt64 i)) = i
 
+instance Crud StimSeqItem
 
-instance Crud StimulusResponse where
+instance HasKey StimulusResponse where
   intToKey _ = StimulusResponseKey . PersistInt64
   intToAuto _ = StimulusResponseKey . PersistInt64
   keyToInt (StimulusResponseKey (PersistInt64 i)) = i
   autoToInt Proxy (StimulusResponseKey (PersistInt64 i)) = i
 
+instance Crud StimulusResponse
 
 migrateResources :: Handler App App ()
 migrateResources = do
@@ -84,9 +91,40 @@ getUserSequence = do
   TaggingUser{..}  <- noteT "TaggingUser lookup error" getCurrentTaggingUser
   seqElemKey       <- noteT "Usassigned" (hoistMaybe tuCurrentStimulus)
   StimSeqItem{..}  <- noteT "Bad StimSeqItem lookup"
-                      . MaybeT . gh $ get seqElemKey
+                      . MaybeT . gh $ get (intToKey Proxy seqElemKey)
   EitherT $ fmap Right . gh $ select (SsiStimSeqField ==. ssiStimSeq)
 
 -----------------------------------------------------------------------------
 getAllUsers :: Handler App App [(AutoKey TaggingUser, TaggingUser)]
 getAllUsers = gh $ selectAll
+
+------------------------------------------------------------------------------
+addStimulusSequence
+  :: (MonadIO b, PersistBackend b)
+  => Key StimulusSequence BackendSpecific
+  -> StimulusSequence
+  -> [StimSeqItem]
+  -> b (AutoKey StimulusSequence)
+addStimulusSequence seqKey seq [] = insert seq
+addStimulusSequence seqKey seq (x:xs) = do
+  liftIO $ print "About to insert first item:"
+  liftIO $ print x
+  itemInt0 <- insert (x   :: StimSeqItem)
+  let itemKey0 = keyToInt itemInt0
+  liftIO $ print "About to replace"
+  replace seqKey (seq {ssFirstItem = Just itemKey0} :: StimulusSequence)
+  liftIO $ print "About to enter Go loop"
+  go itemInt0 xs
+  liftIO $ print "About to return"
+  return seqKey
+  where go parentKey []     = do
+          --liftIO $ print "go loop terminal case"
+          return ()
+        go parentKey (x:xs) = do
+          liftIO $ putStrLn ("Inserting " ++ show x)
+          k  <- insert x
+          v0 <- get parentKey
+          maybe (error "Database insertion error")
+            (\v0' -> replace parentKey (v0' {ssiNextItem = Just (keyToInt k)}))
+            v0
+          go k xs

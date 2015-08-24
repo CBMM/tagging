@@ -77,8 +77,8 @@ handleSubmitResponse r@StimulusResponse{..} =
     loggedInUser           <- noteT "No logged in tagging user"
                               getCurrentTaggingUser
     stim                   <- noteT "Bad stim lookup from response"
-                              $ MaybeT $ gh $ get srStim
-    respUser               <- lift $ crudGet srUser
+                              $ MaybeT $ gh $ get (intToKey Proxy srStim)
+    respUser               <- lift $ crudGet (intToKey Proxy srUser)
 
     when (tuId loggedInUser /= tuId respUser)
       (lift $ Server.Utils.err300 "Logged in user / reported user mismatch")
@@ -93,5 +93,6 @@ getCurrentStimulusResource = eitherT Server.Utils.err300 return $ do
   loggedInUser <- noteT "No logged it tagging user" getCurrentTaggingUser
   itemKey      <- noteT "No sequence assigned"
                   (hoistMaybe $ tuCurrentStimulus loggedInUser)
-  ssi          <- noteT "Bad seq lookup" $ MaybeT $ gh $ get itemKey
-  noteT "Bad resource lookup" $ MaybeT $ gh $ get (ssiStimulus ssi)
+  ssi          <- noteT "Bad seq lookup" $ MaybeT $ gh $ get (intToKey Proxy itemKey)
+  noteT "Bad resource lookup" $ MaybeT $ gh
+    $ get (intToKey Proxy $ ssiStimulus ssi)
