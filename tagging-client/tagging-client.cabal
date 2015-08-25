@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Tagging.Experiments.SimplePics.Widgets
+                     , Tagging.Crud
   build-depends:       base >=4.8 && <4.9
                      , aeson
                      , bytestring
@@ -41,6 +42,19 @@ executable client
                      , tagging-common
   hs-source-dirs:      exec
   default-language:    Haskell2010
+
+executable AdminPanel
+  main-is: AdminPanel.hs
+  build-depends: base >= 4.8 && < 4.9
+               , bytestring
+               , ghcjs-dom
+               , reflex
+               , reflex-dom
+               , tagging-common
+               , tagging-client
+               , text
+  hs-source-dirs: exec
+  default-language: Haskell2010
 
 executable SimplePics
   main-is:             SimplePics.hs

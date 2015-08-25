@@ -77,6 +77,7 @@ routes = [ ("login",    handleLoginSubmit)
 
          --, ("getCurrentStimulus", getCurrentStimulusResource)
          --, ("submitResponse",     handleSubmitResponse)
+         , ("adminPanel", adminPanel)
          , ("api", applicationToSnap apiApplication)
          --, ("/", with auth $ handleLogin Nothing)
          , ("migrateResources", migrateResources)
@@ -93,6 +94,13 @@ handleTaggingClient = do
       let jsFile = T.decodeUtf8 $ "/media/js/" <> tn <> ".jsexe/all.js"
       --in  writeText jsFile
       in  I.renderWithSplices "_taggingclient" ("jsfile" ## I.textSplice jsFile)
+
+adminPanel :: AppHandler ()
+adminPanel = do
+  assertRole [Admin, Researcher]
+  I.renderWithSplices
+    "_adminpanel"
+    ("jsfile" ## I.textSplice "/media/js/AdminPanel.jsexe/all.js")
 
 ------------------------------------------------------------------------------
 -- | The application initializer.
