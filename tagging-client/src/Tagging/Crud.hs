@@ -11,7 +11,7 @@ module Tagging.Crud where
 
 import           Data.Functor
 import qualified Data.Aeson as A
-import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.ByteString.Char8 as BS
 import           Data.Foldable
 import           Data.Map (Map(..))
@@ -56,19 +56,19 @@ crudTableWidget :: forall t m v.(MonadWidget t m, Crud v)
   -> Dynamic t (v -> Bool)
   -> m (Event t (Map Int64 (CrudRowCmds v)))
 crudTableWidget p dynValidate = mdo
-  updateEvents <- crudEvents p rowEvents
+  updateEvents <- crudEvents p tableEvents
   vMap <- holdDyn mempty =<< getAllEntities p (() <$ updateEvents)
-
-  rowEvents <- elClass "table" "crud-table" $ do
+  tableEvents <- elClass "table" "crud-table" $ do
     --newRowEvents      <- newRowWidget p
-    existingRowEvents <- listViewWithKey vMap crudRowWidget
+    existingRowsEvents <- listViewWithKey vMap crudRowWidget
     --return (newRowEvents <> existingRowEvents)
-    return existingRowEvents
+    return existingRowsEvents
+  let b = tableEvents :: Event t (Map Int64 (CrudRowCmds v))
+  return tableEvents
 
-  return rowEvents
 
 -----------------------------------------------------------------------------
-crudEvents :: MonadWidget t m
+crudEvents :: (MonadWidget t m, A.ToJSON v, Crud v)
            => Proxy v
            -- -> CrudRowEvents t m v
            -> Event t (CrudRowCmds v)
@@ -76,22 +76,21 @@ crudEvents :: MonadWidget t m
            -- -> m (Event t (Map Int64 v -> Map Int64 v)) -- this is harder!
            --   Think I need Doug's library to associate requests with
            --   responses
-crudEvents p es = ffor es $ \c -> do
-  postResps <- case crudPost c of
-    Nothing -> never
-    Just v  -> performRequestAsync $
-                 XhrRequest "POST" ("/api/" <> resourceName p)
-                 def {_xhrRequestConfig_sendData = Just (BS.unpack $ A.encode v)}
-  putResps  <- case crudPut c of
-    Nothing    -> never
-    Just (k,v) -> performRequestAsync $
-                    XhrRequest "PUT" ("/api/" <> resourceName p <> "/" <> show k)
-                    def {_xhrRequestConfig_sendData = Just (BS.unpack $ A.encode v)}
-  delResps  <- case crudDel c of
-    Nothing -> never
-    Just k  -> performRequestAsync $ ffor (crudDel c) $ \k ->
-                 XhrRequest "DELETE" ("/api" <> resourceName p <> "/" show k)
-                 def
+crudEvents p es = do
+  let postRequests = fforMaybe es (\cmd -> case crudPost cmd of
+                                                Nothing -> Nothing
+                                                Just v  -> Just $ XhrRequest "POST" ("/api/" <> resourceName p) def {_xhrRequestConfig_sendData = Just (BL.unpack $ A.encode v)})
+
+
+  postResps <- performRequestAsync postRequests
+  --   Just (k,v) -> performRequestAsync $
+  --                   XhrRequest "PUT" ("/api/" <> resourceName p <> "/" <> show k)
+  --                   def {_xhrRequestConfig_sendData = Just (BL.unpack $ A.encode v)}
+  -- delResps  <- case crudDel c of
+  --   Nothing -> never
+  --   Just k  -> performRequestAsync $
+  --                XhrRequest "DELETE" ("/api" <> resourceName p <> "/" show k)
+  --                def
 
   return es
   --return $ leftmost [(() <$ postResps)
@@ -120,10 +119,11 @@ data CrudRowCmds v = CrudRowCmds {
 --
 
 crudRowWidget :: (MonadWidget t m, Crud v)
-              => (Int64 -> Dynamic t v -> m (CrudRowCmds v))
+              => Int64
+              -> Dynamic t v
               -> m (Event t (CrudRowCmds v))
-crudRowWidget dynIntV = do
-  text "RowWidget" >> return undefined
+crudRowWidget k dynVal = do
+  text "RowWidget" >> return (never)
 
 
 instance Crud StimulusResource where
@@ -135,7 +135,7 @@ instance Crud StimulusResource where
     f2 <- _textInput_value <$> textInput def
     text "F3:"
     f3 <- _textInput_value <$> textInput def
-    return $ $( qDyn [| StimulusResource
+    $( qDyn [| StimulusResource
                         (T.pack $(unqDyn [|f1|]))
                         (T.pack $(unqDyn [|f2|]))
                         (T.pack $(unqDyn [|f3|])) |] )
