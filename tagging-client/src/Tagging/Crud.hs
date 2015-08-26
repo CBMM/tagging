@@ -50,6 +50,7 @@ class (A.FromJSON v, A.ToJSON v) => Crud v where
   deleteEntity :: MonadWidget t m => Proxy v -> Event t Int64 -> m (Event t ())
 
 
+
 -----------------------------------------------------------------------------
 crudTableWidget :: forall t m v.(MonadWidget t m, Crud v)
   => Proxy v
@@ -67,6 +68,20 @@ crudTableWidget p dynValidate = mdo
   return tableEvents
 
 
+crudTableEvents :: (MonadWidget t m, A.ToJSON v, Crud v)
+                => Proxy v
+                -> Event t (Map Int64 (CrudRowCmds v))
+                -> m (Event t (CrudRowCmds v))
+crudTableEvents p es = do
+  let mapEls   = Map.elems es
+      postVals = catMaybes $ map crudPost mapEls
+      putVals  = catMaybes $ map crudPut  mapEls
+      delVals  = catMaybes $ map crudDelete mapEls
+
+      postEvent v = XhRequest "POST" ("/api/" <> resourceName p)
+                      def {_xhrRequestConfig_sendData =
+                        Just (BL.unpack $ A.encode v)})
+      forM (map postEvent postVals) (\)
 -----------------------------------------------------------------------------
 crudEvents :: (MonadWidget t m, A.ToJSON v, Crud v)
            => Proxy v
@@ -117,6 +132,21 @@ data CrudRowCmds v = CrudRowCmds {
 --                     (postEvent a `mappend` postEvent b)
 --                     (putEvent  a `mappend` putEvent  b)
 --
+
+
+-- This is a start on at attempt to use virtualListWithSelection
+-- data RowView v = RowViewDeleted
+--                | RowViewCreate
+--                | RowViewShow v
+--                | RowViewEdit v
+--   deriving (Eq, Show)
+--
+-- data CrudRow t v = CrudRow {
+--     crView :: RowView v
+--   , crPost :: Event t v
+--   , crPut  :: Event t v
+--   , crDel  :: Event t ()
+-- }
 
 crudRowWidget :: (MonadWidget t m, Crud v)
               => Int64
