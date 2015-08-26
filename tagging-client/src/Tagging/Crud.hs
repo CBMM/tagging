@@ -55,7 +55,7 @@ class (A.FromJSON v, A.ToJSON v) => Crud v where
 crudTableWidget :: forall t m v.(MonadWidget t m, Crud v)
   => Proxy v
   -> Dynamic t (v -> Bool)
-  -> m (Event t (Map Int64 (CrudRowCmds v)))
+  -> m (Event t ())
 crudTableWidget p dynValidate = mdo
   updateEvents <- crudEvents p tableEvents
   vMap <- holdDyn mempty =<< getAllEntities p (() <$ updateEvents)
@@ -64,90 +64,10 @@ crudTableWidget p dynValidate = mdo
     existingRowsEvents <- listViewWithKey vMap crudRowWidget
     --return (newRowEvents <> existingRowEvents)
     return existingRowsEvents
-  let b = tableEvents :: Event t (Map Int64 (CrudRowCmds v))
   return tableEvents
 
 
-crudTableEvents :: (MonadWidget t m, A.ToJSON v, Crud v)
-                => Proxy v
-                -> Event t (Map Int64 (CrudRowCmds v))
-                -> m (Event t (CrudRowCmds v))
-crudTableEvents p es = do
-  let mapEls   = Map.elems es
-      postVals = catMaybes $ map crudPost mapEls
-      putVals  = catMaybes $ map crudPut  mapEls
-      delVals  = catMaybes $ map crudDelete mapEls
-
-      postEvent v = XhRequest "POST" ("/api/" <> resourceName p)
-                      def {_xhrRequestConfig_sendData =
-                        Just (BL.unpack $ A.encode v)})
-      forM (map postEvent postVals) (\)
 -----------------------------------------------------------------------------
-crudEvents :: (MonadWidget t m, A.ToJSON v, Crud v)
-           => Proxy v
-           -- -> CrudRowEvents t m v
-           -> Event t (CrudRowCmds v)
-           -> m (Event t (CrudRowCmds v))
-           -- -> m (Event t (Map Int64 v -> Map Int64 v)) -- this is harder!
-           --   Think I need Doug's library to associate requests with
-           --   responses
-crudEvents p es = do
-  let postRequests = fforMaybe es (\cmd -> case crudPost cmd of
-                                                Nothing -> Nothing
-                                                Just v  -> Just $ XhrRequest "POST" ("/api/" <> resourceName p) def {_xhrRequestConfig_sendData = Just (BL.unpack $ A.encode v)})
-
-
-  postResps <- performRequestAsync postRequests
-  --   Just (k,v) -> performRequestAsync $
-  --                   XhrRequest "PUT" ("/api/" <> resourceName p <> "/" <> show k)
-  --                   def {_xhrRequestConfig_sendData = Just (BL.unpack $ A.encode v)}
-  -- delResps  <- case crudDel c of
-  --   Nothing -> never
-  --   Just k  -> performRequestAsync $
-  --                XhrRequest "DELETE" ("/api" <> resourceName p <> "/" show k)
-  --                def
-
-  return es
-  --return $ leftmost [(() <$ postResps)
-  --                  ,(() <$ putResps)
-  --                  ,(() <$ delResps)
-
-data CrudRowCmds v = CrudRowCmds {
-    crudDel  :: Maybe Int64
-  , crudPost :: Maybe v
-  , crudPut  :: Maybe (Int64, v)
-  }
---
--- data CrudRowEvents t (m :: * -> *) v =
---   CrudRowEvents { delEvent  :: Event t Int64
---                 , postEvent :: Event t v
---                 , putEvent  :: Event t (Int64,v)
--- }
---
---
--- instance Monoid (CrudRowEvents t m v) where
---   mempty        = CrudRowEvents mempty mempty mempty
---   a `mappend` b = CrudRowEvents
---                     (delEvent  a `mappend` delEvent  b)
---                     (postEvent a `mappend` postEvent b)
---                     (putEvent  a `mappend` putEvent  b)
---
-
-
--- This is a start on at attempt to use virtualListWithSelection
--- data RowView v = RowViewDeleted
---                | RowViewCreate
---                | RowViewShow v
---                | RowViewEdit v
---   deriving (Eq, Show)
---
--- data CrudRow t v = CrudRow {
---     crView :: RowView v
---   , crPost :: Event t v
---   , crPut  :: Event t v
---   , crDel  :: Event t ()
--- }
-
 crudRowWidget :: (MonadWidget t m, Crud v)
               => Int64
               -> Dynamic t v
