@@ -91,16 +91,16 @@ handleTaggingClient = do
   case taskName of
     Nothing -> writeBS "hello"
     Just tn ->
-      let jsFile = T.decodeUtf8 $ "/media/js/" <> tn <> ".jsexe/all.js"
+      let jsFile = T.decodeUtf8 $ "/media/js/" <> tn <> ".jsexe"
       --in  writeText jsFile
-      in  I.renderWithSplices "_taggingclient" ("jsfile" ## I.textSplice jsFile)
+      in  I.renderWithSplices "_taggingclient" ("jsdir" ## I.textSplice jsFile)
 
 adminPanel :: AppHandler ()
 adminPanel = do
   assertRole [Admin, Researcher]
   I.renderWithSplices
     "_adminpanel"
-    ("jsfile" ## I.textSplice "/media/js/AdminPanel.jsexe/all.js")
+    ("jsdir" ## I.textSplice "/media/js/AdminPanel.jsexe")
 
 ------------------------------------------------------------------------------
 -- | The application initializer.

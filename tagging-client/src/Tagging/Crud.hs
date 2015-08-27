@@ -5,6 +5,7 @@
 {-# LANGUAGE QuasiQuotes   #-}
 {-# LANGUAGE KindSignatures   #-}
 {-# LANGUAGE TypeFamilies   #-}
+{-# LANGUAGE LambdaCase   #-}
 
 
 module Tagging.Crud where
@@ -32,7 +33,7 @@ class (A.FromJSON v, A.ToJSON v) => Crud v where
 
   resourceName :: Proxy v -> String
 
-  inputWidget :: MonadWidget t m => Proxy v -> m (Dynamic t v) -- TODO: Proxy is needed?
+  resourceWidget :: MonadWidget t m => v -> Dynamic t Bool -> m (Dynamic t v)
 
   getEntity :: MonadWidget t m => Proxy v -> Event t Int64 -> m (Event t (Maybe v))
   getEntity p ks = getAndDecode (fmap toApi ks)
@@ -57,34 +58,42 @@ crudTableWidget :: forall t m v.(MonadWidget t m, Crud v)
   -> Dynamic t (v -> Bool)
   -> m (Event t ())
 crudTableWidget p dynValidate = mdo
-  updateEvents <- crudEvents p tableEvents
+  let updateEvents = tableEvents
   vMap <- holdDyn mempty =<< getAllEntities p (() <$ updateEvents)
   tableEvents <- elClass "table" "crud-table" $ do
     --newRowEvents      <- newRowWidget p
     existingRowsEvents <- listViewWithKey vMap crudRowWidget
     --return (newRowEvents <> existingRowEvents)
     return existingRowsEvents
-  return tableEvents
+  return $ () <$ tableEvents
 
 
 -----------------------------------------------------------------------------
 crudRowWidget :: (MonadWidget t m, Crud v)
               => Int64
               -> Dynamic t v
-              -> m (Event t (CrudRowCmds v))
+              -> m (Event t ())
 crudRowWidget k dynVal = do
+  el "td" $ text (show k)
+
   text "RowWidget" >> return (never)
 
 
 instance Crud StimulusResource where
   resourceName _ = "StimulusResource"
-  inputWidget  _ = do
-    text "F1:"
-    f1 <- _textInput_value <$> textInput def
-    text "F2:"
-    f2 <- _textInput_value <$> textInput def
-    text "F3:"
-    f3 <- _textInput_value <$> textInput def
+  resourceWidget v0 b = do
+    attrs <- forDyn b $ \case
+                          True  -> s "disabled" =: s "false"
+                          False -> s "disabled" =: s "true"
+    text "Name:"
+    f1 <- _textInput_value <$> textInput
+           def { _textInputConfig_initialValue = T.unpack (srName v0)}
+    text "Url Suffix:"
+    f2 <- _textInput_value <$> textInput
+           def {_textInputConfig_initialValue = T.unpack (srUrlSuffix v0)}
+    text "MIME Type:"
+    f3 <- _textInput_value <$> textInput
+           def { _textInputConfig_initialValue = T.unpack (srMimeType v0)}
     $( qDyn [| StimulusResource
                         (T.pack $(unqDyn [|f1|]))
                         (T.pack $(unqDyn [|f2|]))
@@ -93,4 +102,7 @@ instance Crud StimulusResource where
 
 instance Crud TaggingUser where
   resourceName _ = "TaggingUser"
-  inputWidget  _ = undefined
+  resourceWidget  _ = undefined
+
+s :: String -> String
+s = id
