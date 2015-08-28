@@ -10,6 +10,8 @@
 
 module Tagging.Crud where
 
+import           Data.Bool
+import           Data.Char (toLower)
 import           Data.Functor
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -41,7 +43,7 @@ class (A.FromJSON v, A.ToJSON v) => Crud v where
 
   getAllEntities :: MonadWidget t m => Proxy v -> Event t () -> m (Event t (Map Int64 v))
   getAllEntities p triggers = do
-    mJson <- getAndDecode (triggers $> "api/" <> resourceName p)
+    mJson <- getAndDecode (triggers $> "api/" <> map toLower (resourceName p))
     return $ (Map.fromList . toList) <$> mJson
 
   postEntity :: MonadWidget t m => Event t v ->  m (Event t Int64)
@@ -58,8 +60,10 @@ crudTableWidget :: forall t m v.(MonadWidget t m, Crud v)
   -> Dynamic t (v -> Bool)
   -> m (Event t ())
 crudTableWidget p dynValidate = mdo
-  let updateEvents = tableEvents
-  vMap <- holdDyn mempty =<< getAllEntities p (() <$ updateEvents)
+  pl <- getPostBuild
+  let updateEvents = leftmost [pl, () <$ tableEvents]
+  --let updateEvents = () <$ tableEvents
+  vMap <- holdDyn mempty =<< getAllEntities p updateEvents
   tableEvents <- elClass "table" "crud-table" $ do
     --newRowEvents      <- newRowWidget p
     existingRowsEvents <- listViewWithKey vMap crudRowWidget
@@ -82,9 +86,7 @@ crudRowWidget k dynVal = do
 instance Crud StimulusResource where
   resourceName _ = "StimulusResource"
   resourceWidget v0 b = do
-    attrs <- forDyn b $ \case
-                          True  -> s "disabled" =: s "false"
-                          False -> s "disabled" =: s "true"
+    attrs <- forDyn b $ \t -> s "disabled" =: s (bool "false" "true" t)
     text "Name:"
     f1 <- _textInput_value <$> textInput
            def { _textInputConfig_initialValue = T.unpack (srName v0)}
