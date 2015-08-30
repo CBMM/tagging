@@ -119,8 +119,9 @@ getEntity k = maybe (err300 "Bad lookup") return =<< gh (get k)
 ------------------------------------------------------------------------------
 getAllEntities :: (PersistEntity a, PrimitivePersistField (Key a BackendSpecific))
                => Proxy a
-               -> Handler App App [a]
-getAllEntities p = (fmap . fmap) snd $ gh $ selectAll
+               -> Handler App App [(AutoKey a, a)]
+--getAllEntities p = (fmap . fmap) snd $ gh $ selectAll
+getAllEntities p = gh $ selectAll
 
 ------------------------------------------------------------------------------
 postEntity :: forall a.(PersistEntity a, Crud a) => a -> Handler App App (Key a BackendSpecific)
@@ -159,7 +160,7 @@ type CrudAPI a = GetAPI a :<|> GetsAPI a
                  :<|> PostAPI a :<|> PutAPI a :<|> DeleteAPI a
 
 type GetAPI a  = Capture "id" Int64 :> Get '[JSON] a
-type GetsAPI a = Get '[JSON] [a]
+type GetsAPI a = Get '[JSON] [(Int64, a)]
 type PostAPI a = ReqBody '[JSON] a :> Post '[JSON] Int64
 type PutAPI  a = Capture "id" Int64 :> ReqBody '[JSON] a :> Put '[JSON] ()
 type DeleteAPI a = Capture "id" Int64 :> Delete '[JSON] Bool
@@ -169,7 +170,9 @@ getServer :: Crud v => Proxy v -> Server (GetAPI v) AppHandler
 getServer p k = lift $ crudGet (intToKey p k)
 
 getsServer :: Crud v => Proxy v -> Server (GetsAPI v) AppHandler
-getsServer p = lift $ getAllEntities p
+getsServer p = lift $ do
+  entPairs <- getAllEntities p
+  return $ map (\(k,v) -> (autoToInt p k, v)) entPairs
 
 postServer :: forall v.Crud v => Proxy v -> Server (PostAPI v) AppHandler
 postServer p v = lift $ do

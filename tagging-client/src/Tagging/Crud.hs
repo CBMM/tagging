@@ -17,11 +17,13 @@ import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.ByteString.Char8 as BS
 import           Data.Foldable
+import qualified Data.IntMap as I
 import           Data.Map (Map(..))
 import qualified Data.Map as Map
 import Data.Monoid
 import Data.Proxy
 import qualified Data.Text as T
+import Data.Traversable
 import GHC.Int
 import Reflex.Dom
 import Reflex.Dom.Xhr
@@ -35,16 +37,17 @@ class (A.FromJSON v, A.ToJSON v) => Crud v where
 
   resourceName :: Proxy v -> String
 
-  resourceWidget :: MonadWidget t m => v -> Dynamic t Bool -> m (Dynamic t v)
+  resourceWidget :: MonadWidget t m => v -> Bool -> m (Dynamic t v)
 
   getEntity :: MonadWidget t m => Proxy v -> Event t Int64 -> m (Event t (Maybe v))
   getEntity p ks = getAndDecode (fmap toApi ks)
       where toApi k = ("api/" <> resourceName p <> "/" <> show k)
 
-  getAllEntities :: MonadWidget t m => Proxy v -> Event t () -> m (Event t (Map Int64 v))
+  getAllEntities :: MonadWidget t m => Proxy v -> Event t () -> m (Event t (I.IntMap v))
   getAllEntities p triggers = do
     mJson <- getAndDecode (triggers $> "api/" <> map toLower (resourceName p))
-    return $ (Map.fromList . toList) <$> mJson
+    --return $ (Map.fromList . toList) <$> mJson
+    return $ fforMaybe mJson id
 
   postEntity :: MonadWidget t m => Event t v ->  m (Event t Int64)
 
@@ -65,36 +68,60 @@ crudTableWidget p dynValidate = mdo
   --let updateEvents = () <$ tableEvents
   vMap <- holdDyn mempty =<< getAllEntities p updateEvents
   tableEvents <- elClass "table" "crud-table" $ do
+    dynText =<< mapDyn (show . length) vMap
+    --forDyn vMap (\vs -> text (show $ length vs))
+    return never
     --newRowEvents      <- newRowWidget p
-    existingRowsEvents <- listViewWithKey vMap crudRowWidget
+
+    --existingRowsEvents <- listViewWithKey vMap crudRowWidget
+    -- existingRowEvents <- forDyn vMap $ \vs -> do
+    --                        let rs <- map crudRowWidget' (Map.toList vs)  :: m [Event t ()]
+    --                        return rs
+    --existingRowsEvents <- forDyn vMap $ (\vs -> crudRowWidget' (head $ Map.toList vs))
+    --return $ updated existingRowsEvents
+    --vList <- mapDyn Map.toList vMap :: MonadWidget t m => Dynamic t [(Int64,v)]
+    --vRows <- mapDyn (mapM crudRowWidget) vList
+
+    --let existingRowsEvents = leftmost vRows
+    --existingRowsEvents <- updated <$> mapDyn (mapM crudRowWidget . Map.toList) vMap
     --return (newRowEvents <> existingRowEvents)
-    return existingRowsEvents
+    --return existingRowsEvents
   return $ () <$ tableEvents
 
 
 -----------------------------------------------------------------------------
-crudRowWidget :: (MonadWidget t m, Crud v)
-              => Int64
-              -> Dynamic t v
-              -> m (Event t ())
-crudRowWidget k dynVal = do
-  el "td" $ text (show k)
+-- crudRowWidget :: (MonadWidget t m, Crud v)
+--               => Int64
+--               -> Dynamic t v
+--               -> m (Event t ())
+-- crudRowWidget k v = do
+--   el "tr" $ do
+--     text (show k)
+--     dynVal <- resourceWidget v False
+--     return $ () <$ updated dynVal
 
-  text "RowWidget" >> return (never)
 
+crudRowWidget' :: (MonadWidget t m, Crud v)
+               => (Int64, v)
+               -> m (Event t ())
+crudRowWidget' (k, v) = do
+  el "tr" $ do
+    text (show k)
+    dynVal <- resourceWidget v False
+    return $ () <$ updated dynVal
 
 instance Crud StimulusResource where
   resourceName _ = "StimulusResource"
   resourceWidget v0 b = do
-    attrs <- forDyn b $ \t -> s "disabled" =: s (bool "false" "true" t)
-    text "Name:"
-    f1 <- _textInput_value <$> textInput
+    let attrs = s "disabled" =: s (bool "false" "true" b)
+    f1 <- el "td" $
+          _textInput_value <$> textInput
            def { _textInputConfig_initialValue = T.unpack (srName v0)}
-    text "Url Suffix:"
-    f2 <- _textInput_value <$> textInput
+    f2 <- el "td" $
+          _textInput_value <$> textInput
            def {_textInputConfig_initialValue = T.unpack (srUrlSuffix v0)}
-    text "MIME Type:"
-    f3 <- _textInput_value <$> textInput
+    f3 <- el "td" $
+          _textInput_value <$> textInput
            def { _textInputConfig_initialValue = T.unpack (srMimeType v0)}
     $( qDyn [| StimulusResource
                         (T.pack $(unqDyn [|f1|]))

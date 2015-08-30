@@ -39,6 +39,9 @@ instance ToSample TaggingUser TaggingUser where
 instance ToSample [TaggingUser] [TaggingUser] where
   toSample _ = Just [sampleTaggingUser]
 
+instance ToSample [(Int64,TaggingUser)] [(Int64,TaggingUser)] where
+  toSample _ = Just [(1,sampleTaggingUser)]
+
 
 sampleTaggingUser = TaggingUser 1 (Just "922763745") (Just "Greg Hale")
                     Nothing [Admin, Researcher, Subject]
@@ -49,6 +52,9 @@ instance ToSample StimSeqItem StimSeqItem where
 
 instance ToSample [StimSeqItem] [StimSeqItem] where
   toSample _ = Just [sampleStimSeqItem]
+
+instance ToSample [(Int64,StimSeqItem)] [(Int64,StimSeqItem)] where
+  toSample _ = Just [(1,sampleStimSeqItem)]
 
 sampleStimSeqItem =
   StimSeqItem ((1))
@@ -61,6 +67,9 @@ instance ToSample StimulusSequence StimulusSequence where
 instance ToSample [StimulusSequence] [StimulusSequence] where
   toSample _ = Just [sampleSequence]
 
+instance ToSample [(Int64,StimulusSequence)] [(Int64,StimulusSequence)] where
+  toSample _ = Just [(1,sampleSequence)]
+
 sampleSequence =
   StimulusSequence "SimplePictures" (Just ((1))) "Three pictures of shapes" "http://web.mit.edu/greghale/Public/shapes"
 
@@ -70,6 +79,9 @@ instance ToSample StimulusResource StimulusResource where
 instance ToSample [StimulusResource] [StimulusResource] where
   toSample _ = Just [sampleResource]
 
+instance ToSample [(Int64, StimulusResource)] [(Int64, StimulusResource)] where
+  toSample _ = Just [(0,sampleResource)]
+
 sampleResource = StimulusResource "a" "a.jpg" "image/jpeg"
 
 instance ToSample StimulusResponse StimulusResponse where
@@ -78,6 +90,8 @@ instance ToSample StimulusResponse StimulusResponse where
 instance ToSample [StimulusResponse] [StimulusResponse] where
   toSample _ = Just [sampleResponse]
 
+instance ToSample [(Int64, StimulusResponse)] [(Int64, StimulusResponse)] where
+  toSample _ = Just [(0,sampleResponse)]
 
 sampleResponse =
   StimulusResponse
@@ -126,5 +140,3 @@ instance ToParam (QueryParam "studentid" T.Text) where
 
 instance HasDocs (Raw a b) where
   docsFor _ _ = mempty
-
-
