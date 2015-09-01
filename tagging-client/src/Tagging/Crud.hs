@@ -103,73 +103,80 @@ crudRowWidget :: forall t m v.(MonadWidget t m, Crud v)
 crudRowWidget k dynVal = do
   el "tr" $ mdo
     text (show k)
-    -- dynEditing <- holdDyn False (leftmost [ True  <$ editButton
-    --                                       , False <$ saveClicks
-    --                                       ])
-    editSaveToggle <- widgetHold showWidget [ editWidget <$ editButton
-                                            , showWidget <$ saveButton
-                                            ]
-    dynDynM <- combineDyn resourceWidget dynVal dynEditing :: MonadWidget t m => m (Dynamic t (Dynamic t (m v)))
-    let dynM = joinDyn dynDynM
-    --dynM <- outputWidget dynVal
-    --evts <- dyn dynM
 
-    --saveAttrs <- forDyn dynEditing $ \b -> s "style" =: s ("display:" <> bool "none" "normal" b)
-    --editAttrs <- forDyn dynEditing $ \b -> s "style" =: s ("display:" <> bool "normal" "none" b)
+    --editSaveToggle <- widgetHold showWidget [ editWidget <$ editButton
+    --                                        , showWidget <$ saveButton
+    --                                        ]
+    pb <- getPostBuild
+    let vPostBuild = tagDyn dynVal pb
 
-    --saveClicks <- elDynAttr "div" saveAttrs $ button "S"
-    saveButton <- button "Save"
-    let saveClicks = saveButton
-    --saveButton <- fmap fst $ elDynAttr' "button" saveAttrs $ text "Save"
-    --let saveClicks = (domEvent Click saveButton)
+    dynEditing   <- holdDyn False $ leftmost [False <$ saveClicks,  True <$ editButton]
+
+    dynM <- undefined
+--    dynM <- dyn
+
+    -- widgetHold (resourceWidget vPostBuild False) $ leftmost
+    --          [resourceWidget vPostBuild False <$ saveClicks
+    --          ,resourceWidget vPostBuild True  <$ editButton]
+
+    saveAttrs <- forDyn dynEditing $ \b -> s "style" =: s ("display:" <> bool "none" "normal" b)
+    editAttrs <- forDyn dynEditing $ \b -> s "style" =: s ("display:" <> bool "normal" "none" b)
+
+    saveButton <- fmap fst $ elDynAttr' "button" saveAttrs $ text "Save"
+    let saveClicks = (domEvent Click saveButton)
     let vAtClick = tagDyn dynM saveClicks
         fAtClick = fmap (\v m -> Map.insert k v m) vAtClick
-    --saveButton <- dyn =<< forDyn dynEditing (bool (return never) (button "S"))
-    -- saveButton <- dyn =<< forDyn dynEditing $ \case
-    --   False -> return never
-    --   True  -> button "S"
+
     editButton <- fmap (domEvent Click . fst) $ elDynAttr' "button" editAttrs $ text "Edit"
     delButton  <- el "td" $ button "Delete"
     return $ leftmost [(Map.delete k) <$ delButton
                       --,fAtClick
                       ]
 
+editingWidget :: (MonadWidget t m, Crud v)
+              => Int64
+              -> v
+              -> m (Event t (Map Int64 v -> Map Int64 v))
+editingWidget k v0 = do
+  dynV <- resourceWidget v0 True
+  cancelClick <- el "tr" $ button "Cancel"
+  saveClick   <- el "tr" $ button "Save"
+  let vAtClick = tagDyn dynV saveClick -- :: Event t v
+  let saveFun = fmap (\v' -> Map.insert k v') vAtClick
+  return $ leftmost [ id <$ cancelClick
+                    , saveFun
+                    ]
 
-crudRowWidget' :: (MonadWidget t m, Crud v)
-               => (Int64, v)
-               -> m (Event t (Map.Map Int64 v -> Map.Map Int64 v))
-crudRowWidget' (k, v) = do
-  el "tr" $ do
-    text (show k)
-    dynVal <- resourceWidget v False
-    return $ (Map.delete k) <$ updated dynVal
 
 -----------------------------------------------------------------------------
 instance Crud StimulusResource where
   resourceName _ = "StimulusResource"
   resourceWidget v0 b = do
     let attrs = if b then mempty else (s "disabled" =: s "true")
-    f1 <- el "td" $
+    f1 <- el "td" $ do
           _textInput_value <$> textInput
-           def { _textInputConfig_initialValue = T.unpack (srName v0)
-               , _textInputConfig_attributes   = constDyn attrs}
-    f2 <- el "td" $
+            --(def { _textInputConfig_setValue = fmap (T.unpack . srName) v0 })
+            (def { _textInputConfig_initialValue = T.unpack . srName $ v0})
+          --  def { _textInputConfig_setValue = fmap (T.unpack . srName) v0
+          --      , _textInputConfig_attributes   = constDyn attrs}
+    f2 <- el "td" $ do
           _textInput_value <$> textInput
-           def {_textInputConfig_initialValue = T.unpack (srUrlSuffix v0)
-               , _textInputConfig_attributes  = constDyn attrs}
-    f3 <- el "td" $
+            def -- {_textInputConfig_setValue = fmap (T.unpack . srUrlSuffix) v0}
+          --      , _textInputConfig_attributes  = constDyn attrs}
+    f3 <- el "td" $ do
           _textInput_value <$> textInput
-           def { _textInputConfig_initialValue = T.unpack (srMimeType v0)
-               , _textInputConfig_attributes   = constDyn attrs}
+            def -- { _textInputConfig_setValue = fmap (T.unpack . srMimeType) v0}
+          --      , _textInputConfig_attributes   = constDyn attrs}
     $( qDyn [| StimulusResource
                         (T.pack $(unqDyn [|f1|]))
                         (T.pack $(unqDyn [|f2|]))
                         (T.pack $(unqDyn [|f3|])) |] )
-  inputWidget = flip resourceWidget False
-  outputWidget dynVal = do
-    el "td" =<< forDyn dynVal (T.unpack . srName)
-    el "td" =<< forDyn dynVal (T.unpack . srUrlSuffix)
-    el "td" =<< forDyn dynVal (T.unpack . srMimeType)
+  -- inputWidget = flip resourceWidget False
+  -- outputWidget dynVal = do
+  --   el "td" $ forDyn dynVal (T.unpack . srName)
+  --   el "td" $ forDyn dynVal (T.unpack . srUrlSuffix)
+  --   el "td" $ forDyn dynVal (T.unpack . srMimeType)
+  --   return ()
 
 
 instance Crud TaggingUser where
