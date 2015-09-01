@@ -6,6 +6,7 @@
 {-# LANGUAGE KindSignatures   #-}
 {-# LANGUAGE TypeFamilies   #-}
 {-# LANGUAGE LambdaCase   #-}
+{-# LANGUAGE TupleSections   #-}
 
 
 module Tagging.Crud where
@@ -62,6 +63,11 @@ class (A.FromJSON v, A.ToJSON v) => Crud v where
     fmap (() <$) $ performRequestAsync req
 
   deleteEntity :: MonadWidget t m => Proxy v -> Event t Int64 -> m (Event t ())
+  deleteEntity p delEvent =
+    let req = ffor delEvent $ \k ->
+                XhrRequest "DELETE"
+                ("api/" <> resourceName p <> "/" <> show k) def
+    in  fmap (() <$) $ performRequestAsync req
 
 
 
@@ -76,23 +82,21 @@ crudTableWidget p dynValidate = mdo
   vMapServer <- (fmap . fmap) const $ getAllEntities p xhrGetEvents
   vMap <- foldDyn ($) mempty (tableEvents <> vMapServer)
   tableEvents <- elClass "table" "crud-table" $ do
---   eventsMap <- listViewWithKey (raceDyn "vMap: " vMap) crudRowWidget
-    eventsMap <- listViewWithKey vMap crudRowWidget
+    eventsMap <- listViewWithKey vMap (crudRowWidget p)
     return $ fmap (flip (foldr ($)) . Map.elems) eventsMap
   return $ () <$ tableEvents
 
 
 ---------------------------------------------------------------------------
 crudRowWidget :: forall t m v.(MonadWidget t m, Crud v)
-              => Int64
+              => Proxy v
+              -> Int64
               -> Dynamic t v
               -> m (Event t (Map.Map Int64 v -> Map.Map Int64 v))
-crudRowWidget k dynVal = do
+crudRowWidget p k dynVal = do
   el "tr" $ mdo
     text (show k)
-    pb <- getPostBuild
-    let v0 = tagDyn dynM pb
-    vH <- headE v0
+
     dynEditing   <- holdDyn False $ leftmost [False <$ saveClicks,  True <$ editButton]
 
     dynM <- resourceWidget dynVal dynEditing
@@ -103,7 +107,11 @@ crudRowWidget k dynVal = do
       s "style" =: s ("display:" <> bool "normal" "none" b)
 
     saveButton <- fmap fst $ elDynAttr' "button" saveAttrs $ text "Save"
-    let saveClicks = (domEvent Click saveButton)
+
+    _ <- putEntity p (fmap (k,) (tag (current dynM) saveClicks))
+    _ <- deleteEntity p (k <$ delButton)
+
+    let saveClicks = domEvent Click saveButton
     let vAtClick = tagDyn dynM saveClicks
         fAtClick = fmap (\v m -> Map.insert k v m) vAtClick
 
@@ -116,7 +124,7 @@ crudRowWidget k dynVal = do
 
 -----------------------------------------------------------------------------
 instance Crud StimulusResource where
-  resourceName _ = "StimulusResource"
+  resourceName _ = "stimulusresource"
   resourceWidget dynVal dynB = do
     pb <- getPostBuild
     let pbV = (tag (current dynVal) pb)
@@ -148,9 +156,23 @@ instance Crud StimulusResource where
                         (T.pack $(unqDyn [|f2|]))
                         (T.pack $(unqDyn [|f3|])) |] )
 
+crudPieceField :: MonadWidget t m
+               => Event t v
+               -> (v -> T.Text)
+               -> Dynamic t (Map.Map String String)
+               -> Dynamic t String
+crudPieceField pbV proj attrs = el "td" $ do
+  _textInput_value <$> textInput
+    (TextInputConfig { _textInputConfig_setValue =
+                                 fmap (\v -> T.unpack . proj $ v) pbV
+                     , _textInputConfig_attributes   = attrs
+                     , _textInputConfig_inputType    = "text"
+                     , _textInputConfig_initialValue = "empty"})
+
 instance Crud TaggingUser where
-  resourceName _ = "TaggingUser"
-  resourceWidget  _ = undefined
+  resourceName _ = "tagginguser"
+  resourceWidget dynVal dynB = undefined
+
 instance Eq StimulusResource where
   StimulusResource a b c == StimulusResource d e f =
     a == d && b == e && c ==f
