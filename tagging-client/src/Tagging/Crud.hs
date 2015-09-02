@@ -7,11 +7,12 @@
 {-# LANGUAGE TypeFamilies   #-}
 {-# LANGUAGE LambdaCase   #-}
 {-# LANGUAGE TupleSections   #-}
+{-# LANGUAGE StandaloneDeriving   #-}
 
 
 module Tagging.Crud where
 
-import           Data.Bool
+import           Control.Error
 import           Data.Char (toLower)
 import           Data.Functor
 import qualified Data.Aeson as A
@@ -38,7 +39,7 @@ class (A.FromJSON v, A.ToJSON v) => Crud v where
 
   resourceName :: Proxy v -> String
 
-  resourceWidget :: MonadWidget t m  => (Dynamic t v) -> (Dynamic t Bool) -> m (Dynamic t v)
+  resourceWidget :: MonadWidget t m  => (Dynamic t v) -> (Dynamic t Bool) -> m (Dynamic t (Maybe v))
   inputWidget :: MonadWidget t m => v -> m (Dynamic t v)
   outputWidget :: MonadWidget t m => Dynamic t v ->  m ()
 
@@ -108,11 +109,11 @@ crudRowWidget p k dynVal = do
 
     saveButton <- fmap fst $ elDynAttr' "button" saveAttrs $ text "Save"
 
-    _ <- putEntity p (fmap (k,) (tag (current dynM) saveClicks))
+    _ <- putEntity p (fmap (k,) (fmapMaybe id (tag (current dynM) saveClicks)))
     _ <- deleteEntity p (k <$ delButton)
 
     let saveClicks = domEvent Click saveButton
-    let vAtClick = tagDyn dynM saveClicks
+    let vAtClick = fmapMaybe id $ tagDyn dynM saveClicks
         fAtClick = fmap (\v m -> Map.insert k v m) vAtClick
 
     editButton <- fmap (domEvent Click . fst) $ elDynAttr' "button" editAttrs $ text "Edit"
@@ -130,52 +131,55 @@ instance Crud StimulusResource where
     let pbV = (tag (current dynVal) pb)
     attrs <- forDyn dynB $ \b ->
                 if b then mempty else (s "disabled" =: s "disabled")
-    f1 <- el "td" $ do
-          _textInput_value <$> textInput
-            (TextInputConfig { _textInputConfig_setValue =
-                                 fmap (\v -> T.unpack . srName $ v) pbV
-                             , _textInputConfig_attributes   = attrs
-                             , _textInputConfig_inputType = "text"
-                             , _textInputConfig_initialValue = "empty"})
-    f2 <- el "td" $ do
-          _textInput_value <$> textInput
-            (TextInputConfig { _textInputConfig_setValue =
-                                 fmap (\v -> T.unpack . srUrlSuffix $ v) pbV
-                             , _textInputConfig_attributes   = attrs
-                             , _textInputConfig_inputType = "text"
-                             , _textInputConfig_initialValue = "empty"})
-    f3 <- el "td" $ do
-          _textInput_value <$> textInput
-            (TextInputConfig { _textInputConfig_setValue =
-                                 fmap (\v -> T.unpack . srMimeType $ v) pbV
-                             , _textInputConfig_attributes   = attrs
-                             , _textInputConfig_inputType = "text"
-                             , _textInputConfig_initialValue = "empty"})
-    $( qDyn [| StimulusResource
+    f1 <- crudPieceField pbV (T.unpack . srName) attrs
+    f2 <- crudPieceField pbV (T.unpack . srUrlSuffix) attrs
+    f3 <- crudPieceField pbV (T.unpack . srMimeType) attrs
+    $( qDyn [| Just $ StimulusResource
                         (T.pack $(unqDyn [|f1|]))
                         (T.pack $(unqDyn [|f2|]))
                         (T.pack $(unqDyn [|f3|])) |] )
 
+instance Crud TaggingUser where
+  resourceName _ = "tagginguser"
+  resourceWidget dynVal dynB = do
+    pb <- getPostBuild
+    let pbV = tag (current dynVal) pb
+    attrs <- forDyn dynB $ \b ->
+      if b then mempty else (s "disabled" =: s "disabled")
+    f1 <- crudPieceField pbV (show . tuId) attrs
+    f2 <- crudPieceField pbV (maybe "" T.unpack . tuStudentID) attrs
+    f3 <- crudPieceField pbV (maybe "" T.unpack . tuRealName) attrs
+    f4 <- crudPieceField pbV (maybe "" show . tuCurrentStimulus) attrs
+    f5 <- crudPieceField pbV (show . tuRoles) attrs
+    $(qDyn [| TaggingUser
+              <$> readMay $(unqDyn [|f1|])
+              <*> pure (let f2' = $(unqDyn [|f2|])
+                        in  if null f2' then Nothing else Just (T.pack f2'))
+              <*> pure (let f3' = $(unqDyn [|f3|])
+                        in  if null f3' then Nothing else Just (T.pack f3'))
+              <*> pure (readMay $(unqDyn [|f4|]))
+              <*> readMay $(unqDyn [|f5|])
+            |])
+
 crudPieceField :: MonadWidget t m
                => Event t v
-               -> (v -> T.Text)
+               -> (v -> String)
                -> Dynamic t (Map.Map String String)
-               -> Dynamic t String
+               -> m (Dynamic t String)
 crudPieceField pbV proj attrs = el "td" $ do
   _textInput_value <$> textInput
     (TextInputConfig { _textInputConfig_setValue =
-                                 fmap (\v -> T.unpack . proj $ v) pbV
+                                 fmap (\v -> proj $ v) pbV
                      , _textInputConfig_attributes   = attrs
                      , _textInputConfig_inputType    = "text"
                      , _textInputConfig_initialValue = "empty"})
 
-instance Crud TaggingUser where
-  resourceName _ = "tagginguser"
-  resourceWidget dynVal dynB = undefined
 
 instance Eq StimulusResource where
   StimulusResource a b c == StimulusResource d e f =
     a == d && b == e && c ==f
+
+deriving instance Show TaggingUser
 
 s :: String -> String
 s = id
