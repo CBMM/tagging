@@ -43,20 +43,19 @@ class (PersistEntity v,
   autoToInt :: Proxy v -> AutoKey v -> Int64
 
 ------------------------------------------------------------------------------
-getCurrentTaggingUser :: MaybeT (Handler App App) TaggingUser
+getCurrentTaggingUser :: EitherT String (Handler App App) TaggingUser
 getCurrentTaggingUser = do
-  cu <- MaybeT $ with auth currentUser
+  cu <- noteT "No authUser" $ MaybeT $ with auth currentUser
   case readMay . T.unpack . unUid =<< userId cu of
-    Nothing         -> MaybeT $ return Nothing
+    Nothing         -> EitherT (return $ Left "Could not read userId")
     Just (i :: Int) ->
-      MaybeT $ fmap listToMaybe $ gh $
+      noteT "Zero matches in lookup" $ MaybeT $ fmap listToMaybe $ gh $
       select (TuIdField ==. (fromIntegral i :: Int64))
-              --(keyToInt (Proxy :: Proxy TaggingUser) (fromIntegral i)))
 
 
 ------------------------------------------------------------------------------
 assertRole :: [Role] -> Handler App App ()
-assertRole okRoles = void . runMaybeT $ do
+assertRole okRoles = eitherT Server.Utils.err300 return $ do
   TaggingUser{..} <- getCurrentTaggingUser
   when (null (okRoles `intersect` tuRoles)) (lift forbidden)
   return ()
@@ -106,10 +105,3 @@ err300 = finishEarly 300 . BS.pack
 --   intToKey _ i = StimulusResponseKey (PersistInt64 i)
 -- instance HasKey StimSeqItem where
 --   intToKey _ i = StimSeqItemKey (PersistInt64 i)
-
-
-
-
-
-
-

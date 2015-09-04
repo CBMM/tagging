@@ -29,6 +29,8 @@ library
                      , deepseq
                      , filepath
                      , monad-logger
+                     , servant
+                     , servant-docs
                      , text
                      , time
                      , transformers

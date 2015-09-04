@@ -7,6 +7,8 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Tagging.Stimulus where
 
@@ -16,6 +18,7 @@ import qualified Data.ByteString as BS
 import qualified Data.Text as T
 import GHC.Generics
 import GHC.Int
+import Servant.Docs
 
 -----------------------------------------------------------------------------
 -- | Experiments define a @Stimulus@, @Question@, and @Answer@,
@@ -76,3 +79,46 @@ instance A.FromJSON StimulusSequence where
 instance A.ToJSON   StimulusSequence where
 instance A.FromJSON StimSeqItem where
 instance A.ToJSON   StimSeqItem where
+
+
+-----------------------------------------------------------------------------
+-- Instances for servant-docs
+instance ToSample StimSeqItem StimSeqItem where
+  toSample _ = Just sampleStimSeqItem
+
+instance ToSample [StimSeqItem] [StimSeqItem] where
+  toSample _ = Just [sampleStimSeqItem]
+
+instance ToSample [(Int64,StimSeqItem)] [(Int64,StimSeqItem)] where
+  toSample _ = Just [(1,sampleStimSeqItem)]
+
+sampleStimSeqItem :: StimSeqItem
+sampleStimSeqItem =
+  StimSeqItem ((1))
+  ((1))
+  (Just $ ((3))) 1 "Preference"
+
+instance ToSample StimulusSequence StimulusSequence where
+  toSample _ = Just sampleSequence
+
+instance ToSample [StimulusSequence] [StimulusSequence] where
+  toSample _ = Just [sampleSequence]
+
+instance ToSample [(Int64,StimulusSequence)] [(Int64,StimulusSequence)] where
+  toSample _ = Just [(1,sampleSequence)]
+
+sampleSequence :: StimulusSequence
+sampleSequence =
+  StimulusSequence "SimplePictures" (Just ((1))) "Three pictures of shapes" "http://web.mit.edu/greghale/Public/shapes"
+
+instance ToSample StimulusResource StimulusResource where
+  toSample _ = Just sampleResource
+
+instance ToSample [StimulusResource] [StimulusResource] where
+  toSample _ = Just [sampleResource]
+
+instance ToSample [(Int64, StimulusResource)] [(Int64, StimulusResource)] where
+  toSample _ = Just [(0,sampleResource)]
+
+sampleResource :: StimulusResource
+sampleResource = StimulusResource "a" "a.jpg" "image/jpeg"

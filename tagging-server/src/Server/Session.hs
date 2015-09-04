@@ -13,6 +13,8 @@ import           Control.Monad (mzero)
 import           Control.Monad.Trans.Class (lift)
 import qualified Data.Aeson as A
 import           Data.Aeson ((.:), (.=), (.:?), (.!=))
+import qualified Data.Aeson.Types as A
+import           Data.Char
 import           Database.Groundhog.Postgresql
 import           GHC.Generics
 import           GHC.Int
@@ -32,6 +34,21 @@ import           Tagging.User
 import           Server.Application
 import           Server.Utils
 
+
+------------------------------------------------------------------------------
+type SessionAPI =
+       "login" :> ReqBody '[FormUrlEncoded, JSON] LoginInfo
+               :> Raw AppHandler (AppHandler ())
+
+  :<|> "currentuser" :> Get '[JSON] TaggingUser
+
+  :<|> "newuser" :> ReqBody '[FormUrlEncoded, JSON] RegisterInfo
+                 :> Post '[JSON] ()
+
+  :<|> "logout" :> Raw AppHandler (AppHandler ())
+
+
+
 data LoginInfo = LoginInfo {
     liUsername :: T.Text
   , liPassword :: T.Text
@@ -39,17 +56,22 @@ data LoginInfo = LoginInfo {
   } deriving (Eq, Show, Generic)
 
 instance A.ToJSON LoginInfo where
-  toJSON (LoginInfo u p r) =
-    A.object [("username" .= u)
-             ,("password" .= p)
-             ,("remember" .= r)]
+  toJSON = A.genericToJSON A.defaultOptions { A.fieldLabelModifier = drop 2 . map toLower }
 
 instance A.FromJSON LoginInfo where
-  parseJSON (A.Object v) = LoginInfo
-    <$> v .: "username"
-    <*> v .: "password"
-    <*> v .:? "remember" .!= True
-  parseJSON _ = mzero
+  parseJSON = A.genericParseJSON A.defaultOptions { A.fieldLabelModifier = drop 2 . map toLower}
+
+data RegisterInfo = RegisterInfo {
+    riUsername :: T.Text
+  , riPassword :: T.Text
+} deriving (Eq, Show, Generic)
+
+instance A.ToJSON RegisterInfo where
+  toJSON = A.genericToJSON A.defaultOptions { A.fieldLabelModifier = drop 2 . map toLower }
+
+instance A.FromJSON RegisterInfo where
+  parseJSON = A.genericParseJSON A.defaultOptions { A.fieldLabelModifier = drop 2 . map toLower}
+
 
 instance ToSample LoginInfo LoginInfo where
   toSample _ = Just (LoginInfo "greg" "myPassword" True)
@@ -85,7 +107,8 @@ handleLogout = logout >> redirect "/"
 --handleNewUser = method GET handleForm <|> method POST handleFormSubmit
 sessionServer :: Server SessionAPI AppHandler
 sessionServer = apiLogin
-                :<|> apiNewuser
+                :<|> apiCurrentUser
+                :<|> apiNewUser
                 :<|> lift (with auth handleLogout)
   where
 
@@ -96,26 +119,44 @@ sessionServer = apiLogin
                   (liRemember li)
       return ()
 
-    apiNewuser (Just uname) (Just pw) rem realNm stId =
-      lift $ maybeT (Server.Utils.err300 "New user error") return $ do
-        user <- hushT $ EitherT $ with auth $ createUser (uname) (T.encodeUtf8 pw)
+    apiNewUser RegisterInfo{..} = lift $ maybeT (Server.Utils.err300 "New user error") return $ do
+        user <- hushT $ EitherT $ with auth $ createUser (riUsername) (T.encodeUtf8 riPassword)
         uId   <- hoistMaybe (readMay . T.unpack =<< (unUid <$> userId user))
-        lift $ gh $ insert (TaggingUser ((uId :: Int64)) stId realNm Nothing [Subject])
+        nUser <- lift $ gh $ countAll (undefined :: TaggingUser)
+        lift $ gh $ do
+          n <- countAll (undefined :: TaggingUser)
+          let newRoles = if n == 0 then [Admin] else [Subject]
+          insert (TaggingUser ((uId :: Int64)) Nothing Nothing Nothing newRoles)
         return ()
-    apiNewuser Nothing _ _ _ _ = error "Username is required"
-    apiNewuser _ Nothing _ _ _ = error "password is required"
+    apiCurrentUser =
+      lift $ eitherT
+             (Server.Utils.err300 . ("apiCurrentUser error: " ++))
+             return
+             getCurrentTaggingUser
 
 
-------------------------------------------------------------------------------
-type SessionAPI = "login"   :> ReqBody '[JSON] LoginInfo
-                            :> Raw AppHandler (AppHandler ())
-             :<|> "newuser" :> QueryParam "username" T.Text
-                            :> QueryParam "password" T.Text
-                            :> QueryFlag  "remember"
-                            :> QueryParam "realname" T.Text
-                            :> QueryParam "studentid" T.Text
-                            :> Post '[JSON] ()
-             :<|> "logout"  :> Raw AppHandler (AppHandler ())
+instance ToFormUrlEncoded LoginInfo where
+  toFormUrlEncoded LoginInfo{..} = [("username",liUsername)
+                                   ,("password",liPassword)
+                                   ,("remember", T.pack (show liRemember))]
+
+instance FromFormUrlEncoded LoginInfo where
+  fromFormUrlEncoded fs =
+    LoginInfo
+    <$> note "LoginInfo missing username field" (lookup "username" fs)
+    <*> note "LoginInfo missing password field" (lookup "password" fs)
+    <*> pure (fromMaybe False (readMay . T.unpack =<< lookup "remember" fs))
+
+instance ToFormUrlEncoded RegisterInfo where
+  toFormUrlEncoded RegisterInfo{..} = [("username",riUsername)
+                                      ,("password",riPassword)]
+
+instance FromFormUrlEncoded RegisterInfo where
+  fromFormUrlEncoded fs =
+    RegisterInfo
+    <$> note "RegisterInfo missing username field" (lookup "username" fs)
+    <*> note "RegisterInfo missing password field" (lookup "password" fs)
 
 
-
+instance ToSample RegisterInfo RegisterInfo where
+  toSample _ = Just $ RegisterInfo "SampleUser" "SamplePassword"

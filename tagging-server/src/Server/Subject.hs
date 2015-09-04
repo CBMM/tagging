@@ -54,17 +54,6 @@ handleAssignRoleTo = void $ runMaybeT $ do
   upDown    <- hoistMaybe (readMay $ B8.unpack theUpDown)
   lift $ assignRoleTo userKey role upDown
 
--- ------------------------------------------------------------------------------
--- -- | Request the next stimulus in the user's assigned sequence
--- --   @Nothing@ return values indicates the sequence is finished,
--- --   Other sorts of errors are signaled with normal http response codes
--- handleRequestCurrentStimulus :: Handler App App (StimulusResponse)
--- handleRequestCurrentStimulus = eitherT Server.Utils.err300 return $ do
-
---   TaggingUser{..} <- noteT "TaggingUser retrieval error" getCurrentTaggingUser
---   StimSeqItem{..} <- noteT "Problem" $ (MaybeT . gh . get)
---                      =<< hoistMaybe tuCurrentStimulus
---   noteT "Bad stimulus lookup" $ MaybeT $ gh $ get ssiStimulus
 
 ------------------------------------------------------------------------------
 -- | Submit a response. Submission will update the user's current-stimulus
@@ -74,8 +63,7 @@ handleSubmitResponse :: StimulusResponse -> Handler App App ()
 handleSubmitResponse r@StimulusResponse{..} =
   eitherT Server.Utils.err300 (const $ return ()) $ do
 
-    loggedInUser           <- noteT "No logged in tagging user"
-                              getCurrentTaggingUser
+    loggedInUser           <- getCurrentTaggingUser
     stim                   <- noteT "Bad stim lookup from response"
                               $ MaybeT $ gh $ get (intToKey Proxy srStim)
     respUser               <- lift $ crudGet (intToKey Proxy srUser)
@@ -90,7 +78,7 @@ handleSubmitResponse r@StimulusResponse{..} =
 ------------------------------------------------------------------------------
 getCurrentStimulusResource :: Handler App App StimulusResource
 getCurrentStimulusResource = eitherT Server.Utils.err300 return $ do
-  loggedInUser <- noteT "No logged it tagging user" getCurrentTaggingUser
+  loggedInUser <- getCurrentTaggingUser
   itemKey      <- noteT "No sequence assigned"
                   (hoistMaybe $ tuCurrentStimulus loggedInUser)
   ssi          <- noteT "Bad seq lookup" $ MaybeT $ gh $ get (intToKey Proxy itemKey)

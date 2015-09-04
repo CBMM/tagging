@@ -68,6 +68,7 @@ apiApplication = serve apiProxy apiServer
 -- | The application's routes.
 routes :: [(ByteString, Handler App App ())]
 routes = [ ("login",    handleLoginSubmit)
+         , ("currentuser", with auth (currentUser >>= writeBS . BS.pack . show))
          --, ("logout",   handleLogout)
          --, ("new_user", handleNewUser)
          , ("all_users", getAllUsers >>= json)

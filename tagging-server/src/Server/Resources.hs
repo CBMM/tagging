@@ -88,7 +88,7 @@ resourceServer = crudServer Proxy :<|> crudServer Proxy :<|> crudServer Proxy
 -----------------------------------------------------------------------------
 getUserSequence :: EitherT String (Handler App App) [StimSeqItem]
 getUserSequence = do
-  TaggingUser{..}  <- noteT "TaggingUser lookup error" getCurrentTaggingUser
+  TaggingUser{..}  <- getCurrentTaggingUser
   seqElemKey       <- noteT "Usassigned" (hoistMaybe tuCurrentStimulus)
   StimSeqItem{..}  <- noteT "Bad StimSeqItem lookup"
                       . MaybeT . gh $ get (intToKey Proxy seqElemKey)

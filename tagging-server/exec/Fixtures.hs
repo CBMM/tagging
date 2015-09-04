@@ -24,7 +24,7 @@ main = do
           migrate (undefined :: StimSeqItem)
           migrate (undefined :: StimulusResponse)
 
-        insert admin0
+        --insert admin0
 
         SimplePics.setupStimuli
 
@@ -39,7 +39,7 @@ main = do
 
 admin0 :: TaggingUser
 admin0 =
-  TaggingUser 0 Nothing (Just "Admin")
+  TaggingUser 1 Nothing (Just "Admin")
   Nothing [Admin]
 
 ------------------------------------------------------------------------------
