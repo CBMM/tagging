@@ -1,49 +1,64 @@
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Server.Subject where
 
-import Control.Error
-import Control.Monad
-import Control.Monad.Trans.Class (lift)
-import Control.Monad.Logger (NoLoggingT)
+import           Control.Error
+import           Control.Monad
+import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad.Trans.Class (lift)
+import           Control.Monad.Logger (NoLoggingT)
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.List as L
-import Data.Proxy
-import Database.Groundhog
-import Database.Groundhog.Postgresql (Postgresql)
-import GHC.Int
-import Servant
-import Servant.Server
-import Snap.Core
-import Snap.Snaplet
+import           Data.Proxy
+import qualified Data.Text as T
+import           Data.Time
+import           Database.Groundhog
+import           Database.Groundhog.Postgresql (Postgresql)
+import           GHC.Generics
+import           GHC.Int
+import           Servant
+import           Servant.Docs
+import           Servant.Server
+import           Snap.Core
+import           Snap.Snaplet
 import qualified Data.Aeson as A
-import Snap.Snaplet.Groundhog.Postgresql
+import           Snap.Snaplet.Groundhog.Postgresql
 
-import Tagging.Stimulus
-import Tagging.Response
-import Tagging.User
-import Server.Application
-import Server.Crud
-import Server.Resources
-import Server.Utils
+import           Tagging.Stimulus
+import           Tagging.Response
+import           Tagging.User
+import           Server.Application
+import           Server.Crud
+import           Server.Database
+import           Server.Resources
+import           Server.Utils
 
 
 ------------------------------------------------------------------------------
-type SubjectAPI = "resource" :> Get '[JSON] StimulusResource
-             :<|> "sequence" :> Get '[JSON] StimulusSequence
-             :<|> "response" :> ReqBody '[JSON] StimulusResponse
+type SubjectAPI = "resource" :> Get '[JSON] (Int64, StimulusResource)
+             :<|> "sequence" :> Get '[JSON] (Int64, StimulusSequence)
+             :<|> "posinfo"  :> Get '[JSON] PositionInfo
+             :<|> "response" :> ReqBody '[JSON] ResponseBytes
                              :> Post '[JSON] ()
 
+newtype ResponseBytes = ResponseBytes {unResponseBytes :: T.Text}
+  deriving (Eq, Show, Generic)
+
+instance A.ToJSON   ResponseBytes where
+instance A.FromJSON ResponseBytes where
 
 ------------------------------------------------------------------------------
 subjectServer :: Server (SubjectAPI) AppHandler
-subjectServer = resource :<|> sequence :<|> response
+subjectServer = resource :<|> sequence :<|> pos :<|> response
   where resource   = lift $ getCurrentStimulusResource
         sequence   = lift $ getCurrentStimulusSequence
+        pos        = lift $ getCurrentPositionInfo
         response v = lift $ handleSubmitResponse v
 
 ------------------------------------------------------------------------------
@@ -69,43 +84,70 @@ handleAssignRoleTo = void $ runMaybeT $ do
 -- | Submit a response. Submission will update the user's current-stimulus
 --   field to @Just@ `the next sequence stimulus` if there is one, or to
 --   @Nothing@ if the sequence is done
-handleSubmitResponse :: StimulusResponse -> Handler App App ()
-handleSubmitResponse r@StimulusResponse{..} =
+--handleSubmitResponse :: StimulusResponse -> Handler App App ()
+handleSubmitResponse :: ResponseBytes -> Handler App App ()
+handleSubmitResponse t =
   eitherT Server.Utils.err300 (const $ return ()) $ do
 
-    loggedInUser           <- getCurrentTaggingUser
-    stim                   <- noteT "Bad stim lookup from response"
-                              $ MaybeT $ gh $ get (intToKey Proxy srStim)
-    respUser               <- lift $ crudGet (intToKey Proxy srUser)
+    u        <- getCurrentTaggingUser
+    stimKey  <- noteT "No assigned stimulus" $ hoistMaybe (tuCurrentStimulus u)
 
-    when (tuId loggedInUser /= tuId respUser)
-      (lift $ Server.Utils.err300 "Logged in user / reported user mismatch")
+    thisReq  <- noteT "No request record by user for stimulus"
+                $ MaybeT $ fmap listToMaybe $ gh
+                $ select $ (SreqUserField ==. tuId u
+                           &&. SreqStimSeqItemField ==. stimKey)
+                           `orderBy` [Asc SreqTimeField]
+    tNow     <- lift $ liftIO getCurrentTime
+
+    stim     <- noteT "Bad stim lookup from response"
+                $ MaybeT $ gh $ get (intToKey Proxy stimKey)
 
     lift . gh $ do
-      insert r
-      insert (loggedInUser {tuCurrentStimulus = ssiNextItem stim})
+      insert (StimulusResponse (tuId u) stimKey
+              (sreqTime thisReq) tNow "sometype" (unResponseBytes t))
+      insert (u {tuCurrentStimulus = ssiNextItem stim})
+
+
 
 ------------------------------------------------------------------------------
-getCurrentStimulusPosition :: EitherT String AppHandler StimSeqItem
-getCurrentStimulusPosition = do
+getCurrentPositionInfo :: AppHandler PositionInfo
+getCurrentPositionInfo = eitherT Server.Utils.err300 return $ do
+  t   <- lift $ liftIO getCurrentTime
+  u   <- getCurrentTaggingUser
+  ssi <- getCurrentStimSeqItem
+  ss  <- lift getCurrentStimulusSequence
+  sr  <- lift getCurrentStimulusResource
+  lift . gh $ insert (StimulusRequest (tuId u) (fst ssi) t)
+  return $ PositionInfo ss ssi sr
+
+
+------------------------------------------------------------------------------
+getCurrentStimSeqItem :: EitherT String AppHandler (Int64, StimSeqItem)
+getCurrentStimSeqItem = do
   loggedInUser <- getCurrentTaggingUser
   itemKey      <- noteT "No sequence assigned"
                   (hoistMaybe $ tuCurrentStimulus loggedInUser)
   ssi          <- noteT "Bad seq lookup" $ MaybeT $ gh $ get (intToKey Proxy itemKey)
-  return ssi
+  return (itemKey, ssi)
 
 
 ------------------------------------------------------------------------------
-getCurrentStimulusResource :: AppHandler StimulusResource
+getCurrentStimulusResource :: AppHandler (Int64, StimulusResource)
 getCurrentStimulusResource = eitherT Server.Utils.err300 return $ do
-  ssi <- getCurrentStimulusPosition
-  noteT "Bad resource lookup" $ MaybeT $ gh $
-    get (intToKey Proxy $ ssiStimulus ssi)
+  ssi <- fmap snd $ getCurrentStimSeqItem
+  sr  <- noteT "Bad resource lookup" $ MaybeT $ gh $
+         get (intToKey Proxy $ ssiStimulus ssi)
+  return (ssiStimulus ssi, sr)
 
 
 ------------------------------------------------------------------------------
-getCurrentStimulusSequence :: AppHandler StimulusSequence
+getCurrentStimulusSequence :: AppHandler (Int64, StimulusSequence)
 getCurrentStimulusSequence = eitherT Server.Utils.err300 return $ do
-  ssi <- getCurrentStimulusPosition
-  noteT "Bad sequence lookup" $ MaybeT $ gh $
-    get (intToKey Proxy $ ssiStimSeq ssi)
+  ssi <- fmap snd $ getCurrentStimSeqItem
+  ss  <- noteT "Bad sequence lookup" $ MaybeT $ gh $
+         get (intToKey Proxy $ ssiStimSeq ssi)
+  return (ssiStimSeq ssi, ss)
+
+
+instance ToSample ResponseBytes ResponseBytes where
+  toSample _ = Just $ ResponseBytes "<<Some JSON data>>"

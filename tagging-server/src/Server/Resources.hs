@@ -85,6 +85,14 @@ instance HasKey StimulusResponse where
 
 instance Crud StimulusResponse
 
+instance HasKey StimulusRequest where
+  intToKey _ = StimulusRequestKey . PersistInt64
+  intToAuto _ = StimulusRequestKey . PersistInt64
+  keyToInt (StimulusRequestKey (PersistInt64 i)) = i
+  autoToInt Proxy (StimulusRequestKey (PersistInt64 i)) = i
+
+instance Crud StimulusRequest
+
 migrateResources :: Handler App App ()
 migrateResources = do
   assertRole [Admin]

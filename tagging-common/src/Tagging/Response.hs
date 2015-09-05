@@ -36,7 +36,7 @@ data StimulusResponse = StimulusResponse
   -- ^ TypeRep text of the response
   , srResponseData  :: T.Text
   -- ^ Response payload (serialized to T.Text)
-  } deriving (Generic)
+  } deriving (Eq, Show, Generic)
 
 instance A.FromJSON StimulusResponse where
 instance A.ToJSON   StimulusResponse where

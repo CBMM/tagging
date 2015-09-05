@@ -54,5 +54,6 @@ mkPersist defaultCodegenConfig [groundhog|
 
 
 mkPersist defaultCodegenConfig [groundhog|
+  - entity: StimulusRequest
   - entity: StimulusResponse
 |]

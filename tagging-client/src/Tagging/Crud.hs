@@ -232,12 +232,5 @@ crudPieceField pbV proj attrs = el "td" $ do
                      , _textInputConfig_inputType    = "text"
                      , _textInputConfig_initialValue = "empty"})
 
-
-instance Eq StimulusResource where
-  StimulusResource a b c == StimulusResource d e f =
-    a == d && b == e && c ==f
-
-deriving instance Show TaggingUser
-
 s :: String -> String
 s = id

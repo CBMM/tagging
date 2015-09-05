@@ -12,13 +12,16 @@
 
 module Tagging.Stimulus where
 
-import Data.Aeson
-import qualified Data.Aeson as A
-import qualified Data.ByteString as BS
-import qualified Data.Text as T
-import GHC.Generics
-import GHC.Int
-import Servant.Docs
+import           Data.Aeson
+import qualified Data.Aeson       as A
+import qualified Data.Aeson.Types as A
+import qualified Data.ByteString  as BS
+import           Data.Char
+import qualified Data.Text        as T
+import           Data.Time
+import           GHC.Generics
+import           GHC.Int
+import           Servant.Docs
 
 -----------------------------------------------------------------------------
 -- | Experiments define a @Stimulus@, @Question@, and @Answer@,
@@ -43,12 +46,25 @@ class Experiment t where
     -> Question t
     -> Object
 
+data PositionInfo = PositionInfo {
+    piStimulusSequence :: (Int64, StimulusSequence)
+  , piStimSeqItem      :: (Int64, StimSeqItem )
+  , piStimulusResource :: (Int64, StimulusResource)
+  } deriving (Eq, Show, Generic)
+
+instance ToJSON PositionInfo where
+  toJSON = A.genericToJSON A.defaultOptions { A.fieldLabelModifier =
+                                              drop 2 . map toLower }
+
+instance FromJSON PositionInfo where
+  parseJSON = A.genericParseJSON A.defaultOptions { A.fieldLabelModifier =
+                                                    drop 2 . map toLower }
 
 data StimulusResource = StimulusResource
   { srName      :: !StimulusName
   , srUrlSuffix :: !T.Text
   , srMimeType  :: !T.Text
-  } deriving (Show, Generic)
+  } deriving (Eq, Show, Generic)
 
 type StimulusName = T.Text
 
@@ -57,8 +73,7 @@ data StimulusSequence = StimulusSequence
   , ssFirstItem   :: Maybe Int64 -- StimSeqItem
   , ssDescription :: !T.Text
   , ssBaseUrl     :: !T.Text
-  } deriving (Generic)
-deriving instance Show StimulusSequence
+  } deriving (Eq, Show, Generic)
 
 type StimSeqName = T.Text
 
@@ -68,9 +83,13 @@ data StimSeqItem = StimSeqItem
   , ssiNextItem     :: Maybe Int64 -- StimSeqItem Key
   , ssiIndex        :: !Int
   , ssiResponseType :: !ResponseType
-  } deriving (Generic)
-deriving instance Show StimSeqItem
+  } deriving (Eq, Show, Generic)
 
+data StimulusRequest = StimulusRequest
+  { sreqUser        :: Int64 -- AuthUser key
+  , sreqStimSeqItem :: Int64
+  , sreqTime        :: UTCTime
+  } deriving (Eq, Show, Generic)
 type ResponseType = T.Text
 
 instance A.FromJSON StimulusResource where
@@ -79,6 +98,8 @@ instance A.FromJSON StimulusSequence where
 instance A.ToJSON   StimulusSequence where
 instance A.FromJSON StimSeqItem where
 instance A.ToJSON   StimSeqItem where
+instance A.FromJSON StimulusRequest where
+instance A.ToJSON   StimulusRequest where
 
 
 -----------------------------------------------------------------------------
@@ -104,6 +125,9 @@ instance ToSample StimulusSequence StimulusSequence where
 instance ToSample [StimulusSequence] [StimulusSequence] where
   toSample _ = Just [sampleSequence]
 
+instance ToSample (Int64,StimulusSequence) (Int64,StimulusSequence) where
+  toSample _ = Just (1,sampleSequence)
+
 instance ToSample [(Int64,StimulusSequence)] [(Int64,StimulusSequence)] where
   toSample _ = Just [(1,sampleSequence)]
 
@@ -114,11 +138,35 @@ sampleSequence =
 instance ToSample StimulusResource StimulusResource where
   toSample _ = Just sampleResource
 
+instance ToSample (Int64, StimulusResource) (Int64, StimulusResource ) where
+  toSample _ = Just (1, sampleResource)
+
 instance ToSample [StimulusResource] [StimulusResource] where
   toSample _ = Just [sampleResource]
 
 instance ToSample [(Int64, StimulusResource)] [(Int64, StimulusResource)] where
   toSample _ = Just [(0,sampleResource)]
 
+instance ToSample PositionInfo PositionInfo where
+  toSample _ =
+    Just $ PositionInfo
+           (1,sampleSequence) (1, sampleStimSeqItem) (1, sampleResource)
+
 sampleResource :: StimulusResource
 sampleResource = StimulusResource "a" "a.jpg" "image/jpeg"
+
+
+instance ToSample StimulusRequest StimulusRequest where
+  toSample _ = Just sampleRequest
+
+instance ToSample (Int64, StimulusRequest) (Int64, StimulusRequest ) where
+  toSample _ = Just (1, sampleRequest)
+
+instance ToSample [StimulusRequest] [StimulusRequest] where
+  toSample _ = Just [sampleRequest]
+
+instance ToSample [(Int64, StimulusRequest)] [(Int64, StimulusRequest)] where
+  toSample _ = Just [(0,sampleRequest)]
+
+sampleRequest :: StimulusRequest
+sampleRequest = StimulusRequest 1 1 (UTCTime (fromGregorian 2015 1 1) 0)
