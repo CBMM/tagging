@@ -2,6 +2,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE TypeOperators         #-}
 
 module Server.Resources where
 
@@ -25,11 +27,23 @@ import Tagging.Stimulus
 import Tagging.User
 import Tagging.Response
 -----------------------------------------------------------------------------
-import API
 import Server.Utils
 import Server.Application
 import Server.Crud
 import Server.Database
+
+
+------------------------------------------------------------------------------
+type ResourcesAPI =
+       "tagginguser"      :> CrudAPI TaggingUser
+  :<|> "stimulusresource" :> CrudAPI StimulusResource
+  :<|> "stimulussequence" :> CrudAPI StimulusSequence
+  :<|> "stimseqitem"      :> CrudAPI StimSeqItem
+  :<|> "stimulusresponse" :> CrudAPI StimulusResponse
+
+resourceServer :: Server ResourcesAPI AppHandler
+resourceServer = crudServer Proxy :<|> crudServer Proxy :<|> crudServer Proxy
+            :<|> crudServer Proxy :<|> crudServer Proxy
 
 instance HasKey TaggingUser where
   intToKey _ = TaggingUserKey . PersistInt64
@@ -81,9 +95,6 @@ migrateResources = do
     migrate (undefined :: StimSeqItem)
     migrate (undefined :: StimulusResponse)
 
-resourceServer :: Server ResourcesAPI AppHandler
-resourceServer = crudServer Proxy :<|> crudServer Proxy :<|> crudServer Proxy
-            :<|> crudServer Proxy :<|> crudServer Proxy
 
 -----------------------------------------------------------------------------
 getUserSequence :: EitherT String (Handler App App) [StimSeqItem]

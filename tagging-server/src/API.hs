@@ -17,7 +17,9 @@ import           Tagging.Stimulus
 import           Tagging.Response
 import           Server.Application
 import           Server.Crud
+import           Server.Resources
 import           Server.Session
+import           Server.Subject
 
 ------------------------------------------------------------------------------
 type TaggingAPI =
@@ -29,20 +31,6 @@ type TaggingAPI =
 ------------------------------------------------------------------------------
 apiProxy :: Proxy TaggingAPI
 apiProxy = Proxy
-
--- TODO: These all end in an http verb. Is that necessary?
-------------------------------------------------------------------------------
-type ResourcesAPI =
-       "tagginguser"      :> CrudAPI TaggingUser
-  :<|> "stimulusresource" :> CrudAPI StimulusResource
-  :<|> "stimulussequence" :> CrudAPI StimulusSequence
-  :<|> "stimseqitem"      :> CrudAPI StimSeqItem
-  :<|> "stimulusresponse" :> CrudAPI StimulusResponse
-
-
-------------------------------------------------------------------------------
-type SubjectAPI = "resource" :> Get '[JSON] StimulusResource
-             :<|> "response" :> ReqBody '[JSON] StimulusResponse :> Post '[JSON] ()
 
 
 ------------------------------------------------------------------------------

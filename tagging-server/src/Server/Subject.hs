@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE TypeOperators         #-}
 
 module Server.Subject where
 
@@ -24,16 +26,24 @@ import Snap.Snaplet.Groundhog.Postgresql
 import Tagging.Stimulus
 import Tagging.Response
 import Tagging.User
-import API
 import Server.Application
 import Server.Crud
 import Server.Resources
 import Server.Utils
 
+
+------------------------------------------------------------------------------
+type SubjectAPI = "resource" :> Get '[JSON] StimulusResource
+             :<|> "sequence" :> Get '[JSON] StimulusSequence
+             :<|> "response" :> ReqBody '[JSON] StimulusResponse
+                             :> Post '[JSON] ()
+
+
 ------------------------------------------------------------------------------
 subjectServer :: Server (SubjectAPI) AppHandler
-subjectServer = resource :<|> response
-  where resource = lift $ getCurrentStimulusResource
+subjectServer = resource :<|> sequence :<|> response
+  where resource   = lift $ getCurrentStimulusResource
+        sequence   = lift $ getCurrentStimulusSequence
         response v = lift $ handleSubmitResponse v
 
 ------------------------------------------------------------------------------
@@ -76,11 +86,26 @@ handleSubmitResponse r@StimulusResponse{..} =
       insert (loggedInUser {tuCurrentStimulus = ssiNextItem stim})
 
 ------------------------------------------------------------------------------
-getCurrentStimulusResource :: Handler App App StimulusResource
-getCurrentStimulusResource = eitherT Server.Utils.err300 return $ do
+getCurrentStimulusPosition :: EitherT String AppHandler StimSeqItem
+getCurrentStimulusPosition = do
   loggedInUser <- getCurrentTaggingUser
   itemKey      <- noteT "No sequence assigned"
                   (hoistMaybe $ tuCurrentStimulus loggedInUser)
   ssi          <- noteT "Bad seq lookup" $ MaybeT $ gh $ get (intToKey Proxy itemKey)
-  noteT "Bad resource lookup" $ MaybeT $ gh
-    $ get (intToKey Proxy $ ssiStimulus ssi)
+  return ssi
+
+
+------------------------------------------------------------------------------
+getCurrentStimulusResource :: AppHandler StimulusResource
+getCurrentStimulusResource = eitherT Server.Utils.err300 return $ do
+  ssi <- getCurrentStimulusPosition
+  noteT "Bad resource lookup" $ MaybeT $ gh $
+    get (intToKey Proxy $ ssiStimulus ssi)
+
+
+------------------------------------------------------------------------------
+getCurrentStimulusSequence :: AppHandler StimulusSequence
+getCurrentStimulusSequence = eitherT Server.Utils.err300 return $ do
+  ssi <- getCurrentStimulusPosition
+  noteT "Bad sequence lookup" $ MaybeT $ gh $
+    get (intToKey Proxy $ ssiStimSeq ssi)
