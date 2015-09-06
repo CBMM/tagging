@@ -219,6 +219,47 @@ instance Crud StimSeqItem where
               <*> pure (T.pack $(unqDyn [|f5|]))
             |])
 
+
+instance Crud StimulusRequest where
+  resourceName _ = "stimulusrequest"
+  resourceHeaders _ = ["User","StimSeqItem","Time"]
+  resourceWidget dynVal dynB = do
+    pb <- getPostBuild
+    let pbV = tag (current dynVal) pb
+    attrs <- forDyn dynB $ \b ->
+      if b then mempty else (s "disabled" =: s "disabled")
+    f1 <- crudPieceField pbV (show . sreqUser) attrs
+    f2 <- crudPieceField pbV (show . sreqStimSeqItem) attrs
+    f3 <- crudPieceField pbV (show . sreqTime) attrs
+    $(qDyn [| StimulusRequest
+              <$> readMay $(unqDyn [|f1|])
+              <*> readMay $(unqDyn [|f2|])
+              <*> readMay $(unqDyn [|f3|])
+            |])
+
+instance Crud StimulusResponse where
+  resourceName _ = "stimulusresponse"
+  resourceHeaders _ = ["User","StimSeqItem","Delivery","Recepit","Type","Payload"]
+  resourceWidget dynVal dynB = do
+    pb <- getPostBuild
+    let pbV = tag (current dynVal) pb
+    attrs <- forDyn dynB $ \b ->
+      if b then mempty else (s "disabled" =: s "disabled")
+    f1 <- crudPieceField pbV (show . srUser) attrs
+    f2 <- crudPieceField pbV (show . srStim) attrs
+    f3 <- crudPieceField pbV (show . srDeliveredTime) attrs
+    f4 <- crudPieceField pbV (show . srRespondedTime) attrs
+    f5 <- crudPieceField pbV (show . srResponseType) attrs
+    f6 <- crudPieceField pbV (show . srResponseData) attrs
+    $(qDyn [| StimulusResponse
+              <$> readMay $(unqDyn [|f1|])
+              <*> readMay $(unqDyn [|f2|])
+              <*> readMay $(unqDyn [|f3|])
+              <*> readMay $(unqDyn [|f4|])
+              <*> pure (T.pack  $(unqDyn [|f5|]))
+              <*> pure (T.pack  $(unqDyn [|f6|]))
+            |])
+
 crudPieceField :: MonadWidget t m
                => Event t v
                -> (v -> String)

@@ -44,14 +44,9 @@ import           Server.Utils
 type SubjectAPI = "resource" :> Get '[JSON] (Int64, StimulusResource)
              :<|> "sequence" :> Get '[JSON] (Int64, StimulusSequence)
              :<|> "posinfo"  :> Get '[JSON] PositionInfo
-             :<|> "response" :> ReqBody '[JSON] ResponseBytes
+             :<|> "response" :> ReqBody '[JSON] ResponsePayload
                              :> Post '[JSON] ()
 
-newtype ResponseBytes = ResponseBytes {unResponseBytes :: T.Text}
-  deriving (Eq, Show, Generic)
-
-instance A.ToJSON   ResponseBytes where
-instance A.FromJSON ResponseBytes where
 
 ------------------------------------------------------------------------------
 subjectServer :: Server (SubjectAPI) AppHandler
@@ -85,7 +80,7 @@ handleAssignRoleTo = void $ runMaybeT $ do
 --   field to @Just@ `the next sequence stimulus` if there is one, or to
 --   @Nothing@ if the sequence is done
 --handleSubmitResponse :: StimulusResponse -> Handler App App ()
-handleSubmitResponse :: ResponseBytes -> Handler App App ()
+handleSubmitResponse :: ResponsePayload -> Handler App App ()
 handleSubmitResponse t =
   eitherT Server.Utils.err300 (const $ return ()) $ do
 
@@ -104,8 +99,9 @@ handleSubmitResponse t =
 
     lift . gh $ do
       insert (StimulusResponse (tuId u) stimKey
-              (sreqTime thisReq) tNow "sometype" (unResponseBytes t))
-      insert (u {tuCurrentStimulus = ssiNextItem stim})
+              (sreqTime thisReq) tNow "sometype" (rpBytes t))
+      update [TuCurrentStimulusField =. ssiNextItem stim]
+        $ (TuIdField ==. tuId u)
 
 
 
@@ -147,7 +143,3 @@ getCurrentStimulusSequence = eitherT Server.Utils.err300 return $ do
   ss  <- noteT "Bad sequence lookup" $ MaybeT $ gh $
          get (intToKey Proxy $ ssiStimSeq ssi)
   return (ssiStimSeq ssi, ss)
-
-
-instance ToSample ResponseBytes ResponseBytes where
-  toSample _ = Just $ ResponseBytes "<<Some JSON data>>"

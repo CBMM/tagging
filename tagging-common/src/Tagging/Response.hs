@@ -42,6 +42,12 @@ instance A.FromJSON StimulusResponse where
 instance A.ToJSON   StimulusResponse where
 
 
+newtype ResponsePayload = ResponsePayload {rpBytes :: T.Text}
+  deriving (Eq, Show, Generic)
+
+instance A.ToJSON   ResponsePayload where
+instance A.FromJSON ResponsePayload where
+
 -----------------------------------------------------------------------------
 -- Instances for servant-docs
 instance ToSample StimulusResponse StimulusResponse where
@@ -62,3 +68,6 @@ sampleResponse =
   (UTCTime (fromGregorian 2015 08 21) 1)
   "SimplePicturePreference (todo fix)"
   "10"
+
+instance ToSample ResponsePayload ResponsePayload where
+  toSample _ = Just $ ResponsePayload "<<Some JSON data>>"

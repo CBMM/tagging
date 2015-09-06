@@ -31,7 +31,7 @@ data TaggingUser = TaggingUser
     -- ^ Current stimulus assignment (`Nothing` for unassigned)
   , tuRoles     :: [Role]
     -- ^ List of user Roles
-  } deriving  (Generic)
+  } deriving  (Eq, Show, Generic)
 
 instance A.FromJSON TaggingUser where
 instance A.ToJSON TaggingUser where

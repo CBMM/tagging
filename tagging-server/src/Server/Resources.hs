@@ -40,10 +40,11 @@ type ResourcesAPI =
   :<|> "stimulussequence" :> CrudAPI StimulusSequence
   :<|> "stimseqitem"      :> CrudAPI StimSeqItem
   :<|> "stimulusresponse" :> CrudAPI StimulusResponse
+  :<|> "stimulusrequest"  :> CrudAPI StimulusRequest
 
 resourceServer :: Server ResourcesAPI AppHandler
 resourceServer = crudServer Proxy :<|> crudServer Proxy :<|> crudServer Proxy
-            :<|> crudServer Proxy :<|> crudServer Proxy
+            :<|> crudServer Proxy :<|> crudServer Proxy :<|> crudServer Proxy
 
 instance HasKey TaggingUser where
   intToKey _ = TaggingUserKey . PersistInt64

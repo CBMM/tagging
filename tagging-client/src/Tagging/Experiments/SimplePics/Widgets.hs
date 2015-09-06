@@ -14,6 +14,7 @@ import qualified Data.Map as Map
 import           Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Data.Text.Lazy.Encoding as TL
 import           Data.Time
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy.Char8 as BSL
@@ -51,24 +52,22 @@ pageWidget TaggingUser{..} = mdo
   el "br" $ return ()
 
   _ <- widgetHold (text "waiting")
-       =<< fmapMaybe stimulusWidget
-       =<< getAndDecode ("/api/posinfo" <$ getStim)
+        $ fmap stimulusWidget (fmapMaybe id $ updated dynStim)
 
   ansTime <- holdDyn (UTCTime (fromGregorian 2015 1 1) 0)
              =<< performEvent (liftIO getCurrentTime <$ submits)
 
   answer <- questionWidget
-  keyedAnswer <- combineDyn (,) dynStim answer
 
-  stimResponse <- combineDyn toResponse ansTime keyedAnswer
-  display stimResponse
+  display answer
 
   let toAnswerReq (Right v) =
        Just $ XhrRequest "POST" "/api/response"
         (XhrRequestConfig (Map.fromList [("Content-Type","application/json")])
-                           Nothing Nothing Nothing (Just . BSL.unpack $ A.encode v))
+                           Nothing Nothing Nothing
+                           (Just . BSL.unpack $ A.encode (ResponsePayload (T.decodeUtf8 . BSL.toStrict $ A.encode v))))
       toAnswerReq (Left _) = Nothing
-  let respRequests = fforMaybe (fmap toAnswerReq (tag (current stimResponse) submits)) id
+  let respRequests = fforMaybe (fmap toAnswerReq (tag (current answer) submits)) id
 
   ansResp <- performRequestAsync respRequests
 
@@ -82,30 +81,14 @@ pageWidget TaggingUser{..} = mdo
 
   return ()
 
-toResponse :: UTCTime -> (PositionInfo, Either String (Answer SimplePics))
-           -> Either String StimulusResponse
-toResponse t (pI,mv) =
-  ffor mv (\v -> StimulusResponse 0 (fst . piStimSeqItem $ pI) t t "NoType?"
-  . T.decodeUtf8 . BSL.toStrict $ A.encode v )
-
 stimulusWidget :: MonadWidget t m => PositionInfo -> m ()
 stimulusWidget (PositionInfo ss ssi sr) = mdo
   elAttr "img"
     ("class" =: "stim"
-     <> "src" =: (T.unpack (ssBaseUrl . snd $ ss)
+     <> "src" =: (T.unpack (ssBaseUrl . snd $ ss) <> "/"
                   <> T.unpack (srUrlSuffix . snd $ sr)))
     (return ())
   return ()
-
--- stimulusWidget' :: MonadWidget t m => Maybe (Int64,StimulusResource) -> m ()
--- stimulusWidget' Nothing = text "Got Nothing"
--- stimulusWidget' (Just (k,StimulusResource{..})) = mdo
---   elAttr "img"
---     ("class" =: "stim"
---      <> "src" =: ("http://web.mit.edu/greghale/Public/pics/"
---                   <> T.unpack srUrlSuffix))
---     (return ())
---   return ()
 
 
 questionWidget :: MonadWidget t m

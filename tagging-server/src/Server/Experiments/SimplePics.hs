@@ -62,7 +62,7 @@ setupStimuli = do
                 { ssName        = T.pack picsSt
                 , ssFirstItem   = Nothing
                 , ssDescription = "Minimal framework test"
-                , ssBaseUrl     = "web.mit.edu/greghale/Public/pics"
+                , ssBaseUrl     = "http://web.mit.edu/greghale/Public/pics"
                 }
 
   liftIO $ print "About to import stimSeq"
