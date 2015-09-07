@@ -14,12 +14,12 @@ import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as B8
 import Database.Groundhog
 import Database.Groundhog.Core
+import Database.Groundhog.Generic
 import Database.Groundhog.TH
 import GHC.Int
 import Tagging.Stimulus
 import Tagging.User
 import Tagging.Response
-
 
 
 mkPersist defaultCodegenConfig [groundhog|
@@ -37,6 +37,8 @@ definitions:
 |]
 
 mkPersist defaultCodegenConfig [groundhog|
+  - primitive: Role
+    representation: showread
   - entity: TaggingUser
     keys:
       - name: TuId
@@ -45,13 +47,13 @@ mkPersist defaultCodegenConfig [groundhog|
         uniques:
           - name: TuId
             fields: [tuId]
-  - entity: Role
-    constructors:
-      - name: Admin
-      - name: Subject
-      - name: Researcher
 |]
 
+  -- - entity: Role
+  --   constructors:
+  --     - name: Admin
+  --     - name: Subject
+  --     - name: Researcher
 
 mkPersist defaultCodegenConfig [groundhog|
   - entity: StimulusRequest

@@ -3,6 +3,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE RecursiveDo         #-}
+{-# LANGUAGE ExistentialQuantification #-}
 
 module Tagging.Experiments.HomeAlone.Widgets where
 
@@ -32,32 +33,36 @@ import           Tagging.User
 import           Experiments.HomeAlonePersonAndDirection
 
 
-pageWidget :: MonadWidget t m => TaggingUser -> m ()
-pageWidget TaggingUser{..} = do
+-----------------------------------------------------------------------------
+pageWidget :: forall t m .MonadWidget t m => TaggingUser -> m ()
+pageWidget TaggingUser{..} = mdo
 
   pb <- getPostBuild
-  rec let getStim = leftmost [pb]
+  let getStim = leftmost [pb]
 
-      stims   <- fmapMaybe id <$> getAndDecode ("/api/posinfo" <$ getStim)
+  stims   <- fmapMaybe id <$> getAndDecode ("/api/posinfo" <$ getStim)
 
-      elClass "div" "question-div" $
+  elClass "div" "question-div" $
         movieWidget stims
 
-      answers <- widgetHold (text "waiting" >> return never)
-                 (fmap questionWidget stims)
+  qWidget <- questionWidget stims :: m (Dynamic t String)
 
   return ()
 
+
+-----------------------------------------------------------------------------
 questionWidget :: MonadWidget t m
                => Event t PositionInfo
                -> m (Dynamic t (Answer HomeAloneExperiment))
-questionWidget p@PositionInfo{..} = do
+questionWidget p = do
 
   pb <- getPostBuild
 
-  fakeClicks <- button "Submit"
-  return $ ("FakeAnswer" <$ fakeClicks)
+  fakeClicks <- button "Incr"
+  mapDyn (show :: Int -> String) =<< count fakeClicks
 
+
+-----------------------------------------------------------------------------
 movieWidget :: MonadWidget t m => Event t PositionInfo -> m ()
 movieWidget pEvent = do
 
