@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Tagging.Experiments.SimplePics.Widgets
+                     , Tagging.Experiments.HomeAlone.Widgets
                      , Tagging.Crud
   build-depends:       base >=4.8 && <4.9
                      , aeson
@@ -27,7 +28,6 @@ library
                      , ghcjs-dom
                      , reflex
                      , reflex-dom >= 0.2.1 && < 0.3
-                     --, reflex-dom-contrib
                      , text
                      , time
                      , tagging-common
@@ -67,6 +67,21 @@ executable SimplePics
                      , ghcjs-dom
                      , groundhog
 --                     , groundhog-postgresql
+                     , reflex
+                     , reflex-dom >= 0.2.1 && < 0.3
+                     , tagging-common
+                     , tagging-client
+                     , text
+  hs-source-dirs:      exec
+  default-language:    Haskell2010
+
+
+executable HomeAlone
+  main-is:             HomeAlone.hs
+  build-depends:       base >=4.8 && <4.9
+                     , bytestring
+                     , ghcjs-dom
+                     , groundhog
                      , reflex
                      , reflex-dom >= 0.2.1 && < 0.3
                      , tagging-common

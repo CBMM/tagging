@@ -239,7 +239,8 @@ instance Crud StimulusRequest where
 
 instance Crud StimulusResponse where
   resourceName _ = "stimulusresponse"
-  resourceHeaders _ = ["User","StimSeqItem","Delivery","Recepit","Type","Payload"]
+  resourceHeaders _ = ["User","StimSeqItem","Delivery"
+                      ,"Recepit","Type","Payload"]
   resourceWidget dynVal dynB = do
     pb <- getPostBuild
     let pbV = tag (current dynVal) pb
