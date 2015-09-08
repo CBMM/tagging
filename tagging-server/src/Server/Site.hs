@@ -92,9 +92,12 @@ handleTaggingClient = do
   case taskName of
     Nothing -> writeBS "hello"
     Just tn ->
-      let jsFile = T.decodeUtf8 $ "/media/js/" <> tn <> ".jsexe"
+      let jsFile  = T.decodeUtf8 $ "/media/js/"  <> tn <> ".jsexe"
+          cssFile = T.decodeUtf8 $ "/media/css/" <> tn <> ".css"
       --in  writeText jsFile
-      in  I.renderWithSplices "_taggingclient" ("jsdir" ## I.textSplice jsFile)
+      in  I.renderWithSplices "_taggingclient" $ do
+            "jsdir" ## I.textSplice jsFile
+            "cssfile" ## I.textSplice cssFile
 
 adminPanel :: AppHandler ()
 adminPanel = do

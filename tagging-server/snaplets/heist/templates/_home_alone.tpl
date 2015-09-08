@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <link href="${cssfile}" rel="stylesheet" type="text/css"/>
     <script language="javascript" src="${jsdir}/rts.js"></script>
     <script language="javascript" src="${jsdir}/lib.js"></script>
     <script language="javascript" src="${jsdir}/out.js"></script>

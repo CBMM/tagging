@@ -47,6 +47,10 @@ pageWidget TaggingUser{..} = mdo
 
   qWidget <- questionWidget stims :: m (Dynamic t String)
 
+  searchBox <- _textInput_value <$> textInput def
+
+  optionBankWidget searchBox
+
   return ()
 
 
@@ -82,3 +86,75 @@ movieWidget pEvent = do
     )
 
   return ()
+
+-----------------------------------------------------------------------------
+-- A listing of all possible faces, filtered by text typed so far
+optionBankWidget :: MonadWidget t m => Dynamic t String -> m ()
+optionBankWidget searchString = elClass "div" "bank-container" $ do
+  listViewWithKey (constDyn choicesMap) (oneChoiceWidget searchString)
+  return ()
+
+
+-----------------------------------------------------------------------------
+-- Dom components for a single face with name (no direction info)
+oneChoiceWidget :: MonadWidget t m
+                => Dynamic t String
+                -> String
+                -> Dynamic t String
+                -> m (Event t ())
+oneChoiceWidget searchString n dynPath = elClass "div" "bank-item" $ do
+  divAttrs <- combineDyn
+              (\s p -> let isIn  = T.toLower (T.pack s)
+                                   `T.isInfixOf`
+                                   T.toLower (T.pack n)
+                           style = bool "opacity: 0.4" "opacity: 1.0" isIn
+                       in "src" =: p
+                          <> "style" =: style
+                          <> "class" =: "one-choice") searchString dynPath
+  elDynAttr "div" divAttrs $ do
+    imgAttrs <- mapDyn ("src" =:) dynPath
+
+    elDynAttr "img" imgAttrs $ return ()
+    dynSearchAct <- searchText searchString n
+    dyn dynSearchAct
+    return never -- TODO fix
+
+searchText :: MonadWidget t m
+           => Dynamic t String
+           -> String
+           -> m (Dynamic t (m ()))
+searchText query source = do
+
+  let qSource = T.pack source
+  qText <- mapDyn (T.toLower . T.pack) query
+  dynAction <-
+    forDyn qText $ \q ->
+      case not (T.null q) && T.toLower q `T.isInfixOf` T.toLower qSource of
+        False -> el "h2" $ text source
+        True  ->
+          let breakPoint = T.length . fst . T.breakOn q . T.toLower $ qSource
+              (p0,pTemp) = T.splitAt breakPoint qSource
+              (p1,p2)    = T.splitAt (T.length q) pTemp
+          in el "h2" $ do
+            text (T.unpack p0)
+            elClass "span" "text-found" $ text (T.unpack p1)
+            text (T.unpack p2)
+  return dynAction
+
+
+-----------------------------------------------------------------------------
+-- Listing of names and paths to their pics (hard-coded for now. TODO serve)
+choicesMap :: Map.Map String String
+choicesMap = Map.fromList $ map (\n -> (n, nameToFile n))
+             ["Kevin McC" ,"Tracy McC" ,"Sondra McC" ,"Rod McC" ,"Rob McC"
+             ,"Buzz McC" ,"Peter McC" ,"Other" ,"Other (Major)" ,"Other (Minor)"
+             ,"Not Sure" ,"Nobody" ,"Mrs. Stone" ,"Mr. Hector" ,"Mr. Duncan"
+             ,"Megan McC" ,"Marv Merch" ,"Linnie McC" ,"Leslie McC" ,"Kate McC"
+             ,"Jeff McC" ,"Harry Lyme" ,"Fuller McC" ,"Frank McC" ,"Cedric"
+             ,"Buzz McC" ,"Brooke McC" ,"Bird Lady"
+             ]
+
+nameToFile :: String -> String
+nameToFile = ("http://web.mit.edu/greghale/Public/hapics/" <>)
+             . (<> ".png")
+             . filter (`notElem` ("() ." :: String))
