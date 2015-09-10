@@ -1,16 +1,20 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE RecursiveDo         #-}
 {-# LANGUAGE ExistentialQuantification #-}
 
 module Tagging.Experiments.HomeAlone.Widgets where
 
+import           Control.Applicative
 import           Control.Error
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Data.Foldable
 import           Data.Functor
+import qualified Data.List as L
 import qualified Data.Map as Map
 import           Data.Monoid
 import qualified Data.Text as T
@@ -45,25 +49,41 @@ pageWidget TaggingUser{..} = mdo
   elClass "div" "question-div" $
         movieWidget stims
 
-  qWidget <- questionWidget stims :: m (Dynamic t String)
+  qWidget <- questionWidget stims bankEvents
 
-  searchBox <- _textInput_value <$> textInput def
-
-  optionBankWidget searchBox
+  searchBox  <- _textInput_value <$> textInput def
+  bankEvents <- optionBankWidget searchBox
 
   return ()
 
+data HACommand =  AnswerAdd      CharacterAtDir
+               |  AnswerDel      CharacterAtDir
+               |  HighlightDir   (Maybe HeadDirection)
+  deriving (Eq, Show)
+
+type UIState = (Answer HomeAloneExperiment, Maybe HeadDirection)
+
+doCommand :: HACommand -> UIState -> UIState
+doCommand (AnswerAdd x)    (a,h) = (L.union [x] a, h)
+doCommand (AnswerDel x)    (a,h) = (a L.\\ [x],    h)
+doCommand (HighlightDir d) (a,_) = (a,             d)
 
 -----------------------------------------------------------------------------
 questionWidget :: MonadWidget t m
                => Event t PositionInfo
+               -> Event t HACommand
                -> m (Dynamic t (Answer HomeAloneExperiment))
-questionWidget p = do
+questionWidget p cmds = do
 
   pb <- getPostBuild
 
   fakeClicks <- button "Incr"
-  mapDyn (show :: Int -> String) =<< count fakeClicks
+  res <- foldDyn doCommand ([], Nothing) cmds
+  text "Result: "
+  display res
+  q <- mapDyn fst res
+  return q
+
 
 
 -----------------------------------------------------------------------------
@@ -87,12 +107,23 @@ movieWidget pEvent = do
 
   return ()
 
+headDirIndicatorWidget :: MonadWidget t m
+                       => Dynamic t HeadDirection
+                       -> m ()
+headDirIndicatorWidget dynDirection = display dynDirection -- TODO
+
 -----------------------------------------------------------------------------
 -- A listing of all possible faces, filtered by text typed so far
-optionBankWidget :: MonadWidget t m => Dynamic t String -> m ()
+-- Returns: stream of clicked directional characters,
+--          and head direction button mouse-enter/leave events
+optionBankWidget :: MonadWidget t m
+                 => Dynamic t String
+                 -> m (Event t HACommand)
 optionBankWidget searchString = elClass "div" "bank-container" $ do
-  listViewWithKey (constDyn choicesMap) (oneChoiceWidget searchString)
-  return ()
+  cmdMap        <- listViewWithKey
+                       (constDyn choicesMap)
+                       (oneChoiceWidget searchString)
+  return $ fmapMaybe id (fmap (listToMaybe . Map.elems) cmdMap)
 
 
 -----------------------------------------------------------------------------
@@ -101,7 +132,7 @@ oneChoiceWidget :: MonadWidget t m
                 => Dynamic t String
                 -> String
                 -> Dynamic t String
-                -> m (Event t ())
+                -> m (Event t HACommand)
 oneChoiceWidget searchString n dynPath = elClass "div" "bank-item" $ do
   divAttrs <- combineDyn
               (\s p -> let isIn  = T.toLower (T.pack s)
@@ -110,15 +141,31 @@ oneChoiceWidget searchString n dynPath = elClass "div" "bank-item" $ do
                            style = bool "opacity: 0.4" "opacity: 1.0" isIn
                        in "src" =: p
                           <> "style" =: style
-                          <> "class" =: "one-choice") searchString dynPath
+                          <> "class" =: "one-choice")
+               searchString dynPath
   elDynAttr "div" divAttrs $ do
     imgAttrs <- mapDyn ("src" =:) dynPath
 
     elDynAttr "img" imgAttrs $ return ()
     dynSearchAct <- searchText searchString n
     dyn dynSearchAct
-    return never -- TODO fix
+    mouseEvents <- headDirButtons (T.pack n)
+    return mouseEvents
 
+-----------------------------------------------------------------------------
+headDirButtons :: MonadWidget t m => CharacterName -> m (Event t HACommand)
+headDirButtons n = elClass "div" "head-dir-button-container" $ do
+  bs <- forM [HDLeft .. HDRight] $ \d -> do
+    b <- elAttr' "div" ("class" =: "head-dir-button") $ return ()
+    let cAtD = \a b -> AnswerAdd $ CharacterAtDir a (Just b)
+    return $ leftmost [ HighlightDir (Just d) <$ domEvent Mouseenter (fst b)
+                      , HighlightDir Nothing  <$ domEvent Mouseleave (fst b)
+                      , cAtD n d              <$ domEvent Click      (fst b)
+                      ]
+  return $ leftmost bs
+
+-----------------------------------------------------------------------------
+-- Utility that renders a string according to a search query that may hit
 searchText :: MonadWidget t m
            => Dynamic t String
            -> String
