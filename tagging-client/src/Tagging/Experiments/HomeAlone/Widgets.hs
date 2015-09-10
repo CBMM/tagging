@@ -56,6 +56,8 @@ pageWidget TaggingUser{..} = mdo
 
   return ()
 
+
+-----------------------------------------------------------------------------
 data HACommand =  AnswerAdd      CharacterAtDir
                |  AnswerDel      CharacterAtDir
                |  HighlightDir   (Maybe HeadDirection)
@@ -63,10 +65,12 @@ data HACommand =  AnswerAdd      CharacterAtDir
 
 type UIState = (Answer HomeAloneExperiment, Maybe HeadDirection)
 
+-----------------------------------------------------------------------------
 doCommand :: HACommand -> UIState -> UIState
 doCommand (AnswerAdd x)    (a,h) = (L.union [x] a, h)
 doCommand (AnswerDel x)    (a,h) = (a L.\\ [x],    h)
 doCommand (HighlightDir d) (a,_) = (a,             d)
+
 
 -----------------------------------------------------------------------------
 questionWidget :: MonadWidget t m
@@ -80,6 +84,7 @@ questionWidget p cmds = do
   fakeClicks <- button "Incr"
   res <- foldDyn doCommand ([], Nothing) cmds
   text "Result: "
+  headDirIndicator =<< forDyn res snd
   display res
   q <- mapDyn fst res
   return q
@@ -163,6 +168,20 @@ headDirButtons n = elClass "div" "head-dir-button-container" $ do
                       , cAtD n d              <$ domEvent Click      (fst b)
                       ]
   return $ leftmost bs
+
+
+-----------------------------------------------------------------------------
+headDirIndicator :: MonadWidget t m
+                 => Dynamic t (Maybe HeadDirection)
+                 -> m ()
+headDirIndicator hd = elClass "div" "head-dir-indicator" $ do
+  let picSrc :: Maybe HeadDirection -> String
+      picSrc h = "http://web.mit.edu/greghale/Public/hapics/"
+                 <> maybe "HAWhite" show h
+                 <> ".png"
+  atTrs <- forDyn hd $ \h -> "src" =: picSrc h
+  elDynAttr "img" atTrs $ return ()
+
 
 -----------------------------------------------------------------------------
 -- Utility that renders a string according to a search query that may hit

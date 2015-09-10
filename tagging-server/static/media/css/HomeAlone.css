@@ -38,15 +38,28 @@ body {
 
 .head-dir-button-container {
   display: flex;
+  margin-top: -4px;
   display: -webkit-flex;
   justify-content: space-around;
+  background-color: black;
+  padding-right: 1px;
 }
 
 .head-dir-button {
   height: 10px;
-  width:  10px;
-  background-color: green;
-  border-radius: 2px;
+  flex-grow: 1;
+  background-color: hsla(100,50%,75%,0.5);
   position: relative;
-  --float: left;
+  margin-left: 1px;
+  --border-style:solid;
+  --border-width: 0px 1px 0px 1px;
+}
+
+.head-dir-button:hover {
+  background-color: hsla(100,50%,75%,1);
+}
+
+.head-dir-indicator img {
+  width: 45px;
+  height: 60px;
 }
