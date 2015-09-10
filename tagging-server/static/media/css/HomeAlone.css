@@ -26,7 +26,6 @@ body {
   position: absolute;
   bottom: 0px;
   left: 10px;
-  --width: 100%;
   font-size: 10pt;
   color: white;
   text-shadow: 1px 1px 1px black;
@@ -35,4 +34,19 @@ body {
 .text-found {
   color: hsl(120, 50%, 75%);
   background: rgba(255,255,255,0.4);
+}
+
+.head-dir-button-container {
+  display: flex;
+  display: -webkit-flex;
+  justify-content: space-around;
+}
+
+.head-dir-button {
+  height: 10px;
+  width:  10px;
+  background-color: green;
+  border-radius: 2px;
+  position: relative;
+  --float: left;
 }
