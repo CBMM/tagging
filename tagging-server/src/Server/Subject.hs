@@ -114,6 +114,7 @@ getCurrentPositionInfo = eitherT Server.Utils.err300 return $ do
   ss  <- lift getCurrentStimulusSequence
   sr  <- lift getCurrentStimulusResource
   lift . gh $ insert (StimulusRequest (tuId u) (fst ssi) t)
+  lift $ modifyResponse $ Snap.Core.addHeader "Cache-Control" "no-cache"
   return $ PositionInfo ss ssi sr
 
 

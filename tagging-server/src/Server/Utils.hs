@@ -45,6 +45,7 @@ class (PersistEntity v,
 ------------------------------------------------------------------------------
 getCurrentTaggingUser :: EitherT String (Handler App App) TaggingUser
 getCurrentTaggingUser = do
+  lift $ modifyResponse $ setHeader "Cache-Control" "no-cache"
   cu <- noteT "No authUser" $ MaybeT $ with auth currentUser
   case readMay . T.unpack . unUid =<< userId cu of
     Nothing         -> EitherT (return $ Left "Could not read userId")

@@ -63,3 +63,32 @@ body {
   width: 45px;
   height: 60px;
 }
+
+.response{
+  height: 75px;
+}
+.answer-face{
+  position: relative;
+  width: 75px;
+  height: 75px;
+  float: left;
+}
+
+.answer-face-face {
+  position: absolute;
+  width: 75px;
+  height: 75px;
+}
+
+.answer-face-dir{
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  width: 25px;
+}
+
+.del-button{
+  position: absolute;
+  top: 0px;
+  left: 0px;
+}

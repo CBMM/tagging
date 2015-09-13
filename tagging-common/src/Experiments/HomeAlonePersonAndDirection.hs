@@ -32,6 +32,8 @@ instance Experiment HomeAloneExperiment where
   type Question HomeAloneExperiment = Int
   type Answer   HomeAloneExperiment = [CharacterAtDir]
 
+picsSt = "Simple Pictures"
+
 data HeadDirection = HDLeft | HDLeftMid | HDCenter | HDRightMid | HDRight
   deriving (Eq, Ord, Enum, Show, Read, Generic)
 

@@ -2,6 +2,8 @@
 
 module Main where
 
+import Data.Configurator
+import Data.Monoid
 import System.Environment
 import System.IO
 import Database.Groundhog.Postgresql
@@ -9,13 +11,24 @@ import Tagging.User
 import Tagging.Stimulus
 import Tagging.Response
 import qualified Server.Experiments.SimplePics as SimplePics
+import qualified Server.Experiments.HomeAlone  as HomeAlone
 
 main :: IO ()
 main = do
   args <- getArgs
   case args of
-    [str, admin0pw] -> do
-      withPostgresqlConn str $ runDbConn $ do
+    [configPath] -> do
+      cfg <- load [Required configPath]
+      hostName <- require cfg "host"
+      password <- require cfg "pass"
+      dbName   <- require cfg "db"
+      userName <- require cfg "user"
+      let dbString = unwords ["user="     <> userName
+                             ,"dbname="   <> dbName
+                             ,"host="     <> hostName
+                             ,"password=" <> password
+                             ]
+      withPostgresqlConn dbString $ runDbConn $ do
 
         runMigration $ do
           migrate (undefined :: TaggingUser)
@@ -28,6 +41,7 @@ main = do
         --insert admin0
 
         SimplePics.setupStimuli
+        HomeAlone.setupStimuli
 
       return ()
     _ -> putStrLn $ unwords ["Usage: fixtures"

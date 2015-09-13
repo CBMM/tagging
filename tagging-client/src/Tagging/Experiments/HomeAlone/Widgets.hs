@@ -42,24 +42,37 @@ pageWidget :: forall t m .MonadWidget t m => TaggingUser -> m ()
 pageWidget TaggingUser{..} = mdo
 
   pb <- getPostBuild
-  let getStim = leftmost [pb]
+  getAfterSubmit <- delay 0.1 submits
+  let getStim = pb <> getAfterSubmit
 
-  stims   <- fmapMaybe id <$> getAndDecode ("/api/posinfo" <$ getStim)
+  stims <- fmapMaybe id <$> getAndDecode ("/api/posinfo" <$ getStim)
 
   elClass "div" "question-div" $
         movieWidget stims
 
-  qWidget <- questionWidget stims bankEvents
+  qWidget  <- questionWidget stims bankEvents
+
 
   searchBox  <- _textInput_value <$> textInput def
   bankEvents <- optionBankWidget searchBox
+
+  buttonAttrs <- forDyn qWidget
+                 (bool ("invalid" =: "invalid") mempty . isValid)
+  buttonText  <- forDyn qWidget (bool "Submit" "Noone" . null)
+  btn <- fmap fst $ elDynAttr' "button" buttonAttrs $ dynText buttonText
+  let submits = domEvent Click btn
 
   return ()
 
 
 -----------------------------------------------------------------------------
+isValid :: Answer HomeAloneExperiment -> Bool
+isValid = all (isJust . cadDir)
+
+-----------------------------------------------------------------------------
 data HACommand =  AnswerAdd      CharacterAtDir
                |  AnswerDel      CharacterAtDir
+               |  AnswerTogl     CharacterAtDir
                |  HighlightDir   (Maybe HeadDirection)
   deriving (Eq, Show)
 
@@ -67,28 +80,56 @@ type UIState = (Answer HomeAloneExperiment, Maybe HeadDirection)
 
 -----------------------------------------------------------------------------
 doCommand :: HACommand -> UIState -> UIState
-doCommand (AnswerAdd x)    (a,h) = (L.union [x] a, h)
+doCommand (AnswerAdd x)    (a,h) = (bool (a ++ [x]) a (x `elem` a), h)
 doCommand (AnswerDel x)    (a,h) = (a L.\\ [x],    h)
 doCommand (HighlightDir d) (a,_) = (a,             d)
-
+doCommand (AnswerTogl x)   (a,h)
+  | x `elem` a = doCommand (AnswerDel x) (a,h)
+  | otherwise  = doCommand (AnswerAdd x) (a,h)
 
 -----------------------------------------------------------------------------
-questionWidget :: MonadWidget t m
+questionWidget :: forall t m. MonadWidget t m
                => Event t PositionInfo
                -> Event t HACommand
                -> m (Dynamic t (Answer HomeAloneExperiment))
-questionWidget p cmds = do
+questionWidget p cmds = mdo
 
-  pb <- getPostBuild
+  pb <- getPostBuild :: m (Event t ())
 
-  fakeClicks <- button "Incr"
-  res <- foldDyn doCommand ([], Nothing) cmds
-  text "Result: "
+  res <- foldDyn doCommand ([], Nothing) (leftmost [cmds, ansRes])
   headDirIndicator =<< forDyn res snd
-  display res
-  q <- mapDyn fst res
-  return q
+  answer <- mapDyn fst res
 
+  ansRes <- answerDisplay answer
+  --let a = ansRes :: Int
+  return answer
+
+
+answerDisplay :: forall t m. MonadWidget t m
+               => Dynamic t [CharacterAtDir]
+               -> m (Event t HACommand)
+answerDisplay dynXs =
+  elClass "div" "response" $ do
+    charsMap <- mapDyn (Map.fromList . zip [0..]) dynXs
+    eventMap <- listViewWithKey charsMap answerDisplayOne
+    let eventList = fmapMaybe (listToMaybe . Map.elems) eventMap
+    return $ eventList
+
+answerDisplayOne :: MonadWidget t m => Int -> Dynamic t CharacterAtDir -> m (Event t HACommand)
+answerDisplayOne k dynChar = do
+        let baseUrl = "http://web.mit.edu/greghale/Public/hapics/" :: String
+        picAttr <- forDyn (dynChar) $ \(CharacterAtDir cName mDir) ->
+          ("src" =: nameToFile (T.unpack cName))
+          <> ("class" =: "answer-face-face")
+        dirAttr <- forDyn dynChar $ \(CharacterAtDir cName mDir) ->
+          maybe ("display" =: "none")
+                       (\d -> ("src" =: (baseUrl ++ show d ++ ".png")
+                              <> ("class" =: "answer-face-dir"))) mDir
+        elClass "div" "answer-face" $ do
+          elDynAttr "img" picAttr $ return ()
+          elDynAttr "img" dirAttr $ return ()
+          btn <- fmap fst $ elAttr' "button" ("class" =: "del-button") $ text "x"
+          return (AnswerDel <$> tag (current dynChar) (domEvent Click btn))
 
 
 -----------------------------------------------------------------------------
@@ -112,10 +153,6 @@ movieWidget pEvent = do
 
   return ()
 
-headDirIndicatorWidget :: MonadWidget t m
-                       => Dynamic t HeadDirection
-                       -> m ()
-headDirIndicatorWidget dynDirection = display dynDirection -- TODO
 
 -----------------------------------------------------------------------------
 -- A listing of all possible faces, filtered by text typed so far
@@ -162,7 +199,7 @@ headDirButtons :: MonadWidget t m => CharacterName -> m (Event t HACommand)
 headDirButtons n = elClass "div" "head-dir-button-container" $ do
   bs <- forM [HDLeft .. HDRight] $ \d -> do
     b <- elAttr' "div" ("class" =: "head-dir-button") $ return ()
-    let cAtD = \a b -> AnswerAdd $ CharacterAtDir a (Just b)
+    let cAtD = \a b -> AnswerTogl $ CharacterAtDir a (Just b)
     return $ leftmost [ HighlightDir (Just d) <$ domEvent Mouseenter (fst b)
                       , HighlightDir Nothing  <$ domEvent Mouseleave (fst b)
                       , cAtD n d              <$ domEvent Click      (fst b)
@@ -214,10 +251,11 @@ choicesMap :: Map.Map String String
 choicesMap = Map.fromList $ map (\n -> (n, nameToFile n))
              ["Kevin McC" ,"Tracy McC" ,"Sondra McC" ,"Rod McC" ,"Rob McC"
              ,"Buzz McC" ,"Peter McC" ,"Other" ,"Other (Major)" ,"Other (Minor)"
-             ,"Not Sure" ,"Nobody" ,"Mrs. Stone" ,"Mr. Hector" ,"Mr. Duncan"
+             ,"Not Sure" ,"Mrs. Stone" ,"Mr. Hector" ,"Mr. Duncan"
              ,"Megan McC" ,"Marv Merch" ,"Linnie McC" ,"Leslie McC" ,"Kate McC"
              ,"Jeff McC" ,"Harry Lyme" ,"Fuller McC" ,"Frank McC" ,"Cedric"
              ,"Buzz McC" ,"Brooke McC" ,"Bird Lady"
+             -- ,"Nobody"
              ]
 
 nameToFile :: String -> String

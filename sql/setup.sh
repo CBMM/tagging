@@ -31,7 +31,8 @@ case $yn in
         sudo -u $ROOTUSER createdb $DB;
         sudo -u $ROOTUSER psql -U $ROOTUSER -d $DB -c "ALTER ROLE $PGUSER WITH PASSWORD '$PASS';";
         sudo -u $ROOTUSER psql -U $ROOTUSER -d $DB -c "CREATE EXTENSION \"uuid-ossp\";";
-        sudo -u $ROOTUSER psql -U $ROOTUSER -d $DB -c "GRANT ALL PRIVILEGES ON DATABASE $DB TO $PGUSER";;
+        sudo -u $ROOTUSER psql -U $ROOTUSER -d $DB -c "GRANT ALL PRIVILEGES ON DATABASE $DB TO $PGUSER";
+        ../tagging-server/dist/build/fixtures/fixtures ../tagging-server/snaplets/groundhog-postgresql/devel.cfg;;
 
     * ) echo "Didn't catch that. Try again, please answer y or n"
 esac
