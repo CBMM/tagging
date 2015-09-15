@@ -2,6 +2,16 @@ body {
   background-color: white;
 }
 
+.main-div {
+  float: left;
+  width: 50%;
+}
+
+.bank {
+  float: left;
+  width: 50%
+}
+
 .bank-container {
   display: flex;
   display: -webkit-flex;
@@ -13,20 +23,25 @@ body {
 }
 
 .bank-item {
-  position: relative;
   padding: 1px;
 }
 
-.bank-item img {
-  width: 85px;
+.one-choice {
+  position: relative;
+}
+
+.head-pic {
+  position: absolute
+  width: 65px;
+  height: 65px;
   color: black;
 }
 
 .bank-item h2 {
   position: absolute;
   bottom: 0px;
-  left: 10px;
-  font-size: 10pt;
+  left: 0px;
+  font-size: 8pt;
   color: white;
   text-shadow: 1px 1px 1px black;
 }
@@ -60,8 +75,10 @@ body {
 }
 
 .head-dir-indicator img {
-  width: 45px;
-  height: 60px;
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  width: 30px;
 }
 
 .response{
@@ -85,10 +102,20 @@ body {
   top: 0px;
   right: 0px;
   width: 25px;
+  opacity: 0.75;
 }
 
 .del-button{
   position: absolute;
   top: 0px;
   left: 0px;
+}
+
+.fa {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  color: white;
+  opacity: 0.75;
+  text-shadow: 1px 1px 1px black;
 }
