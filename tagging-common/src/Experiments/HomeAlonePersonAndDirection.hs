@@ -5,6 +5,7 @@
 
 module Experiments.HomeAlonePersonAndDirection where
 
+import Control.Error
 import qualified Data.Aeson as A
 import Data.Char
 import Control.Monad (mzero)
@@ -34,22 +35,31 @@ instance Experiment HomeAloneExperiment where
 
 picsSt = "Simple Pictures"
 
-data HeadDirection = HDLeft | HDLeftMid | HDCenter | HDRightMid | HDRight
+data HeadInfo = HDLeft | HDLeftMid | HDCenter | HDRightMid | HDRight
+              | HDBack | HDOffCamera
   deriving (Eq, Ord, Enum, Show, Read, Generic)
 
 type CharacterName = T.Text
 
 data CharacterAtDir = CharacterAtDir
   { cadName :: CharacterName
-  , cadDir  :: Maybe HeadDirection
+  , cadDir  :: Maybe HeadInfo
   } deriving (Eq, Show, Generic)
 
-instance A.FromJSON HeadDirection where
-  parseJSON (Object v) = fmap read (v .: "headdirection")
+data CharacterWithFlags = CharacterWithFlags
+  { cwfName    :: CharacterName
+  , cwfDir     :: HeadInfo
+  , cwfTalking :: Bool
+  } deriving (Eq, Show, Generic)
+
+instance A.FromJSON HeadInfo where
+  parseJSON (String v) = case readMay (T.unpack v) of
+    Nothing -> mzero
+    Just hd -> return hd
   parseJSON _          = mzero
 
-instance A.ToJSON HeadDirection where
-  toJSON d = A.object ["headdirection" .= show d]
+instance A.ToJSON HeadInfo where
+  toJSON d = A.String $ T.pack (show d)
 
 instance A.FromJSON CharacterAtDir where
   parseJSON = genericParseJSON defaultOptions {
@@ -60,3 +70,15 @@ instance A.ToJSON CharacterAtDir where
   toJSON = genericToJSON defaultOptions {
     fieldLabelModifier = drop 3 . map toLower
   }
+
+instance A.FromJSON CharacterWithFlags where
+  parseJSON (Object v) = CharacterWithFlags
+                       <$> v .: "name"
+                       <*> v .: "headdirection"
+                       <*> v .: "talking"
+
+instance A.ToJSON CharacterWithFlags where
+  toJSON (CharacterWithFlags n d t) = A.object ["name"          .= n
+                                               ,"headdirection" .= d
+                                               ,"talking"       .= t
+                                               ]

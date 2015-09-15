@@ -27,6 +27,7 @@ library
                      , aeson
                      , bytestring
                      , deepseq
+                     , errors
                      , filepath
                      , monad-logger
                      , servant
