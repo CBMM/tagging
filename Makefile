@@ -10,5 +10,5 @@ $(SERVER): $(LIB) tagging-server/tagging-server.cabal $(SERVER_SRC)
 	(cd tagging-server && cabal build)
 
 $(CLIENT): $(LIB) tagging-client/tagging-client.cabal $(CLIENT_SRC)
-	(cd tagging-client && cabal configure --ghcjs && cabal install --ghcjs)
-	cp -r tagging-client/dist/*/*.jsexe tagging-server/static/media/js/
+	(cd tagging-client && cabal configure --ghcjs && cabal build)
+	cp -r tagging-client/dist/build/*/*.jsexe tagging-server/static/media/js/

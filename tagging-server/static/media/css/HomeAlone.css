@@ -1,11 +1,61 @@
-body {
-  background-color: white;
+html, body {
+  height: 100vh;
 }
 
-.main-div {
-  float: left;
-  width: 50%;
+
+.content {
+  display:         flex;
+  display:      -webkit-flex;
+  flex-flow:       column wrap;
+  -webkit-flex-flow: column wrap;
+  justify-content: flex-start;
+  background-color: white;
+  height: 100%;
 }
+
+/****************************************
+ ********** Top-level boxes *************
+ ****************************************/
+
+.movie-widget {
+  order: 1;
+  flex: 1;
+  background-color: pink;
+  min-height: 240px;
+}
+
+.selections-widget{
+  order: 2;
+  flex: 1;
+  background-color: #9f9; /* light green */
+  min-height: 70px;
+}
+
+.clip-properties-widget{
+  order: 3;
+  flex: 1;
+  background-color: #99f; /* light blue */
+  min-height: 200px;
+  max-height: 200px;
+  min-width:300px;
+}
+
+.stable-properties-widget{
+  order: 5;
+  flex: 1;
+  background-color: #9ff; /* cyan? */
+  min-height: 200px;
+  max-height: 200px;
+  min-width:300px;
+}
+
+.choice-bank-widget{
+  order: 4;
+  flex: 1;
+  background-color: #bb9; /* lighth purple */
+  min-height: 200px;
+}
+
 
 .bank {
   float: left;
