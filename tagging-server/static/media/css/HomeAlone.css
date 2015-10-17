@@ -2,7 +2,6 @@ html, body {
   height: 100vh;
 }
 
-
 .content {
   display:         flex;
   display:      -webkit-flex;
@@ -57,10 +56,14 @@ html, body {
 }
 
 
-.bank {
+/****************************************
+ ************** Choice bank *************
+ ****************************************/
+
+/* .bank {
   float: left;
   width: 50%
-}
+} */
 
 .bank-container {
   display: flex;
@@ -76,15 +79,29 @@ html, body {
   padding: 1px;
 }
 
-.one-choice {
+.choice-bank-choice {
   position: relative;
+  width: 65px;
+  height: 65px;
 }
 
-.head-pic {
+.choice-bank-choice img {
   position: absolute
   width: 65px;
   height: 65px;
   color: black;
+  top: 0px;
+  left: 0px;
+}
+.choice-bank-choice-text {
+  position: absolute;
+  font-size: 8pt;
+  bottom: 0px;
+  left: 0px;
+}
+
+.choice-bank-text-match  {
+  background-color: #bff;
 }
 
 .bank-item h2 {
