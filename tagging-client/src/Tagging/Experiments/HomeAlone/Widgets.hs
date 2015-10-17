@@ -72,7 +72,7 @@ choiceBankWidget allChars dynSelChars = mdo
                              else (c, Nothing))
     ) searchText' dynSelChars
 
-  ns <- oneFromMap <$>
+  ns <- elClass "div" "bank-container" $ oneFromMap <$>
           listViewWithKey nameAndStatus choiceBankSingleChoice
 
   searchText' <- elClass "div" "search-div" $ mdo
@@ -99,19 +99,19 @@ choiceBankSingleChoice
   -> m (Event t CharacterName)
 choiceBankSingleChoice n dynStatus = do
     divAttrs <- forDyn dynStatus $ \s ->
-           "class"   =: "choice-bank-div"
-        <> "opacity" =: bool "25%" "100%" (isNothing s)
+           "class"   =: "choice-bank-choice"
+        <> "style" =: bool "opacity:1" "opacity:0.25" (isNothing s)
 
     dynText <- forDyn dynStatus $ \case
       Nothing                 -> text (T.unpack n)
       Just (pre,matched,post) -> do
         text pre
-        elClass "span" "choice-bank-match" (text matched)
+        elClass "span" "choice-bank-text-match" (text matched)
         text post
 
     (d,_) <- elDynAttr' "div" divAttrs $ do
       elAttr "img" ("src" =: nameToFile (T.unpack n)) (return ())
-      dyn dynText
+      elClass "div" "choice-bank-choice-text" $ dyn dynText
     return (n <$ domEvent Click d)
 
 
