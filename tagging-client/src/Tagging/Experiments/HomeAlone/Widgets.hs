@@ -99,7 +99,7 @@ choiceBankSingleChoice
   -> m (Event t CharacterName)
 choiceBankSingleChoice n dynStatus = do
     divAttrs <- forDyn dynStatus $ \s ->
-           "class"   =: "choice-bank-choice"
+           "class" =: "choice-bank-choice"
         <> "style" =: bool "opacity:1" "opacity:0.25" (isNothing s)
 
     dynText <- forDyn dynStatus $ \case
@@ -114,6 +114,92 @@ choiceBankSingleChoice n dynStatus = do
       elClass "div" "choice-bank-choice-text" $ dyn dynText
     return (n <$ domEvent Click d)
 
+
+-----------------------------------------------------------------------------
+-- | Show movie clip
+movieWidget :: MonadWidget t m
+            => Event t PositionInfo -- ^ Location within stimulus sequence
+            -> m ()
+movieWidget pEvent = do
+
+  let movieSrc   = \PositionInfo{..} ->
+                     ssBaseUrl (snd piStimulusSequence) <> "/"
+                     <> srUrlSuffix (snd piStimulusResource)
+      movieAttrs = \p -> "src"  =: movieSrc p
+                      <> "type" =: srMimeType (snd $ piStimulusResource p)
+
+  movieAttrs <- widgetHold (text "waiting")
+    (ffor pEvent $ \p ->
+      elAttr "video" ("width" =: "320"
+                      <> "height" =: "240"
+                      <> "controls" =: "controls") $ do
+      elAttr "source" (Map.map T.unpack $ movieAttrs p)
+        (return ())
+    )
+
+  return ()
+
+type StableProps t = Map.Map CharacterName (Dynamic t (Maybe StableProperties))
+
+
+-----------------------------------------------------------------------------
+-- Options for updating stable properties of a character
+stablePropsWidget :: forall t m. MonadWidget t m
+                  => StableProps t -- ^ StableProps Character mapping
+                  -> Dynamic t (Maybe CharacterName)
+                     -- ^ Currently selected character name
+                  -> m ()
+stablePropsWidget propsMap selName = elClass "div" "stable-props-div" $ do
+
+  el "p" $ dynText =<< mapDyn (T.unpack . fromMaybe "") selName
+
+  propDyn <- fmap joinDyn $ forDyn selName $ \mName ->
+                case mName of
+                  Nothing -> constDyn Nothing
+                  Just n  -> maybe (constDyn Nothing) id
+                             (Map.lookup n propsMap)
+
+  let propUpdates = updated propDyn
+
+  -- clearEvents <- () <$ (ffilter isNothing propUpdates)
+
+  let gendUpdates = fmapMaybe (fmap _spGender) propUpdates :: Event t (Maybe Gender)
+  (dynGend :: Dropdown t (Maybe Gender)) <- elClass "div" "stable-props-gender" $ do
+      dropdown Nothing
+        (constDyn $ Map.fromList
+          [ (Nothing,"")
+          , (Just MaleGender,"Male")
+          , (Just FemaleGender,"Female")
+          , (Just OtherGender,"Other")
+          ]) def { _dropdownConfig_setValue = gendUpdates }
+
+  let feelUpdates = fmapMaybe (fmap  _spFeeling) propUpdates :: Event t (Maybe GoodBadGuy)
+  (dynFeel :: Dropdown t (Maybe GoodBadGuy)) <- elClass "div" "stable-props-feeling" $ do
+      dropdown Nothing
+        (constDyn $ Map.fromList
+          [ (Nothing,"")
+          , (Just GoodGuy,"Goodguy")
+          , (Just NeutralGuy,"Neutral")
+          , (Just BadGuy,"Badguy")
+          ]) def { _dropdownConfig_setValue = feelUpdates }
+
+  let famUpdates = fmapMaybe (fmap _spFamous) propUpdates :: Event t (Maybe Bool)
+  (dynFam :: Dropdown t (Maybe Bool)) <- elClass "div" "stable-props-famous" $ do
+      dropdown Nothing
+        (constDyn $ Map.fromList
+          [ (Nothing,"")
+          , (Just True,"Famous")
+          , (Just False,"Not Famous")
+          ]) def { _dropdownConfig_setValue = famUpdates }
+
+  stableProps <- $(qDyn [| StableProperties
+                           <$> $(unqDyn [| selName |])
+                           <*> pure ($(unqDyn [| _dropdown_value dynGend |]))
+                           <*> pure ($(unqDyn [| _dropdown_value dynFeel |]))
+                           <*> pure ($(unqDyn [| _dropdown_value dynFam  |]))
+                        |])
+
+  return ()
 
 -- -----------------------------------------------------------------------------
 -- pageWidget :: forall t m .MonadWidget t m => TaggingUser -> m ()
@@ -235,28 +321,7 @@ choiceBankSingleChoice n dynStatus = do
 --           return (AnswerDel <$> tag (current dynChar) (domEvent Click btn))
 --
 --
--- -----------------------------------------------------------------------------
--- movieWidget :: MonadWidget t m => Event t PositionInfo -> m ()
--- movieWidget pEvent = do
---
---   let movieSrc   = \PositionInfo{..} ->
---                      ssBaseUrl (snd piStimulusSequence) <> "/"
---                      <> srUrlSuffix (snd piStimulusResource)
---       movieAttrs = \p -> "src"  =: movieSrc p
---                       <> "type" =: srMimeType (snd $ piStimulusResource p)
---
---   movieAttrs <- widgetHold (text "waiting")
---     (ffor pEvent $ \p ->
---       elAttr "video" ("width" =: "320"
---                       <> "height" =: "240"
---                       <> "controls" =: "controls") $ do
---       elAttr "source" (Map.map T.unpack $ movieAttrs p)
---         (return ())
---     )
---
---   return ()
---
---
+
 -- -----------------------------------------------------------------------------
 -- -- A listing of all possible faces, filtered by text typed so far
 -- -- Returns: stream of clicked directional characters,

@@ -39,7 +39,7 @@ instance Experiment HomeAloneExperiment where
 data HomeAloneResponse = PerClip [ClipCharacter]
                        -- ^ Every clip needs a list of Character data,
                        --   Who is in the clip, are they talking?
-                       | Sporadic UpdateCharacter
+                       | Sporadic StableProperties
                        -- ^ Occasional updates to relatively stable properties,
                        --   like gender, good guy / bad guy status, famousness
                        | Survey Value
@@ -61,12 +61,12 @@ instance FromJSON ClipCharacter where
   parseJSON = genericParseJSON defaultOptions {
     fieldLabelModifier = drop 3 . map toLower }
 
-data UpdateCharacter = UpdateCharacter
-  { _ucCharacterName :: CharacterName
-  , _ucGender        :: Maybe Gender
-  , _ucFeeling       :: Maybe GoodBadGuy
-  , _ucFamous        :: Bool
-} deriving (Eq, Ord, Show, Generic)
+data StableProperties = StableProperties
+  { _spCharacterName :: CharacterName
+  , _spGender        :: Maybe Gender
+  , _spFeeling       :: Maybe GoodBadGuy
+  , _spFamous        :: Maybe Bool
+  } deriving (Eq, Ord, Show, Generic)
 
 
 data HeadInfo = HDLeft | HDLeftMid | HDCenter | HDRightMid | HDRight
