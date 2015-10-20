@@ -146,58 +146,77 @@ type StableProps t = Map.Map CharacterName (Dynamic t (Maybe StableProperties))
 -- Options for updating stable properties of a character
 stablePropsWidget :: forall t m. MonadWidget t m
                   => StableProps t -- ^ StableProps Character mapping
-                  -> Dynamic t (Maybe CharacterName)
+                  -> Event t (Maybe CharacterName)
+                  -- -> Dynamic t (Maybe CharacterName)
                      -- ^ Currently selected character name
                   -> m ()
-stablePropsWidget propsMap selName = elClass "div" "stable-props-div" $ do
+stablePropsWidget propsMap' selName = elClass "div" "stable-props-div" $ mdo
 
-  el "p" $ dynText =<< mapDyn (T.unpack . fromMaybe "") selName
+  nameDyn <- holdDyn Nothing selName
 
-  propDyn <- fmap joinDyn $ forDyn selName $ \mName ->
-                case mName of
-                  Nothing -> constDyn Nothing
-                  Just n  -> maybe (constDyn Nothing) id
-                             (Map.lookup n propsMap)
+  el "p" $ display nameDyn
 
-  let propUpdates = updated propDyn
+  oldPropsDyn <- fmap joinDyn $ forDyn nameDyn $ \mName ->
+                  case mName of
+                    Nothing -> constDyn Nothing
+                    Just n  -> maybe (constDyn Nothing) id
+                               (Map.lookup n propsMap)
 
-  -- clearEvents <- () <$ (ffilter isNothing propUpdates)
+  let propUpdates = updated oldPropsDyn :: Event t (Maybe StableProperties)
 
-  let gendUpdates = fmapMaybe (fmap _spGender) propUpdates :: Event t (Maybe Gender)
-  (dynGend :: Dropdown t (Maybe Gender)) <- elClass "div" "stable-props-gender" $ do
-      dropdown Nothing
+  let gendUpdates = fmap (>>= _spGender) propUpdates :: Event t (Maybe Gender)
+  gendDropdown <- elClass "div" "stable-props-gender" $ do
+       dropdown Nothing
         (constDyn $ Map.fromList
           [ (Nothing,"")
           , (Just MaleGender,"Male")
           , (Just FemaleGender,"Female")
           , (Just OtherGender,"Other")
-          ]) def { _dropdownConfig_setValue = gendUpdates }
+          ]) (DropdownConfig gendUpdates (constDyn mempty))
 
-  let feelUpdates = fmapMaybe (fmap  _spFeeling) propUpdates :: Event t (Maybe GoodBadGuy)
-  (dynFeel :: Dropdown t (Maybe GoodBadGuy)) <- elClass "div" "stable-props-feeling" $ do
+  dynGend <- holdDyn Nothing (_dropdown_change gendDropdown)
+
+  let a = dynGend :: Dynamic t (Maybe Gender)
+
+  let feelUpdates = fmap (>>= _spFeeling) propUpdates
+  feelDropdown <- elClass "div" "stable-props-feeling" $ do
       dropdown Nothing
         (constDyn $ Map.fromList
           [ (Nothing,"")
           , (Just GoodGuy,"Goodguy")
           , (Just NeutralGuy,"Neutral")
           , (Just BadGuy,"Badguy")
-          ]) def { _dropdownConfig_setValue = feelUpdates }
+          ]) (DropdownConfig feelUpdates (constDyn mempty))
 
-  let famUpdates = fmapMaybe (fmap _spFamous) propUpdates :: Event t (Maybe Bool)
-  (dynFam :: Dropdown t (Maybe Bool)) <- elClass "div" "stable-props-famous" $ do
+  dynFeel <- holdDyn Nothing (_dropdown_change feelDropdown)
+
+  let famUpdates = fmap (>>= _spFamous) propUpdates
+  famDropdown <- elClass "div" "stable-props-famous" $ do
       dropdown Nothing
         (constDyn $ Map.fromList
           [ (Nothing,"")
           , (Just True,"Famous")
           , (Just False,"Not Famous")
-          ]) def { _dropdownConfig_setValue = famUpdates }
+          ]) (DropdownConfig famUpdates (constDyn mempty))
+
+  dynFam <- holdDyn Nothing (_dropdown_change famDropdown)
 
   stableProps <- $(qDyn [| StableProperties
-                           <$> $(unqDyn [| selName |])
-                           <*> pure ($(unqDyn [| _dropdown_value dynGend |]))
-                           <*> pure ($(unqDyn [| _dropdown_value dynFeel |]))
-                           <*> pure ($(unqDyn [| _dropdown_value dynFam  |]))
-                        |])
+                           <$> $(unqDyn [| nameDyn |])
+                           <*> pure ($(unqDyn [| dynGend |]))
+                           <*> pure ($(unqDyn [| dynFeel |]))
+                           <*> pure ($(unqDyn [| dynFam  |]))
+                        |]) :: m (Dynamic t (Maybe StableProperties))
+
+  display stableProps
+
+  propsMap <- Map.fromList <$> forM choices (\c -> do
+   cStProps <- holdDyn Nothing
+               ((Just <$>) (ffilter (\sp -> _spCharacterName sp == c)
+               (fmapMaybe id $ tagDyn stableProps submitClicks)))
+   return (c, cStProps))
+
+  submitClicks <- button "Submit"
 
   return ()
 
