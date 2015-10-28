@@ -36,7 +36,7 @@ instance Experiment HomeAloneExperiment where
 -- | The responses from the user have this type: Either a per-clip
 --   response (one is required per stimulus), or a Sporadic
 --   update to relatively stable character properties
-data HomeAloneResponse = PerClip [ClipCharacter]
+data HomeAloneResponse = PerClip [ClipProperties]
                        -- ^ Every clip needs a list of Character data,
                        --   Who is in the clip, are they talking?
                        | Sporadic StableProperties
@@ -47,17 +47,22 @@ data HomeAloneResponse = PerClip [ClipCharacter]
                        --   subject and their relation to the movie
                      deriving (Eq, Show, Generic)
 
-data ClipCharacter = ClipCharacter
-  { _ccCharacterName :: CharacterName
-  , _ccHeadDir       :: HeadInfo
-  , _ccTalking       :: Bool
+instance ToJSON   HomeAloneResponse where
+instance FromJSON HomeAloneResponse where
+
+
+
+data ClipProperties = ClipProperties
+  { _cpCharacterName :: CharacterName
+  , _cpHeadDir       :: HeadInfo
+  , _cpTalking       :: Bool
   } deriving (Eq, Ord, Show, Generic)
 
-instance ToJSON   ClipCharacter where
+instance ToJSON   ClipProperties where
   toJSON = genericToJSON defaultOptions {
     fieldLabelModifier = drop 3 . map toLower }
 
-instance FromJSON ClipCharacter where
+instance FromJSON ClipProperties where
   parseJSON = genericParseJSON defaultOptions {
     fieldLabelModifier = drop 3 . map toLower }
 
@@ -68,9 +73,16 @@ data StableProperties = StableProperties
   , _spFamous        :: Maybe Bool
   } deriving (Eq, Ord, Show, Generic)
 
+instance ToJSON   StableProperties where
+  toJSON = genericToJSON defaultOptions {
+    fieldLabelModifier = drop 3 . map toLower }
+
+instance FromJSON StableProperties where
+  parseJSON = genericParseJSON defaultOptions {
+    fieldLabelModifier = drop 3 . map toLower }
 
 data HeadInfo = HDLeft | HDLeftMid | HDCenter | HDRightMid | HDRight
-              | HDBack | HDOffCamera
+              | HDBack | HDOffscreen
   deriving (Eq, Ord, Enum, Show, Read, Generic)
 
 data GoodBadGuy = BadGuy | NeutralGuy | GoodGuy
@@ -80,6 +92,12 @@ data Gender = MaleGender | FemaleGender | OtherGender
   deriving (Eq, Ord, Enum, Show, Read, Generic)
 
 type CharacterName = T.Text
+
+
+instance ToJSON   Gender where
+instance FromJSON Gender where
+instance ToJSON   GoodBadGuy where
+instance FromJSON GoodBadGuy where
 
 -- data CharacterAtDir = CharacterAtDir
 --   { cadName :: CharacterName

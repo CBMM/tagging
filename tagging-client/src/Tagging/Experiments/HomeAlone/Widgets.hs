@@ -8,6 +8,7 @@
 {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE QuasiQuotes               #-}
 {-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE TupleSections             #-}
 
 module Tagging.Experiments.HomeAlone.Widgets where
 
@@ -129,12 +130,11 @@ movieWidget pEvent = do
                       <> "type" =: srMimeType (snd $ piStimulusResource p)
 
   movieAttrs <- widgetHold (text "waiting")
-    (ffor pEvent $ \p ->
-      elAttr "video" ("width" =: "320"
-                      <> "height" =: "240"
-                      <> "controls" =: "controls") $ do
-      elAttr "source" (Map.map T.unpack $ movieAttrs p)
-        (return ())
+               (ffor pEvent $ \p ->
+                 elAttr "video" ("width" =: "320"
+                              <> "height" =: "240"
+                              <> "controls" =: "controls") $ do
+                   elAttr "source" (Map.map T.unpack $ movieAttrs p) (return ())
     )
 
   return ()
@@ -147,14 +147,11 @@ type StableProps t = Map.Map CharacterName (Dynamic t (Maybe StableProperties))
 stablePropsWidget :: forall t m. MonadWidget t m
                   => StableProps t -- ^ StableProps Character mapping
                   -> Event t (Maybe CharacterName)
-                  -- -> Dynamic t (Maybe CharacterName)
                      -- ^ Currently selected character name
                   -> m ()
 stablePropsWidget propsMap' selName = elClass "div" "stable-props-div" $ mdo
 
   nameDyn <- holdDyn Nothing selName
-
-  el "p" $ display nameDyn
 
   oldPropsDyn <- fmap joinDyn $ forDyn nameDyn $ \mName ->
                   case mName of
@@ -218,7 +215,108 @@ stablePropsWidget propsMap' selName = elClass "div" "stable-props-div" $ mdo
 
   submitClicks <- button "Submit"
 
+  let okToRequest = fmapMaybe id (tagDyn stableProps submitClicks)
+      propReqs    = ffor okToRequest $ \sp ->
+        XhrRequest "POST" "/api/response" $
+        XhrRequestConfig ("Content-Type" =: "application/json") Nothing Nothing
+          Nothing (Just . BSL.unpack $ A.encode
+            (ResponsePayload (T.decodeUtf8 . BSL.toStrict $
+              A.encode (Sporadic sp))))
+  performRequestAsync propReqs
+
   return ()
+
+
+type ClipPropsMap t = Map.Map CharacterName
+                     (Dynamic t (Maybe ClipProperties))
+
+-----------------------------------------------------------------------------
+clipPropsWidget :: forall t m. MonadWidget t m
+                => Event  t (Maybe CharacterName)
+                   -- ^ Updates to the singley selected character
+                -> Event t ()
+                   -- ^ External commands that reset the property listing
+                -> m (ClipPropsMap t)
+                   -- ^ Returning current set of properties
+clipPropsWidget selName resetEvents = mdo
+
+  nameDyn <- holdDyn Nothing selName
+
+  propsMap <- Map.fromList <$> forM choices (\c -> do
+    cClProps <- holdDyn Nothing $
+                leftmost [ ((Just <$>) (ffilter (\cp -> _cpCharacterName cp == c)
+                            (fmapMaybe id (updated clipProps))))
+                         , Nothing <$ resetEvents
+                         ]
+
+    return (c, cClProps))
+
+  let propUpdates = updated clipProps
+
+  let headDirUpdates = fmap (_cpHeadDir <$>) propUpdates
+  headDropdown <- elClass "div" "clip-props-head" $ do
+    dropdown Nothing
+      (constDyn $ Map.fromList $
+        (Nothing, "") : map (\hd -> (Just hd, drop 2  (show hd) ))
+                        [HDLeft .. HDOffscreen]
+      ) (DropdownConfig headDirUpdates (constDyn mempty))
+
+  dynHeadDir <- holdDyn Nothing
+                (_dropdown_change headDropdown) :: m (Dynamic t (Maybe HeadInfo))
+
+  let talkingUpdates = fmap (_cpTalking <$>) propUpdates
+  talkingDropdown <- elClass "div" "clip-props-talking" $ do
+    dropdown Nothing
+      (constDyn $ Map.fromList $ [ (Nothing, "")
+                                 , (Just True,"Talking")
+                                 , (Just False, "Quiet")]
+      ) (DropdownConfig talkingUpdates (constDyn mempty))
+
+  dynTalking <- holdDyn Nothing
+                (_dropdown_change talkingDropdown) :: m (Dynamic t (Maybe Bool))
+
+  clipProps <- $(qDyn [| ClipProperties
+                         <$> $(unqDyn [| nameDyn |])
+                         <*> $(unqDyn [| dynHeadDir |])
+                         <*> $(unqDyn [| dynTalking |]) |]) -- :: m (Dynamic t (Maybe ClipProperties))
+  return propsMap
+
+-----------------------------------------------------------------------------
+-- | View currently selected characters, detecting clicks
+--   Provide a 'submit' button for submitting the per-clip properties
+--   Returning event stream of face clicks (for single-selecting) and submit
+--   clicks
+selectionsWidget :: MonadWidget t m
+                 => Dynamic t [CharacterName]
+                    -- ^ Listing of selected characters' names
+                 -> m (Event t CharacterName,
+                       Event t CharacterName,
+                       Event t ())
+selectionsWidget selChars = elClass "div" "selections-container" $ do
+  charMap <- mapDyn (Map.fromList . map (,())) selChars
+  clickMap <- listViewWithKey charMap $ \n _ -> do
+    (e,btn) <- elAttr' "div" ("class" =: "selection-choice") $ mdo
+      elAttr "img" (("src" :: String) =: nameToFile (T.unpack n)) $ return ()
+      btnAttr <- holdDyn ("class" =: "fa fa-times") $
+                   leftmost [ domEvent Mouseenter btn $>
+                                  ("class" =: "fa fa-times-circle")
+                            , domEvent Mouseleave btn $>
+                                  ("class" =: "fa fa-times")
+                            ]
+      btn <- fmap fst $ elDynAttr' "span" btnAttr $ return ()
+      elClass "div" "selection-choice-text" $ text (T.unpack n)
+      return btn
+    return $ leftmost [ (n,True)  <$ domEvent Click e
+                      , (n,False) <$ domEvent Click btn]
+  let clks = oneFromMap clickMap
+  sendClicks <- button "Send"
+  -- let selClicks = ffor (selChars `attachDyn` (ffilter snd clks)) $ \(cSet,c) ->
+  --                   if fst c `elem` cSet
+  --                   then Nothing
+  --                   else Just c
+  return $ (fmap fst (ffilter snd clks),
+            fmap fst (ffilter (not . snd) clks),
+            sendClicks)
 
 -- -----------------------------------------------------------------------------
 -- pageWidget :: forall t m .MonadWidget t m => TaggingUser -> m ()

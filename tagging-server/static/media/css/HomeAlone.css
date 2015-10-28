@@ -5,33 +5,60 @@ html, body {
 .content {
   display:         flex;
   display:      -webkit-flex;
-  flex-flow:       column wrap;
-  -webkit-flex-flow: column wrap;
+  flex-flow:       column nowrap;
+  -webkit-flex-flow: column nowrap;
   justify-content: flex-start;
   background-color: white;
   height: 100%;
+  width: 100%;
+}
+
+.top-half {
+  padding: 20px;
+  display: flex;
+  background-color: red;
+  flex-flow: row nowrap;
+  width: 100%;
+}
+
+.top-left {
+  flex-grow: 1;
+}
+
+.bottom-half {
+  padding: 20px;
+  background-color: blue;
+  display: flex;
+  flex-flow: row nowrap;
 }
 
 /****************************************
  ********** Top-level boxes *************
  ****************************************/
 
+
 .movie-widget {
   order: 1;
-  flex: 1;
   background-color: pink;
   min-height: 240px;
 }
 
 .selections-widget{
   order: 2;
-  flex: 1;
   background-color: #9f9; /* light green */
   min-height: 70px;
 }
 
-.clip-properties-widget{
+.choice-bank-widget{
   order: 3;
+  flex: 1;
+  background-color: #bb9; /* lighth purple */
+  max-width:400px;
+  min-width:400px;
+}
+
+.clip-properties-widget{
+  order: 1;
   flex: 1;
   background-color: #99f; /* light blue */
   min-height: 200px;
@@ -40,32 +67,20 @@ html, body {
 }
 
 .stable-properties-widget{
-  order: 5;
+  order: 2;
   flex: 1;
   background-color: #9ff; /* cyan? */
   min-height: 200px;
   max-height: 200px;
-  min-width:300px;
+  min-width:400px;
+  max-width:400px;
 }
-
-.choice-bank-widget{
-  order: 4;
-  flex: 1;
-  background-color: #bb9; /* lighth purple */
-  min-height: 200px;
-}
-
 
 /****************************************
  ************** Choice bank *************
  ****************************************/
 
-/* .bank {
-  float: left;
-  width: 50%
-} */
-
-.bank-container {
+.bank-container, .selections-container {
   display: flex;
   display: -webkit-flex;
   flex-wrap: wrap;
@@ -79,25 +94,32 @@ html, body {
   padding: 1px;
 }
 
-.choice-bank-choice {
+.choice-bank-choice, .selection-choice {
   position: relative;
   width: 65px;
   height: 65px;
+  margin: 5px;
 }
 
-.choice-bank-choice img {
+.choice-bank-choice img, .selection-choice img {
   position: absolute
   width: 65px;
   height: 65px;
   color: black;
   top: 0px;
   left: 0px;
+  border-radius: 5px;
 }
-.choice-bank-choice-text {
+.choice-bank-choice-text, .selection-choice-text {
   position: absolute;
   font-size: 8pt;
   bottom: 0px;
   left: 0px;
+  margin: 0px;
+  padding: 0px 0px 0px 3px;
+  background-color: rgba(255,255,255,0.5);
+  border-radius: 0px;
+  width: 100%;
 }
 
 .choice-bank-text-match  {
