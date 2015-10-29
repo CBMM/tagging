@@ -19,7 +19,6 @@ import Database.Groundhog.Core
 import GHC.Int
 import Snap.Core
 import Snap.Snaplet
-import Snap.Snaplet.Groundhog.Postgresql
 import Servant        hiding (err300)
 import Servant.Server hiding (err300)
 

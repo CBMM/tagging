@@ -34,7 +34,7 @@ data StimulusResponse = StimulusResponse
   -- ^ Trial end time (in server's timezone)
   , srResponseType  :: T.Text
   -- ^ TypeRep text of the response
-  , srResponseData  :: T.Text
+  , srResponseData  :: A.Value
   -- ^ Response payload (serialized to T.Text)
   } deriving (Eq, Show, Generic)
 
@@ -50,24 +50,15 @@ instance A.FromJSON ResponsePayload where
 
 -----------------------------------------------------------------------------
 -- Instances for servant-docs
-instance ToSample StimulusResponse StimulusResponse where
-  toSample _ = Just sampleResponse
-
-instance ToSample [StimulusResponse] [StimulusResponse] where
-  toSample _ = Just [sampleResponse]
-
-instance ToSample [(Int64, StimulusResponse)] [(Int64, StimulusResponse)] where
-  toSample _ = Just [(0,sampleResponse)]
+instance ToSample StimulusResponse where
+  toSamples _ = singleSample sampleResponse
 
 sampleResponse :: StimulusResponse
 sampleResponse =
   StimulusResponse
-  ((1))
-  ((1))
+  1
+  1
   (UTCTime (fromGregorian 2015 08 21) 0)
   (UTCTime (fromGregorian 2015 08 21) 1)
   "SimplePicturePreference (todo fix)"
   "10"
-
-instance ToSample ResponsePayload ResponsePayload where
-  toSample _ = Just $ ResponsePayload "<<Some JSON data>>"

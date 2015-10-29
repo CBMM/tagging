@@ -28,7 +28,6 @@ import           Servant.Server
 import           Snap.Core
 import           Snap.Snaplet
 import qualified Data.Aeson as A
-import           Snap.Snaplet.Groundhog.Postgresql
 
 import           Tagging.Stimulus
 import           Tagging.Response

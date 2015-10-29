@@ -9,6 +9,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Tagging.Stimulus where
 
@@ -50,15 +51,15 @@ data PositionInfo = PositionInfo {
     piStimulusSequence :: (Int64, StimulusSequence)
   , piStimSeqItem      :: (Int64, StimSeqItem )
   , piStimulusResource :: (Int64, StimulusResource)
-  } deriving (Eq, Show, Generic)
+  } deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
-instance ToJSON PositionInfo where
-  toJSON = A.genericToJSON A.defaultOptions { A.fieldLabelModifier =
-                                              drop 2 . map toLower }
+-- instance ToJSON PositionInfo where
+--   toJSON = A.genericToJSON A.defaultOptions { A.fieldLabelModifier =
+--                                               drop 2 . map toLower }
 
-instance FromJSON PositionInfo where
-  parseJSON = A.genericParseJSON A.defaultOptions { A.fieldLabelModifier =
-                                                    drop 2 . map toLower }
+-- instance FromJSON PositionInfo where
+--   parseJSON = A.genericParseJSON A.defaultOptions { A.fieldLabelModifier =
+--                                                     drop 2 . map toLower }
 
 data StimulusResource = StimulusResource
   { srName      :: !StimulusName
@@ -104,69 +105,47 @@ instance A.ToJSON   StimulusRequest where
 
 -----------------------------------------------------------------------------
 -- Instances for servant-docs
-instance ToSample StimSeqItem StimSeqItem where
-  toSample _ = Just sampleStimSeqItem
+instance ToSample StimSeqItem where
+  toSamples _ = singleSample sampleStimSeqItem
 
-instance ToSample [StimSeqItem] [StimSeqItem] where
-  toSample _ = Just [sampleStimSeqItem]
-
-instance ToSample [(Int64,StimSeqItem)] [(Int64,StimSeqItem)] where
-  toSample _ = Just [(1,sampleStimSeqItem)]
 
 sampleStimSeqItem :: StimSeqItem
 sampleStimSeqItem =
-  StimSeqItem ((1))
-  ((1))
-  (Just $ ((3))) 1 "Preference"
+  StimSeqItem 1 1 (Just 3) 1 "Preference"
 
-instance ToSample StimulusSequence StimulusSequence where
-  toSample _ = Just sampleSequence
+instance ToSample StimulusSequence where
+  toSamples _ = singleSample sampleSequence
 
-instance ToSample [StimulusSequence] [StimulusSequence] where
-  toSample _ = Just [sampleSequence]
 
-instance ToSample (Int64,StimulusSequence) (Int64,StimulusSequence) where
-  toSample _ = Just (1,sampleSequence)
+--instance ToSample (Int64,StimulusSequence) where
 
-instance ToSample [(Int64,StimulusSequence)] [(Int64,StimulusSequence)] where
-  toSample _ = Just [(1,sampleSequence)]
 
 sampleSequence :: StimulusSequence
 sampleSequence =
-  StimulusSequence "SimplePictures" (Just ((1))) "Three pictures of shapes" "http://web.mit.edu/greghale/Public/shapes"
+  StimulusSequence "SimplePictures" (Just 1)
+  "Three pictures of shapes"
+  "http://web.mit.edu/greghale/Public/shapes"
 
-instance ToSample StimulusResource StimulusResource where
-  toSample _ = Just sampleResource
+instance ToSample StimulusResource where
+  toSamples _ = singleSample sampleResource
 
-instance ToSample (Int64, StimulusResource) (Int64, StimulusResource ) where
-  toSample _ = Just (1, sampleResource)
 
-instance ToSample [StimulusResource] [StimulusResource] where
-  toSample _ = Just [sampleResource]
 
-instance ToSample [(Int64, StimulusResource)] [(Int64, StimulusResource)] where
-  toSample _ = Just [(0,sampleResource)]
 
-instance ToSample PositionInfo PositionInfo where
-  toSample _ =
-    Just $ PositionInfo
-           (1,sampleSequence) (1, sampleStimSeqItem) (1, sampleResource)
 
 sampleResource :: StimulusResource
 sampleResource = StimulusResource "a" "a.jpg" "image/jpeg"
 
 
-instance ToSample StimulusRequest StimulusRequest where
-  toSample _ = Just sampleRequest
+instance ToSample StimulusRequest where
+  toSamples _ = singleSample sampleRequest
 
-instance ToSample (Int64, StimulusRequest) (Int64, StimulusRequest ) where
-  toSample _ = Just (1, sampleRequest)
+--instance ToSample (Int64, StimulusRequest) where
+--  toSample _ = Just (1, sampleRequest)
 
-instance ToSample [StimulusRequest] [StimulusRequest] where
-  toSample _ = Just [sampleRequest]
 
-instance ToSample [(Int64, StimulusRequest)] [(Int64, StimulusRequest)] where
-  toSample _ = Just [(0,sampleRequest)]
+--instance ToSample [(Int64, StimulusRequest)] where
+--  toSample _ = Just [(0,sampleRequest)]
 
 sampleRequest :: StimulusRequest
 sampleRequest = StimulusRequest 1 1 (UTCTime (fromGregorian 2015 1 1) 0)

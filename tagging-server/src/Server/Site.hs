@@ -36,7 +36,6 @@ import           Snap.Snaplet
 import           Snap.Snaplet.Auth
 import           Snap.Snaplet.PostgresqlSimple
 import           Snap.Snaplet.Auth.Backends.PostgresqlSimple
-import           Snap.Snaplet.Groundhog.Postgresql
 import           Snap.Snaplet.Heist
 import qualified Snap.Snaplet.Heist.Interpreted as I
 import           Snap.Snaplet.Session.Backends.CookieSession

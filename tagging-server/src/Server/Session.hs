@@ -28,7 +28,6 @@ import           Snap.Core       (redirect)
 import           Snap.Snaplet
 import           Snap.Snaplet.Auth
 import           Snap.Snaplet.Heist
-import           Snap.Snaplet.Groundhog.Postgresql
 
 import           Tagging.User
 import           Server.Application

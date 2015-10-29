@@ -54,15 +54,9 @@ instance A.ToJSON   Role where
 
 ------------------------------------------------------------------------------
 -- For servant-docs
-instance ToSample TaggingUser TaggingUser where
-  toSample _ = Just sampleTaggingUser
-
-instance ToSample [TaggingUser] [TaggingUser] where
-  toSample _ = Just [sampleTaggingUser]
-
-instance ToSample [(Int64,TaggingUser)] [(Int64,TaggingUser)] where
-  toSample _ = Just [(1,sampleTaggingUser)]
-
-
-sampleTaggingUser = TaggingUser 1 (Just "922763745") (Just "Greg Hale")
-                    Nothing [Admin, Researcher, Subject]
+instance ToSample TaggingUser where
+  toSamples _ = singleSample $ 
+    TaggingUser 1
+    (Just "922763745")
+    (Just "Greg Hale")
+    Nothing [Admin, Researcher, Subject]

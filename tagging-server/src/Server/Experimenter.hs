@@ -13,7 +13,6 @@ import Control.Error
 import Control.Monad
 import Snap.Core
 import Snap.Snaplet
-import Snap.Snaplet.Groundhog.Postgresql
 
 import Tagging.User
 import Tagging.Stimulus

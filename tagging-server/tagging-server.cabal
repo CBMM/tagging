@@ -29,7 +29,6 @@ library
                     , Server.Experimenter
                     , Server.Resources
                     , Server.Session
-                    , Snap.Snaplet.Groundhog.Postgresql
                     , Server.Utils
                     , Server.Subject
 
@@ -54,12 +53,12 @@ library
                     , servant-docs >= 0.5 && < 0.6
                     , servant-snap >= 0.5 && < 0.6
                     , SHA
-                    , snap >= 0.9 && < 1.0
-                    , snap-core >= 0.9 && < 1.0
-                    , snap-server >= 0.9 && < 0.10
-                    , snap-loader-dynamic >= 0.10 && < 0.11
-                    , snap-loader-static >= 0.9 && < 0.10
-                    , snaplet-postgresql-simple
+                    , snap >= 1.0 && < 1.1
+                    , snap-core >= 1.0 && < 1.1
+                    , snap-server >= 1.0 && < 1.1
+                    , snap-loader-dynamic
+                    , snap-loader-static
+                    , snaplet-postgresql-simple >= 1.0 && < 1.1
                     , tagging-common
                     , text >= 1.2 && < 1.3
                     , time >= 1.5 && < 1.6
@@ -86,21 +85,21 @@ executable tagging-server
                      , monad-logger
                      , mtl >= 2.2 && < 2.3
                      , resource-pool
-                     , servant >= 0.4 && < 0.6
+                     , servant
                      , servant-docs
-                     , servant-snap >= 0.5 && < 0.6
-                     , snap >= 0.9 && < 1.0
-                     , snap-core >= 0.9 && < 1.0
-                     , snap-server >= 0.9 && < 0.10
-                     , snap-loader-dynamic >= 0.10 && < 0.11
-                     , snap-loader-static >= 0.9 && < 0.10
+                     , servant-snap
+                     , snap
+                     , snap-core
+                     , snap-server
+                     , snap-loader-dynamic
+                     , snap-loader-static
                      , snaplet-postgresql-simple
                      , tagging-common
                      , tagging-server
-                     , text >= 1.2 && < 1.3
-                     , time >= 1.5 && < 1.6
+                     , text
+                     , time
                      , transformers
-                     , unordered-containers >= 0.2 && < 0.3
+                     , unordered-containers
   hs-source-dirs:      src
   default-language:    Haskell2010
 

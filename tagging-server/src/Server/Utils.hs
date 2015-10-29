@@ -23,7 +23,6 @@ import GHC.Int
 import Snap.Core
 import Snap.Snaplet
 import Snap.Snaplet.Auth hiding (Role)
-import Snap.Snaplet.Groundhog.Postgresql
 
 import Tagging.User
 import Tagging.Stimulus

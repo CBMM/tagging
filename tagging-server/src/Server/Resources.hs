@@ -22,7 +22,6 @@ import Servant.Server
 import Snap.Core
 import Snap.Snaplet
 import Snap.Snaplet.Auth
-import Snap.Snaplet.Groundhog.Postgresql
 import Tagging.Stimulus
 import Tagging.User
 import Tagging.Response
