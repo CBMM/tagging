@@ -72,8 +72,8 @@ instance A.FromJSON RegisterInfo where
   parseJSON = A.genericParseJSON A.defaultOptions { A.fieldLabelModifier = drop 2 . map toLower}
 
 
-instance ToSample LoginInfo LoginInfo where
-  toSample _ = Just (LoginInfo "greg" "myPassword" True)
+instance ToSample LoginInfo where
+  toSamples _ = singleSample (LoginInfo "greg" "myPassword" True)
 
 ------------------------------------------------------------------------------
 -- | Render login form
@@ -119,13 +119,13 @@ sessionServer = apiLogin
       return ()
 
     apiNewUser RegisterInfo{..} = lift $ maybeT (Server.Utils.err300 "New user error") return $ do
-        user <- hushT $ EitherT $ with auth $ createUser (riUsername) (T.encodeUtf8 riPassword)
+        user <- hushT $ EitherT $ with auth $ createUser riUsername (T.encodeUtf8 riPassword)
         uId   <- hoistMaybe (readMay . T.unpack =<< (unUid <$> userId user))
-        nUser <- lift $ gh $ countAll (undefined :: TaggingUser)
-        lift $ gh $ do
+        nUser <- lift $ runGH $ countAll (undefined :: TaggingUser)
+        lift $ runGH $ do
           n <- countAll (undefined :: TaggingUser)
           let newRoles = if n == 0 then [Admin] else [Subject]
-          insert (TaggingUser ((uId :: Int64)) Nothing Nothing Nothing newRoles)
+          insert (TaggingUser (uId :: Int64) Nothing Nothing Nothing newRoles)
         return ()
     apiCurrentUser =
       lift $ eitherT
@@ -157,5 +157,5 @@ instance FromFormUrlEncoded RegisterInfo where
     <*> note "RegisterInfo missing password field" (lookup "password" fs)
 
 
-instance ToSample RegisterInfo RegisterInfo where
-  toSample _ = Just $ RegisterInfo "SampleUser" "SamplePassword"
+instance ToSample RegisterInfo where
+  toSamples _ = singleSample $ RegisterInfo "SampleUser" "SamplePassword"

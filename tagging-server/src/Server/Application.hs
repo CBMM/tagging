@@ -29,7 +29,7 @@ data App = App
     , _sess  :: Snaplet SessionManager
     , _auth  :: Snaplet (AuthManager App)
     , _db    :: Snaplet Postgres
-    , _gh   ::  Pool    Postgres
+    , _gh   ::  Pool    G.Postgresql
     }
 
 makeLenses ''App
@@ -43,7 +43,13 @@ instance HasPostgres (Handler b App) where
 
 --instance G.HasGroundhogPostgres (Handler b App) where
 --  getGroundhogPostgresState = with gdb get
+
 instance G.ConnectionManager (Pool Connection) G.Postgresql where
+  withConn f pconn = withResource pconn $ G.withConn f . G.Postgresql
+  withConnNoTransaction f pconn =
+    withResource pconn $ G.withConnNoTransaction f . G.Postgresql
+
+instance G.ConnectionManager App G.Postgresql where
   withConn f app              = G.withConn f (_gh app)
   withConnNoTransaction f app = G.withConnNoTransaction
                                 f (_gh app)

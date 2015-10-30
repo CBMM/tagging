@@ -34,7 +34,7 @@ assignUserSeqStart =
     seqItemId <- (hoistMaybe . readMay . B8.unpack) =<<
                  (MaybeT $ getParam "seqitem")
 
-    MaybeT . fmap Just . gh $
+    MaybeT . fmap Just . runGH $
       update
       [TuCurrentStimulusField =. Just (seqItemId :: Int64)]
       (TuIdField ==. (uId :: Int64))

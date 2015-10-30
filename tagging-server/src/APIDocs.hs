@@ -26,14 +26,14 @@ apiDocs = docs apiProxy
 docsIntro = DocIntro "Welcome"
             ["Tagging-server api", "For all your stimulus tagging needs."]
 
-instance ToSample Bool Bool where
-  toSample _ = Just True
+-- instance ToSample Bool Bool where
+--   toSample _ = Just True
 
-instance ToSample Int64 Int64 where
-  toSample _ = Just 12
+instance ToSample Int64 where
+  toSamples _ = singleSample 12
 
-instance ToSample () () where
-  toSample _ = Just ()
+-- instance ToSample () () where
+--   toSample _ = Just ()
 
 instance ToCapture (Capture "id" Int64) where
   toCapture _ = DocCapture "id" "Resource id number"
@@ -68,5 +68,5 @@ instance ToParam (QueryParam "studentid" T.Text) where
                "(Optional) Full name"
                Normal
 
-instance HasDocs (Raw a b) where
-  docsFor _ _ = mempty
+-- instance HasDocs (Raw a b) where
+--   docsFor _ _ = mempty

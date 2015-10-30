@@ -48,7 +48,7 @@ type SubjectAPI = "resource" :> Get '[JSON] (Int64, StimulusResource)
 
 
 ------------------------------------------------------------------------------
-subjectServer :: Server (SubjectAPI) AppHandler
+subjectServer :: Server SubjectAPI AppHandler
 subjectServer = resource :<|> sequence :<|> pos :<|> response
   where resource   = lift $ getCurrentStimulusResource
         sequence   = lift $ getCurrentStimulusSequence
@@ -60,9 +60,9 @@ subjectServer = resource :<|> sequence :<|> pos :<|> response
 assignRoleTo :: AutoKey TaggingUser -> Role -> Bool -> Handler App App ()
 assignRoleTo targetKey r b = eitherT Server.Utils.err300 (\_ -> return ()) $ do
   lift $ assertRole [Admin]
-  tu <- noteT "Bad user lookup" $ MaybeT $ gh $ get targetKey
+  tu <- noteT "Bad user lookup" $ MaybeT $ runGH $ get targetKey
   let roles' = (if b then L.union [r] else L.delete r) $ tuRoles tu
-  lift $ gh $ replace targetKey (tu {tuRoles = roles'})
+  lift $ runGH $ replace targetKey (tu {tuRoles = roles'})
 
 handleAssignRoleTo :: Handler App App ()
 handleAssignRoleTo = void $ runMaybeT $ do
@@ -87,18 +87,18 @@ handleSubmitResponse t =
     stimKey  <- noteT "No assigned stimulus" $ hoistMaybe (tuCurrentStimulus u)
 
     thisReq  <- noteT "No request record by user for stimulus"
-                $ MaybeT $ fmap listToMaybe $ gh
+                $ MaybeT $ fmap listToMaybe $ runGH
                 $ select $ (SreqUserField ==. tuId u
                            &&. SreqStimSeqItemField ==. stimKey)
                            `orderBy` [Asc SreqTimeField]
     tNow     <- lift $ liftIO getCurrentTime
 
     stim     <- noteT "Bad stim lookup from response"
-                $ MaybeT $ gh $ get (intToKey Proxy stimKey)
+                $ MaybeT $ runGH $ get (intToKey Proxy stimKey)
 
-    lift . gh $ do
+    lift . runGH $ do
       insert (StimulusResponse (tuId u) stimKey
-              (sreqTime thisReq) tNow "sometype" (rpBytes t))
+              (sreqTime thisReq) tNow "sometype" (rpJson t))
       update [TuCurrentStimulusField =. ssiNextItem stim]
         $ (TuIdField ==. tuId u)
 
@@ -112,7 +112,7 @@ getCurrentPositionInfo = eitherT Server.Utils.err300 return $ do
   ssi <- getCurrentStimSeqItem
   ss  <- lift getCurrentStimulusSequence
   sr  <- lift getCurrentStimulusResource
-  lift . gh $ insert (StimulusRequest (tuId u) (fst ssi) t)
+  lift . runGH $ insert (StimulusRequest (tuId u) (fst ssi) t)
   lift $ modifyResponse $ Snap.Core.addHeader "Cache-Control" "no-cache"
   return $ PositionInfo ss ssi sr
 
@@ -123,7 +123,7 @@ getCurrentStimSeqItem = do
   loggedInUser <- getCurrentTaggingUser
   itemKey      <- noteT "No sequence assigned"
                   (hoistMaybe $ tuCurrentStimulus loggedInUser)
-  ssi          <- noteT "Bad seq lookup" $ MaybeT $ gh $ get (intToKey Proxy itemKey)
+  ssi          <- noteT "Bad seq lookup" $ MaybeT $ runGH $ get (intToKey Proxy itemKey)
   return (itemKey, ssi)
 
 
@@ -131,7 +131,7 @@ getCurrentStimSeqItem = do
 getCurrentStimulusResource :: AppHandler (Int64, StimulusResource)
 getCurrentStimulusResource = eitherT Server.Utils.err300 return $ do
   ssi <- fmap snd $ getCurrentStimSeqItem
-  sr  <- noteT "Bad resource lookup" $ MaybeT $ gh $
+  sr  <- noteT "Bad resource lookup" $ MaybeT $ runGH $
          get (intToKey Proxy $ ssiStimulus ssi)
   return (ssiStimulus ssi, sr)
 
@@ -140,6 +140,6 @@ getCurrentStimulusResource = eitherT Server.Utils.err300 return $ do
 getCurrentStimulusSequence :: AppHandler (Int64, StimulusSequence)
 getCurrentStimulusSequence = eitherT Server.Utils.err300 return $ do
   ssi <- fmap snd $ getCurrentStimSeqItem
-  ss  <- noteT "Bad sequence lookup" $ MaybeT $ gh $
+  ss  <- noteT "Bad sequence lookup" $ MaybeT $ runGH $
          get (intToKey Proxy $ ssiStimSeq ssi)
   return (ssiStimSeq ssi, ss)

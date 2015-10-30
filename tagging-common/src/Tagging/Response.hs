@@ -7,14 +7,18 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Tagging.Response where
 
 import qualified Data.Aeson as A
+import           Data.Aeson ((.=))
 import qualified Data.ByteString as BS
 import Data.Time
 import Data.Typeable
 import qualified Data.Text as T
+import qualified Data.Vector as V
 import GHC.Generics
 import GHC.Int
 import Servant.Docs
@@ -42,16 +46,24 @@ instance A.FromJSON StimulusResponse where
 instance A.ToJSON   StimulusResponse where
 
 
-newtype ResponsePayload = ResponsePayload {rpBytes :: T.Text}
-  deriving (Eq, Show, Generic)
+newtype ResponsePayload = ResponsePayload {rpJson :: A.Value}
+  deriving (Eq, Show, Generic, A.ToJSON, A.FromJSON)
 
-instance A.ToJSON   ResponsePayload where
-instance A.FromJSON ResponsePayload where
 
 -----------------------------------------------------------------------------
 -- Instances for servant-docs
 instance ToSample StimulusResponse where
   toSamples _ = singleSample sampleResponse
+
+-----------------------------------------------------------------------------
+-- Instances for servant-docs
+instance ToSample ResponsePayload where
+  toSamples _ = singleSample (ResponsePayload sampleResponseJson)
+
+sampleResponseJson :: A.Value
+sampleResponseJson = A.object ["characters" .=
+                               A.Array (V.fromList ["Kevin", "Mom"])]
+
 
 sampleResponse :: StimulusResponse
 sampleResponse =

@@ -14,16 +14,19 @@ module Server.Site
 ------------------------------------------------------------------------------
 import           Control.Applicative
 import           Control.Error
+import           Control.Monad.IO.Class    (liftIO)
 import           Control.Monad.Trans.Class (lift)
 import qualified Data.Aeson as A
-import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Char8  as BS
 import           Data.ByteString (ByteString)
-import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy   as BSL
+import qualified Data.Configurator      as C
 import           Data.Map.Syntax ((##))
 import           Data.Monoid
 import           Data.Proxy
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Database.Groundhog.Postgresql as GH
 import           GHC.Generics
 import           GHC.Int
 import qualified Heist.Interpreted as I
@@ -110,17 +113,21 @@ adminPanel = do
 app :: SnapletInit App App
 app = makeSnaplet "app" "An snaplet example application." Nothing $ do
 
+    cfg <- C.subconfig "postgresql-simple" <$> getSnapletUserConfig
+
+    connstr <- liftIO $ T.decodeUtf8 <$> getConnectionString cfg
+    liftIO $ putStrLn $ "connstr: " <> T.unpack connstr
     h <- nestSnaplet "" heist $ heistInit "templates"
 
     d <- nestSnaplet "" db pgsInit
 
     s <- nestSnaplet "sess" sess $
-           initCookieSessionManager "site_key.txt" "sess" (Just 3600)
+           initCookieSessionManager "site_key.txt" "sess" Nothing (Just 3600)
 
     a <- nestSnaplet "auth" auth $
            initPostgresAuth sess d
 
-    g <- nestSnaplet "gh" gdb initGroundhogPostgres
+    g <- liftIO $ GH.withPostgresqlPool (T.unpack connstr) 3 return
 
     addRoutes routes
     addAuthSplices h auth

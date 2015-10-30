@@ -7,6 +7,7 @@
 
 module Server.Crud where
 
+import Control.Arrow (first)
 import Control.Error
 import Control.Monad.Trans.Class (lift)
 import qualified Data.Aeson as A
@@ -53,7 +54,7 @@ class (A.ToJSON v,
     getId <- getParam "id"
     case getId of
       Nothing ->
-        json =<< (gh selectAll :: Handler App App [(AutoKey v, v)])
+        json =<< (runGH selectAll :: Handler App App [(AutoKey v, v)])
       Just s  ->
         eitherT err300 json $ do
           k <- hoistEither . note "Bad id parse" . readMay $ B8.unpack s
@@ -65,10 +66,10 @@ class (A.ToJSON v,
 
   ------------------------------------------------------------------------
   handlePost :: Proxy v -> Handler App App ()
-  handlePost _ = eitherT err300 (json) $ do
+  handlePost _ = eitherT err300 json $ do
     (v :: v) <- EitherT $ A.eitherDecode <$> readRequestBody 100000
     (k :: Key v BackendSpecific) <- EitherT . fmap Right $ postEntity v
-    return (k)
+    return k
 
   ------------------------------------------------------------------------
   crudPut :: Key v BackendSpecific -> v -> Handler App App ()
@@ -113,20 +114,19 @@ class (A.ToJSON v,
 getEntity :: (PersistEntity a, PrimitivePersistField (Key a BackendSpecific))
              => Key a BackendSpecific
              -> Handler App App a
-getEntity k = maybe (err300 "Bad lookup") return =<< gh (get k)
+getEntity k = maybe (err300 "Bad lookup") return =<< runGH (get k)
 
 ------------------------------------------------------------------------------
 getAllEntities :: (PersistEntity a, PrimitivePersistField (Key a BackendSpecific))
                => Proxy a
                -> Handler App App [(AutoKey a, a)]
---getAllEntities p = (fmap . fmap) snd $ gh $ selectAll
-getAllEntities p = gh $ selectAll
+getAllEntities _ = runGH selectAll
 
 ------------------------------------------------------------------------------
 postEntity :: forall a.(PersistEntity a, Crud a) => a -> Handler App App (Key a BackendSpecific)
 postEntity u = method POST $ do
   assertRole [Admin, Researcher]
-  k <- gh $ insert u
+  k <- runGH (insert u)
   return (intToKey Proxy $ autoToInt (Proxy :: Proxy a) k)
 
 ------------------------------------------------------------------------------
@@ -136,7 +136,7 @@ putEntity :: (PersistEntity a, PrimitivePersistField (Key a BackendSpecific))
           -> Handler App App ()
 putEntity k u = do
   assertRole [Admin, Researcher]
-  method PUT $ gh $ replace k u
+  method PUT $ runGH (replace k u)
 
 
 ------------------------------------------------------------------------------
@@ -146,8 +146,8 @@ deleteEntity
   -> Handler App App Bool
 deleteEntity k = do
   assertRole [Admin]
-  u <- gh $ get k
-  gh $ deleteBy k
+  u <- runGH (get k)
+  runGH (deleteBy k)
   return (isJust u)
 
 crudServer :: Crud v => Proxy v -> Server (CrudAPI v) AppHandler
@@ -171,10 +171,10 @@ getServer p k = lift $ crudGet (intToKey p k)
 getsServer :: Crud v => Proxy v -> Server (GetsAPI v) AppHandler
 getsServer p = lift $ do
   entPairs <- getAllEntities p
-  return $ map (\(k,v) -> (autoToInt p k, v)) entPairs
+  return $ map (first (autoToInt p)) entPairs
 
 postServer :: forall v.Crud v => Proxy v -> Server (PostAPI v) AppHandler
-postServer p v = lift $ do
+postServer _ v = lift $ do
   k <- postEntity v
   return (keyToInt k)
 

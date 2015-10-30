@@ -9,6 +9,7 @@ module Server.Database where
 
 import Control.Monad.IO.Class
 import qualified Data.Aeson as A
+import Data.Maybe (fromMaybe, maybeToList)
 import Data.Proxy
 import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as B8
@@ -49,11 +50,16 @@ mkPersist defaultCodegenConfig [groundhog|
             fields: [tuId]
 |]
 
-  -- - entity: Role
-  --   constructors:
-  --     - name: Admin
-  --     - name: Subject
-  --     - name: Researcher
+instance PersistField A.Value where
+  persistName _     = "json"
+  toPersistValues   = primToPersistValue . A.encode
+  fromPersistValues = primFromPersistValue
+  dbType _ _        = DbTypePrimitive DbString False Nothing Nothing
+
+instance PrimitivePersistField A.Value where
+  toPrimitivePersistValue p v   = toPrimitivePersistValue p $ A.encode v
+  fromPrimitivePersistValue p s = fromMaybe A.Null
+                                  (A.decode $ fromPrimitivePersistValue p s)
 
 mkPersist defaultCodegenConfig [groundhog|
   - entity: StimulusRequest

@@ -51,15 +51,15 @@ data PositionInfo = PositionInfo {
     piStimulusSequence :: (Int64, StimulusSequence)
   , piStimSeqItem      :: (Int64, StimSeqItem )
   , piStimulusResource :: (Int64, StimulusResource)
-  } deriving (Eq, Show, Generic, ToJSON, FromJSON)
+  } deriving (Eq, Show, Generic)
 
--- instance ToJSON PositionInfo where
---   toJSON = A.genericToJSON A.defaultOptions { A.fieldLabelModifier =
---                                               drop 2 . map toLower }
+instance ToJSON PositionInfo where
+  toJSON = A.genericToJSON A.defaultOptions { A.fieldLabelModifier =
+                                              drop 2 . map toLower }
 
--- instance FromJSON PositionInfo where
---   parseJSON = A.genericParseJSON A.defaultOptions { A.fieldLabelModifier =
---                                                     drop 2 . map toLower }
+instance FromJSON PositionInfo where
+  parseJSON = A.genericParseJSON A.defaultOptions { A.fieldLabelModifier =
+                                                    drop 2 . map toLower }
 
 data StimulusResource = StimulusResource
   { srName      :: !StimulusName
@@ -93,6 +93,7 @@ data StimulusRequest = StimulusRequest
   } deriving (Eq, Show, Generic)
 type ResponseType = T.Text
 
+-- TODO defaultToJSON modify the fields to drop 2 chars
 instance A.FromJSON StimulusResource where
 instance A.ToJSON   StimulusResource where
 instance A.FromJSON StimulusSequence where
@@ -149,3 +150,8 @@ instance ToSample StimulusRequest where
 
 sampleRequest :: StimulusRequest
 sampleRequest = StimulusRequest 1 1 (UTCTime (fromGregorian 2015 1 1) 0)
+
+instance ToSample PositionInfo where
+  toSamples _ = singleSample (PositionInfo (1, sampleSequence)
+                                           (2, sampleStimSeqItem)
+                                           (3, sampleResource))

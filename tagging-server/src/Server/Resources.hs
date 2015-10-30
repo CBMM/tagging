@@ -96,7 +96,7 @@ instance Crud StimulusRequest
 migrateResources :: Handler App App ()
 migrateResources = do
   assertRole [Admin]
-  gh $ runMigration $ do
+  runGH $ runMigration $ do
     migrate (undefined :: TaggingUser)
     migrate (undefined :: StimulusResource)
     migrate (undefined :: StimulusSequence)
@@ -110,12 +110,12 @@ getUserSequence = do
   TaggingUser{..}  <- getCurrentTaggingUser
   seqElemKey       <- noteT "Usassigned" (hoistMaybe tuCurrentStimulus)
   StimSeqItem{..}  <- noteT "Bad StimSeqItem lookup"
-                      . MaybeT . gh $ get (intToKey Proxy seqElemKey)
-  EitherT $ fmap Right . gh $ select (SsiStimSeqField ==. ssiStimSeq)
+                      . MaybeT . runGH $ get (intToKey Proxy seqElemKey)
+  EitherT $ fmap Right . runGH $ select (SsiStimSeqField ==. ssiStimSeq)
 
 -----------------------------------------------------------------------------
 getAllUsers :: Handler App App [(AutoKey TaggingUser, TaggingUser)]
-getAllUsers = gh $ selectAll
+getAllUsers = runGH selectAll
 
 ------------------------------------------------------------------------------
 addStimulusSequence
