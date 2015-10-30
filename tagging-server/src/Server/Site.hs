@@ -113,10 +113,7 @@ adminPanel = do
 app :: SnapletInit App App
 app = makeSnaplet "app" "An snaplet example application." Nothing $ do
 
-    cfg <- C.subconfig "postgresql-simple" <$> getSnapletUserConfig
 
-    connstr <- liftIO $ T.decodeUtf8 <$> getConnectionString cfg
-    liftIO $ putStrLn $ "connstr: " <> T.unpack connstr
     h <- nestSnaplet "" heist $ heistInit "templates"
 
     d <- nestSnaplet "" db pgsInit
@@ -127,7 +124,15 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     a <- nestSnaplet "auth" auth $
            initPostgresAuth sess d
 
+    cfg <- C.subconfig "postgresql-simple" <$> getSnapletUserConfig
+    connstr <- liftIO $ T.decodeUtf8 <$> getConnectionString cfg
+    liftIO $ putStrLn $ "connstr: " <> T.unpack connstr
+
     g <- liftIO $ GH.withPostgresqlPool (T.unpack connstr) 3 return
+
+    liftIO (print "SnapletUserConfig:")
+    cBig <- getSnapletUserConfig
+    liftIO $ C.display cBig
 
     addRoutes routes
     addAuthSplices h auth

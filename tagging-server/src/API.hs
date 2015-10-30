@@ -28,13 +28,15 @@ type TaggingAPI =
   :<|> ResourcesAPI
   :<|> "docs" :> Raw AppHandler (AppHandler ())
 
-------------------------------------------------------------------------------
-apiProxy :: Proxy TaggingAPI
-apiProxy = Proxy
-
 
 ------------------------------------------------------------------------------
 type ResearcherAPI = "assignStart" :> Capture "id" Int :> Put '[JSON] ()
+
+                :<|> "loadSequence" :> QueryParam "mangling_key" T.Text
+                                    :> ReqBody '[JSON]
+                                       (StimulusSequence,
+                                        [(StimSeqItem, StimulusResource)])
+                                    :> Post '[JSON] ()
 
 
 ------------------------------------------------------------------------------
@@ -42,3 +44,7 @@ type AdminAPI = "assignRole" :> QueryParam "id"     Int
                              :> QueryParam "role"   Role
                              :> QueryParam "revoke" Bool
                              :> Put '[JSON] ()
+
+------------------------------------------------------------------------------
+apiProxy :: Proxy TaggingAPI
+apiProxy = Proxy
