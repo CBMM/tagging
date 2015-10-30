@@ -50,7 +50,6 @@ class Experiment t where
 data PositionInfo = PositionInfo {
     piStimulusSequence :: (Int64, StimulusSequence)
   , piStimSeqItem      :: (Int64, StimSeqItem )
-  , piStimulusResource :: (Int64, StimulusResource)
   } deriving (Eq, Show, Generic)
 
 instance ToJSON PositionInfo where
@@ -60,12 +59,6 @@ instance ToJSON PositionInfo where
 instance FromJSON PositionInfo where
   parseJSON = A.genericParseJSON A.defaultOptions { A.fieldLabelModifier =
                                                     drop 2 . map toLower }
-
-data StimulusResource = StimulusResource
-  { srName      :: !StimulusName
-  , srUrlSuffix :: !T.Text
-  , srMimeType  :: !T.Text
-  } deriving (Eq, Show, Generic)
 
 type StimulusName = T.Text
 
