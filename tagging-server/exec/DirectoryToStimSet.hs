@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE QuasiQuotes     #-}
 
 module Main where
 
@@ -8,30 +9,43 @@ import qualified Data.Text as T
 import Database.Groundhog
 import Database.Groundhog.Postgresql
 import Options.Applicative
+import Data.String.QQ
 import System.Directory
 import System.IO
 
 import Tagging.Stimulus
 
--- data SortBy = Name | Created | Modified
---   deriving (Eq, Show, Read, Enum, Bounded)
+data SortBy = Name | Created | Modified
+  deriving (Eq, Show, Read, Enum, Bounded)
 
--- data DirOpts = DirOpts
---   { directory :: !FilePath
---   , sortBy    :: !SortBy
---   , urlBase   :: !T.Text
---   , title     :: !T.Text
---   , descr     :: !T.Text
---   , host      :: !String
---   , passwd    :: !String
---   } deriving (Show)
+vidExtensions :: [FilePath]
+vidExtensions = ["mp4","ogg"]
 
--- fullDescription = unwords
---  [ "A program to insert stimulus references into the tagging database.\n"
---  , "Using a local directory as a reference, this tool inserts or updates"
---  , "a StimulusSet entry with metadata provided on the command-line,"
---  , "then inserts one row per file in the directory into each the"
---  , "Stimulusresource and StimulusSequenceItem tables."]
+data DirOpts = DirOpts
+  { directory :: !FilePath
+  , sortBy    :: !SortBy
+  , urlBase   :: !T.Text
+  , title     :: !T.Text
+  , descr     :: !T.Text
+  , host      :: !String
+  , passwd    :: !String
+  } deriving (Show)
+
+fullDescription :: String
+fullDescription = [s|
+Insert stimulus references into the tagging database.
+Using a local directory as a reference, insert a StimulusSequence
+entry with metadata provided on the command-line, and links to the
+files found in the base directory.
+
+Videos are sorted into subdirectory by extension:
+  ${baseDir}/ogg/file.ogg, ${baseDir}/mp4/file.mp4
+
+The file part of the filename (no path, no extension), is concatenated
+with an s3 secret key, if one is provided, and the result is hmac-sha256
+encoded
+
+|]
 
 -- dirOpts :: Parser DirOpts
 -- dirOpts = DirOpts

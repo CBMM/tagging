@@ -127,6 +127,7 @@ executable directoryToStimSet
                   , groundhog-postgresql
                   , monad-logger
                   , optparse-applicative
+                  , string-qq
                   , tagging-common
                   , text
                   , time

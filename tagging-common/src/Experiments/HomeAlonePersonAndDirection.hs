@@ -10,20 +10,23 @@ import qualified Data.Aeson as A
 import Data.Char
 import Control.Monad (mzero)
 import Data.Aeson.Types
-import Data.Monoid
 import qualified Data.Text as T
+import qualified Database.Groundhog.Postgresql.Array as G
 import GHC.Generics
 import Tagging.Stimulus
 
 clipSet :: StimulusSequence
-clipSet =
-  StimulusSequence "HomeAloneClips" Nothing "Invididual shots from Home Alone 2"
-  "/static/clips/HomeAlone2"
+clipSet = StimulusSequence "HomeAloneClips"
+                           (G.Array clips)
+                           "Invididual shots from Home Alone 2"
+                           "/static/clips/HomeAlone2"
+  where clips :: [StimSeqItem]
+        clips = undefined
 
-clips :: [StimulusResource]
-clips = map (\n -> StimulusResource (T.pack (show n))
-                    ("clip" <> T.pack (show n) <> ".mp4")
-         "video/mp4") [0..10]
+-- clips :: [StimulusResource]
+-- clips = map (\n -> StimulusResource (T.pack (show n))
+--                     ("clip" <> T.pack (show n) <> ".mp4")
+--          "video/mp4") [0..10]
 
 
 data HomeAloneExperiment

@@ -2,24 +2,26 @@
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveAnyClass #-}
 
 module Tagging.Stimulus where
 
+import           Control.Monad    (mzero)
 import           Data.Aeson
 import qualified Data.Aeson       as A
 import qualified Data.Aeson.Types as A
 import qualified Data.ByteString  as BS
 import           Data.Char
+import           Data.Maybe       (fromMaybe)
 import qualified Data.Text        as T
 import           Data.Time
+import qualified Data.Vector      as V
+import qualified Database.Groundhog.Core    as G
+import qualified Database.Groundhog.Generic as G
+import qualified Database.Groundhog.Postgresql.Array as G
 import           GHC.Generics
 import           GHC.Int
 import           Servant.Docs
@@ -37,19 +39,10 @@ class Experiment t where
   type Answer   t :: *
   -- ^ Type of answers to the question
 
-  experimentResources :: t -> [StimulusResource]
-  getResource         :: StimulusResource -> IO (Stimulus t)
-
-  sendTrialData
-    :: (ToJSON t, ToJSON (Stimulus t), ToJSON (Question t))
-    => t
-    -> Stimulus t
-    -> Question t
-    -> Object
 
 data PositionInfo = PositionInfo {
     piStimulusSequence :: (Int64, StimulusSequence)
-  , piStimSeqItem      :: (Int64, StimSeqItem )
+  , piStimSeqIndex     :: Int64
   } deriving (Eq, Show, Generic)
 
 instance ToJSON PositionInfo where
@@ -60,35 +53,41 @@ instance FromJSON PositionInfo where
   parseJSON = A.genericParseJSON A.defaultOptions { A.fieldLabelModifier =
                                                     drop 2 . map toLower }
 
-type StimulusName = T.Text
 
 data StimulusSequence = StimulusSequence
-  { ssName        :: !StimSeqName
-  , ssFirstItem   :: Maybe Int64 -- StimSeqItem
+  { ssName        :: !T.Text
+  , ssItems       :: G.Array StimSeqItem
   , ssDescription :: !T.Text
   , ssBaseUrl     :: !T.Text
   } deriving (Eq, Show, Generic)
 
 type StimSeqName = T.Text
 
-data StimSeqItem = StimSeqItem
-  { ssiStimSeq      :: Int64 -- StimulusSequence Key
-  , ssiStimulus     :: Int64 -- StimulusResource Key
-  , ssiNextItem     :: Maybe Int64 -- StimSeqItem Key
-  , ssiIndex        :: !Int
-  , ssiResponseType :: !ResponseType
-  } deriving (Eq, Show, Generic)
+newtype StimSeqItem = StimSeqItem
+  { ssiStimulus     :: A.Value}
+  deriving (Eq, Show, Generic)
+
+instance G.PersistField StimSeqItem where
+  persistName _ = "StimSeqItem"
+  toPersistValues = G.primToPersistValue
+  fromPersistValues = G.primFromPersistValue
+  dbType _ _ = G.DbTypePrimitive G.DbBlob False Nothing Nothing
+
+-- TODO this seems very unsafe!
+instance G.PrimitivePersistField StimSeqItem where
+  toPrimitivePersistValue p a = G.toPrimitivePersistValue p $ A.encode a
+  fromPrimitivePersistValue p x = fromMaybe (error "decode error")
+                                  $ A.decode
+                                  $ G.fromPrimitivePersistValue p x
 
 data StimulusRequest = StimulusRequest
-  { sreqUser        :: Int64 -- AuthUser key
-  , sreqStimSeqItem :: Int64
+  { sreqUser        :: Int64         -- AuthUser key
+  , sreqStimSeqItem :: (Int64,Int64) -- StimSequence key, Sequence index
   , sreqTime        :: UTCTime
   } deriving (Eq, Show, Generic)
 type ResponseType = T.Text
 
 -- TODO defaultToJSON modify the fields to drop 2 chars
-instance A.FromJSON StimulusResource where
-instance A.ToJSON   StimulusResource where
 instance A.FromJSON StimulusSequence where
 instance A.ToJSON   StimulusSequence where
 instance A.FromJSON StimSeqItem where
@@ -96,6 +95,29 @@ instance A.ToJSON   StimSeqItem where
 instance A.FromJSON StimulusRequest where
 instance A.ToJSON   StimulusRequest where
 
+instance A.ToJSON a => ToJSON (G.Array a) where
+  toJSON (G.Array xs) = toJSON xs
+
+instance A.FromJSON a => FromJSON (G.Array a) where
+  parseJSON (A.Array xs) = (G.Array . V.toList) <$> traverse parseJSON xs
+  parseJSON _            = mzero
+
+instance G.PersistField A.Value where
+  persistName _     = "json"
+  toPersistValues   = G.primToPersistValue . A.encode
+  fromPersistValues = G.primFromPersistValue
+  dbType _ _        = G.DbTypePrimitive G.DbString False Nothing Nothing
+
+instance G.PrimitivePersistField A.Value where
+  toPrimitivePersistValue p v   = G.toPrimitivePersistValue p $ A.encode v
+  fromPrimitivePersistValue p s = fromMaybe A.Null
+                                  (A.decode $ G.fromPrimitivePersistValue p s)
+
+
+instance G.PurePersistField A.Value where
+  toPurePersistValues p v = G.toPurePersistValues p $ A.encode v
+  fromPurePersistValues p s = undefined
+                              -- (A.decode $ G.fromPurePersistValues p s)
 
 -----------------------------------------------------------------------------
 -- Instances for servant-docs
@@ -105,46 +127,24 @@ instance ToSample StimSeqItem where
 
 sampleStimSeqItem :: StimSeqItem
 sampleStimSeqItem =
-  StimSeqItem 1 1 (Just 3) 1 "Preference"
+  StimSeqItem (A.String "http://example.com/img.png") -- "Preference"
 
 instance ToSample StimulusSequence where
   toSamples _ = singleSample sampleSequence
 
 
---instance ToSample (Int64,StimulusSequence) where
-
-
 sampleSequence :: StimulusSequence
 sampleSequence =
-  StimulusSequence "SimplePictures" (Just 1)
+  StimulusSequence "SimplePictures" (G.Array [sampleStimSeqItem])
   "Three pictures of shapes"
   "http://web.mit.edu/greghale/Public/shapes"
-
-instance ToSample StimulusResource where
-  toSamples _ = singleSample sampleResource
-
-
-
-
-
-sampleResource :: StimulusResource
-sampleResource = StimulusResource "a" "a.jpg" "image/jpeg"
 
 
 instance ToSample StimulusRequest where
   toSamples _ = singleSample sampleRequest
 
---instance ToSample (Int64, StimulusRequest) where
---  toSample _ = Just (1, sampleRequest)
-
-
---instance ToSample [(Int64, StimulusRequest)] where
---  toSample _ = Just [(0,sampleRequest)]
-
 sampleRequest :: StimulusRequest
-sampleRequest = StimulusRequest 1 1 (UTCTime (fromGregorian 2015 1 1) 0)
+sampleRequest = StimulusRequest 1 (1,1) (UTCTime (fromGregorian 2015 1 1) 0)
 
 instance ToSample PositionInfo where
-  toSamples _ = singleSample (PositionInfo (1, sampleSequence)
-                                           (2, sampleStimSeqItem)
-                                           (3, sampleResource))
+  toSamples _ = singleSample (PositionInfo (1, sampleSequence) 2)

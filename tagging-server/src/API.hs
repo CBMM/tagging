@@ -32,10 +32,7 @@ type TaggingAPI =
 ------------------------------------------------------------------------------
 type ResearcherAPI = "assignStart" :> Capture "id" Int :> Put '[JSON] ()
 
-                :<|> "loadSequence" :> QueryParam "mangling_key" T.Text
-                                    :> ReqBody '[JSON]
-                                       (StimulusSequence,
-                                        [(StimSeqItem, StimulusResource)])
+                :<|> "loadSequence" :> ReqBody '[JSON] StimulusSequence
                                     :> Post '[JSON] ()
 
 

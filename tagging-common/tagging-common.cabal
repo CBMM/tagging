@@ -29,6 +29,8 @@ library
                      , deepseq
                      , errors
                      , filepath
+                     , groundhog
+                     , groundhog-postgresql
                      , monad-logger
                      , servant
                      , servant-docs

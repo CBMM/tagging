@@ -23,9 +23,9 @@ import Tagging.User
 import Tagging.Response
 
 
+
 mkPersist defaultCodegenConfig [groundhog|
 definitions:
-  - entity: StimulusResource
   - entity: StimulusSequence
     keys:
       - name: SsName
@@ -34,7 +34,6 @@ definitions:
         uniques:
           - name: SsName
             fields: [ssName]
-  - entity: StimSeqItem
 |]
 
 mkPersist defaultCodegenConfig [groundhog|
@@ -49,17 +48,6 @@ mkPersist defaultCodegenConfig [groundhog|
           - name: TuId
             fields: [tuId]
 |]
-
-instance PersistField A.Value where
-  persistName _     = "json"
-  toPersistValues   = primToPersistValue . A.encode
-  fromPersistValues = primFromPersistValue
-  dbType _ _        = DbTypePrimitive DbString False Nothing Nothing
-
-instance PrimitivePersistField A.Value where
-  toPrimitivePersistValue p v   = toPrimitivePersistValue p $ A.encode v
-  fromPrimitivePersistValue p s = fromMaybe A.Null
-                                  (A.decode $ fromPrimitivePersistValue p s)
 
 mkPersist defaultCodegenConfig [groundhog|
   - entity: StimulusRequest

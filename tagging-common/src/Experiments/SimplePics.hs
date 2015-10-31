@@ -23,10 +23,6 @@ instance Experiment SimplePics where
   type Question SimplePics = OneToTen
   type Answer   SimplePics = Int
 
-  -- | To get a stimulus from a resource for SimplePics,
-  --   just return the url of the picture
-  getResource = \StimulusResource{..} -> return $
-    T.unpack srUrlSuffix </> T.unpack srName
 
 picsSt = "Simple Pictures"
 
