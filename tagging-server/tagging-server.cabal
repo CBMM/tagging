@@ -37,13 +37,13 @@ library
                     , bytestring >=0.10 && <0.11
                     , containers >= 0.5 && < 0.6
                     , configurator
-                    , errors
+                    , errors >= 2.0 && < 2.1
                     , filepath
                     , groundhog
                     , groundhog-th
                     , groundhog-postgresql
                     , heist
-                    , lens >= 4.11 && < 4.12
+                    , lens >= 4.11 && < 4.14
                     , map-syntax >= 0.2 && < 0.3
                     , MonadCatchIO-transformers
                     , monad-logger
@@ -79,7 +79,7 @@ executable tagging-server
                      , groundhog-th
                      , groundhog-postgresql
                      , heist
-                     , lens >= 4.11 && < 4.12
+                     , lens >= 4.11 && < 4.14
                      , map-syntax >= 0.2 && < 0.3
                      , MonadCatchIO-transformers
                      , monad-logger
@@ -120,7 +120,9 @@ executable directoryToStimSet
   default-language: Haskell2010
   main-is:          DirectoryToStimSet.hs
   build-depends:    base
+                  , aeson
                   , bytestring
+                  , configurator
                   , directory
                   , filepath
                   , groundhog
@@ -129,5 +131,6 @@ executable directoryToStimSet
                   , optparse-applicative
                   , string-qq
                   , tagging-common
+                  , tagging-server
                   , text
                   , time

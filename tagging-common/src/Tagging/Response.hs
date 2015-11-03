@@ -30,7 +30,7 @@ import Tagging.Stimulus
 data StimulusResponse = StimulusResponse
   { srUser          :: Int64 -- TaggingUser Key
   -- ^ Tagging User
-  , srStim          :: Int64 -- StimSeqItem Key
+  , srStim          :: PositionInfo
   -- ^ Stimulus in the sequence
   , srDeliveredTime :: UTCTime
   -- ^ Trial start time (in server's timezone)
@@ -69,7 +69,7 @@ sampleResponse :: StimulusResponse
 sampleResponse =
   StimulusResponse
   1
-  1
+  (PositionInfo 1 1)
   (UTCTime (fromGregorian 2015 08 21) 0)
   (UTCTime (fromGregorian 2015 08 21) 1)
   "SimplePicturePreference (todo fix)"

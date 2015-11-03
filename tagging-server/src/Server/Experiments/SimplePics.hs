@@ -46,41 +46,41 @@ import Server.Utils
 -- toTypeName p = T.pack . show $ typeRep p
 
 
-------------------------------------------------------------------------------
-setupStimuli :: DbPersist Postgresql (NoLoggingT IO)
-                  (Key StimulusSequence BackendSpecific)
-setupStimuli = do
+-- ------------------------------------------------------------------------------
+-- setupStimuli :: DbPersist Postgresql (NoLoggingT IO)
+--                   (Key StimulusSequence BackendSpecific)
+-- setupStimuli = do
 
-  let stims = ['a'..'c']
-  liftIO $ print "About to make resource entities"
-  resourceEntities <- forM stims $ \c -> do
-    let r = StimulusResource (T.pack [c]) (T.pack $ c : ".jpg") "image/jpeg"
-    k <- insert r
-    return (k,r)
+--   let stims = ['a'..'c']
+--   liftIO $ print "About to make resource entities"
+--   resourceEntities <- forM stims $ \c -> do
+--     let r = StimulusResource (T.pack [c]) (T.pack $ c : ".jpg") "image/jpeg"
+--     k <- insert r
+--     return (k,r)
 
-  let stimSeq = StimulusSequence
-                { ssName        = T.pack picsSt
-                , ssFirstItem   = Nothing
-                , ssDescription = "Minimal framework test"
-                , ssBaseUrl     = "http://web.mit.edu/greghale/Public/pics"
-                }
+--   let stimSeq = StimulusSequence
+--                 { ssName        = T.pack picsSt
+--                 , ssFirstItem   = Nothing
+--                 , ssDescription = "Minimal framework test"
+--                 , ssBaseUrl     = "http://web.mit.edu/greghale/Public/pics"
+--                 }
 
-  liftIO $ print "About to import stimSeq"
-  seqKey <- insert stimSeq
-  liftIO $ print "About to zipWith"
-  let seqItems = zipWith f [0.. length resourceEntities - 1] resourceEntities
-        where f i (k,r) =
-                   StimSeqItem
-                   { ssiStimSeq = keyToInt seqKey
-                   , ssiStimulus = keyToInt k
-                   , ssiNextItem = Nothing
-                   , ssiIndex    = i
-                   , ssiResponseType = toTypeName (Proxy :: Proxy OneToTen)
-                   }
-  liftIO $ print "About to addStimSeq"
-  i1 <- addStimulusSequence seqKey stimSeq seqItems
-  liftIO $ print "All done"
-  return i1
+--   liftIO $ print "About to import stimSeq"
+--   seqKey <- insert stimSeq
+--   liftIO $ print "About to zipWith"
+--   let seqItems = zipWith f [0.. length resourceEntities - 1] resourceEntities
+--         where f i (k,r) =
+--                    StimSeqItem
+--                    { ssiStimSeq = keyToInt seqKey
+--                    , ssiStimulus = keyToInt k
+--                    , ssiNextItem = Nothing
+--                    , ssiIndex    = i
+--                    , ssiResponseType = toTypeName (Proxy :: Proxy OneToTen)
+--                    }
+--   liftIO $ print "About to addStimSeq"
+--   i1 <- addStimulusSequence seqKey stimSeq seqItems
+--   liftIO $ print "All done"
+--   return i1
 
 
 -- stimuli :: [StimulusResource]

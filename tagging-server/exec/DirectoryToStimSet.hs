@@ -4,51 +4,68 @@
 
 module Main where
 
-import qualified Data.ByteString as BS
-import Data.List ((\\), intercalate)
-import qualified Data.Text as T
-import Database.Groundhog
-import Database.Groundhog.Postgresql
-import Options.Applicative
-import Data.String.QQ
-import System.Directory
-import System.FilePath
-import System.IO
-import Prelude hiding (FilePath)
+import           Control.Monad                   (filterM)
+import qualified Data.Aeson                      as A
+import qualified Data.ByteString.Lazy.Char8      as BS
+import           Data.Configurator
+import           Data.Function                   (on)
+import           Data.List                       (groupBy, intercalate, sort)
+import qualified Data.Text                       as T
+import           Database.Groundhog.Postgresql
+import           Database.Groundhog.Postgresql.Array as G
+import           Options.Applicative
+import           Data.String.QQ
+import           System.Directory
+import           System.FilePath
+import           System.Environment
+import           System.IO
+import           Prelude                         hiding (FilePath)
 
-import Tagging.Stimulus
+import           Tagging.Stimulus
+import           Server.Database
 
 ------------------------------------------------------------------------------
--- | The main point of the utility: grab video files from dir and
---   build a StimulusSequence from them
+-- | The main point of the utility: grab video filenames from dir and  build a
+--   StimulusSequence from them
 work :: DirOpts -> IO StimulusSequence
 work opt@DirOpts{..} = do
 
-  files <- filterM doesFileExist =<< getDirectoryContents directory
+  files <- getDirectoryContents directory >>=
+           filterM (doesFileExist . (directory </>))
 
-  let fileGroups = groupBy takeBasename . sort $ map takeFilename files
+  let fileGroups = groupBy ((==) `on` takeBaseName)
+                   . sort
+                   $ map takeFileName files :: [[FilePath]]
 
-  stimSeqItems <- concat <$> traverse (getFilesByType opt) vidExtensions
+  stimSeqItems <- G.Array <$> traverse (getStimSeqItem opt) fileGroups
 
-  let stimSeq = StimulusSequence title stimSeqItems descr urlBase
-  BS.writeFile outFile (A.encode stimSeq)
+  return $ StimulusSequence (T.pack title) A.Null stimSeqItems (T.pack descr) (T.pack urlBase)
 
-getFilesByType :: DirOpts -> FilePath -> IO [StimSeqItem]
-getFilesByType DirOpts{..} ext = 
+
+------------------------------------------------------------------------------
+-- | Wrap a group of filenames as a StimSeqItem as long as they have
+--   a valid extension
+getStimSeqItem :: DirOpts -> [FilePath] -> IO StimSeqItem
+getStimSeqItem DirOpts{..} fileGroup =
+  let okFiles = filter ((`elem` map ("."<>) vidExtensions) . takeExtension)
+                fileGroup
+  in  return $ StimSeqItem (A.toJSON okFiles)
+
 
 data SortBy = Name | Created | Modified
   deriving (Eq, Show, Read, Enum, Bounded)
 
 vidExtensions :: [FilePath]
-vidExtensions = ["mp4","ogg"]
+vidExtensions = ["mp4","ogv"]
 
 data DirOpts = DirOpts
-  { directory :: !FilePath
+  { directory :: !String
   , sortBy    :: !SortBy
-  , urlBase   :: !T.Text
-  , outFile   :: !FilePath
-  , title     :: !T.Text
-  , descr     :: !T.Text
+  , urlBase   :: !String
+  , title     :: !String
+  , descr     :: !String
+  , dbCfg     :: !String
+  , outFile   :: !String
   } deriving (Show)
 
 fullDescription :: String
@@ -68,17 +85,28 @@ encoded
 
 dirOpts :: Parser DirOpts
 dirOpts = DirOpts
-  <$> (option auto (long "path" <> short 'p'
+
+  <$> (option str (long "path" <> short 'p'
                    <> help "Path to data directory") <|> pure ".")
+
   <*> (option auto (long "sort" <> short 's'
                    <> help ("Sort by [" ++ sr ++ "]")) <|> pure Name)
-  <*> option auto (long "url" <> short 'u' <> help "Base url")
-  <*> option auto (long "title" <> short 't' <> help "Title")
-  <*> option auto (long "description" <> short 'd' <> help "Description")
-  <*> (option auto (long "output" <> short 'o' <> help "Output json file")
+
+  <*> option str (long "url" <> short 'u' <> help "Base url")
+
+  <*> option str (long "title" <> short 't' <> help "Title")
+
+  <*> option str (long "description" <> short 'd' <> help "Description")
+
+  <*> option str (long "config" <> short 'c'
+                  <> help "Database snaplet config file")
+
+  <*> (option str (long "output" <> short 'o' <> help "Output json file")
        <|> pure "./out.json")
+
   where sr = intercalate "|" (map show [minBound..(maxBound :: SortBy)])
 
+fullOpts :: ParserInfo DirOpts
 fullOpts = info (helper <*> dirOpts)
            (fullDesc
            <> progDesc fullDescription
@@ -86,4 +114,26 @@ fullOpts = info (helper <*> dirOpts)
 
 
 main :: IO ()
-main = execParser fullOpts >>= work
+main = do
+  opts    <- execParser fullOpts
+  stimSeq <- work opts
+  print (outFile opts)
+  BS.writeFile (outFile opts) (A.encode stimSeq)
+  k <- dbInsert opts stimSeq
+  print $ "Database key: " <> show k
+  -- print (A.encode stimSeq)
+
+dbInsert :: DirOpts -> StimulusSequence -> IO (AutoKey StimulusSequence)
+dbInsert DirOpts{..} stimSeq = do
+  cfg <- load [Required dbCfg]
+  hostName <- require cfg "host"
+  password <- require cfg "pass"
+  dbName   <- require cfg "db"
+  userName <- require cfg "user"
+  let dbString = unwords ["user="     <> userName
+                         ,"dbname="   <> dbName
+                         ,"host="     <> hostName
+                         ,"password=" <> password
+                         ]
+  withPostgresqlConn dbString $ runDbConn $ insert stimSeq
+

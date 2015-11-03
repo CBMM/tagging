@@ -31,7 +31,9 @@ library
                      , filepath
                      , groundhog
                      , groundhog-postgresql
+                     , lens
                      , monad-logger
+                     , postgresql-simple
                      , servant
                      , servant-docs
                      , text

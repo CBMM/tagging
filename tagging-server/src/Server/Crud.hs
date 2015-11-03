@@ -56,7 +56,7 @@ class (A.ToJSON v,
       Nothing ->
         json =<< (runGH selectAll :: Handler App App [(AutoKey v, v)])
       Just s  ->
-        eitherT err300 json $ do
+        exceptT err300 json $ do
           k <- hoistEither . note "Bad id parse" . readMay $ B8.unpack s
           lift $ crudGet (intToKey p k :: Key v BackendSpecific)
 
@@ -66,9 +66,9 @@ class (A.ToJSON v,
 
   ------------------------------------------------------------------------
   handlePost :: Proxy v -> Handler App App ()
-  handlePost _ = eitherT err300 json $ do
-    (v :: v) <- EitherT $ A.eitherDecode <$> readRequestBody 100000
-    (k :: Key v BackendSpecific) <- EitherT . fmap Right $ postEntity v
+  handlePost _ = exceptT err300 json $ do
+    (v :: v) <- ExceptT $ A.eitherDecode <$> readRequestBody 100000
+    (k :: Key v BackendSpecific) <- ExceptT . fmap Right $ postEntity v
     return k
 
   ------------------------------------------------------------------------
@@ -78,23 +78,23 @@ class (A.ToJSON v,
   ------------------------------------------------------------------------
   handlePut :: Proxy v -> Handler App App ()
   handlePut _ =
-    eitherT err300 (const $ return ()) $ do
+    exceptT err300 (const $ return ()) $ do
       (putId :: Key k BackendSpecific) <-
         (hoistEither . note "Bad id parse" . readMay . B8.unpack)
-        =<< (EitherT . fmap (note "No id param") $ getParam "id")
-      (v :: v) <- EitherT $ A.eitherDecode <$> readRequestBody 1000000
-      EitherT . fmap Right $ putEntity putId v
+        =<< (ExceptT . fmap (note "No id param") $ getParam "id")
+      (v :: v) <- ExceptT $ A.eitherDecode <$> readRequestBody 1000000
+      ExceptT . fmap Right $ putEntity putId v
 
   crudDelete :: Key v BackendSpecific -> Handler App App Bool
   crudDelete = deleteEntity
 
   ------------------------------------------------------------------------
   handleDelete :: Proxy v -> Handler App App ()
-  handleDelete _ = eitherT err300 (const $ return ()) $ do
+  handleDelete _ = exceptT err300 (const $ return ()) $ do
     (delId :: Key v BackendSpecific) <-
        (hoistEither . note "Bad id parse" . readMay . B8.unpack)
-       =<< (EitherT . fmap (note "No id param") $ getParam "id")
-    EitherT . fmap Right $ crudDelete delId
+       =<< (ExceptT . fmap (note "No id param") $ getParam "id")
+    ExceptT . fmap Right $ crudDelete delId
 
   ------------------------------------------------------------------------
   crudRoutes :: Typeable v
@@ -166,22 +166,22 @@ type DeleteAPI a = Capture "id" Int64 :> Delete '[JSON] Bool
 
 
 getServer :: Crud v => Proxy v -> Server (GetAPI v) AppHandler
-getServer p k = lift $ crudGet (intToKey p k)
+getServer p k = crudGet (intToKey p k)
 
 getsServer :: Crud v => Proxy v -> Server (GetsAPI v) AppHandler
-getsServer p = lift $ do
+getsServer p = do
   entPairs <- getAllEntities p
   return $ map (first (autoToInt p)) entPairs
 
 postServer :: forall v.Crud v => Proxy v -> Server (PostAPI v) AppHandler
-postServer _ v = lift $ do
+postServer _ v = do
   k <- postEntity v
   return (keyToInt k)
 
 putServer :: Crud v => Server (PutAPI v) AppHandler
-putServer i v = lift $ do
+putServer i v = do
   let k  = intToKey Proxy i
   putEntity k v
 
 deleteServer :: Crud v => Proxy v -> Server (DeleteAPI v) AppHandler
-deleteServer p i = lift $ deleteEntity (intToKey p i)
+deleteServer p i = deleteEntity (intToKey p i)

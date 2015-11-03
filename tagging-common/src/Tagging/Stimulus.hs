@@ -6,9 +6,12 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Tagging.Stimulus where
 
+import           Control.Lens
 import           Control.Monad    (mzero)
 import           Data.Aeson
 import qualified Data.Aeson       as A
@@ -19,6 +22,8 @@ import           Data.Maybe       (fromMaybe)
 import qualified Data.Text        as T
 import           Data.Time
 import qualified Data.Vector      as V
+import qualified Database.PostgreSQL.Simple.ToField   as PGS
+import qualified Database.PostgreSQL.Simple.FromField as PGS
 import qualified Database.Groundhog.Core    as G
 import qualified Database.Groundhog.Generic as G
 import qualified Database.Groundhog.Postgresql.Array as G
@@ -41,21 +46,24 @@ class Experiment t where
 
 
 data PositionInfo = PositionInfo {
-    piStimulusSequence :: (Int64, StimulusSequence)
-  , piStimSeqIndex     :: Int64
+    _piStimulusSequence :: Int64
+  , _piStimSeqIndex     :: Int
   } deriving (Eq, Show, Generic)
 
+makeLenses ''PositionInfo
+
 instance ToJSON PositionInfo where
-  toJSON = A.genericToJSON A.defaultOptions { A.fieldLabelModifier =
-                                              drop 2 . map toLower }
+  toJSON = A.genericToJSON A.defaultOptions
+             { A.fieldLabelModifier = drop 3 . map toLower }
 
 instance FromJSON PositionInfo where
-  parseJSON = A.genericParseJSON A.defaultOptions { A.fieldLabelModifier =
-                                                    drop 2 . map toLower }
+  parseJSON = A.genericParseJSON A.defaultOptions
+                { A.fieldLabelModifier = drop 2 . map toLower }
 
 
 data StimulusSequence = StimulusSequence
   { ssName        :: !T.Text
+  , ssMetaData    :: !A.Value
   , ssItems       :: G.Array StimSeqItem
   , ssDescription :: !T.Text
   , ssBaseUrl     :: !T.Text
@@ -63,9 +71,27 @@ data StimulusSequence = StimulusSequence
 
 type StimSeqName = T.Text
 
-newtype StimSeqItem = StimSeqItem
-  { ssiStimulus     :: A.Value}
-  deriving (Eq, Show, Generic)
+data StimSeqItem = StimSeqItem
+  { ssiStimulus     :: A.Value
+  , ssiStimulusSequence :: !Int64
+  , ssiIndex            :: !Int
+  } deriving (Eq, Show, Generic)
+
+instance G.PersistField PositionInfo where
+  persistName _ = "PositionInfo"
+  toPersistValues = G.primToPersistValue
+  fromPersistValues = G.primFromPersistValue
+  dbType _ _ = G.DbTypePrimitive G.DbBlob False Nothing Nothing
+
+-- TODO this seems very unsafe!
+instance G.PrimitivePersistField PositionInfo where
+  toPrimitivePersistValue p a = G.toPrimitivePersistValue p $ A.encode a
+  fromPrimitivePersistValue p x = fromMaybe (error "decode error")
+                                  $ A.decode
+                                  $ G.fromPrimitivePersistValue p x
+
+instance G.NeverNull PositionInfo where
+
 
 instance G.PersistField StimSeqItem where
   persistName _ = "StimSeqItem"
@@ -82,7 +108,7 @@ instance G.PrimitivePersistField StimSeqItem where
 
 data StimulusRequest = StimulusRequest
   { sreqUser        :: Int64         -- AuthUser key
-  , sreqStimSeqItem :: (Int64,Int64) -- StimSequence key, Sequence index
+  , sreqStimSeqItem :: PositionInfo
   , sreqTime        :: UTCTime
   } deriving (Eq, Show, Generic)
 type ResponseType = T.Text
@@ -94,6 +120,11 @@ instance A.FromJSON StimSeqItem where
 instance A.ToJSON   StimSeqItem where
 instance A.FromJSON StimulusRequest where
 instance A.ToJSON   StimulusRequest where
+
+instance PGS.ToField StimSeqItem where
+  toField (StimSeqItem v) = PGS.toField v
+instance PGS.FromField StimSeqItem where
+  fromField a b = StimSeqItem <$> PGS.fromField a b
 
 instance A.ToJSON a => ToJSON (G.Array a) where
   toJSON (G.Array xs) = toJSON xs
@@ -114,10 +145,10 @@ instance G.PrimitivePersistField A.Value where
                                   (A.decode $ G.fromPrimitivePersistValue p s)
 
 
-instance G.PurePersistField A.Value where
-  toPurePersistValues p v = G.toPurePersistValues p $ A.encode v
-  fromPurePersistValues p s = undefined
-                              -- (A.decode $ G.fromPurePersistValues p s)
+-- instance G.PurePersistField A.Value where
+--   toPurePersistValues p v = G.toPurePersistValues p $ A.encode v
+--   fromPurePersistValues p s = undefined
+--                               -- (A.decode $ G.fromPurePersistValues p s)
 
 -----------------------------------------------------------------------------
 -- Instances for servant-docs
@@ -135,16 +166,19 @@ instance ToSample StimulusSequence where
 
 sampleSequence :: StimulusSequence
 sampleSequence =
-  StimulusSequence "SimplePictures" (G.Array [sampleStimSeqItem])
-  "Three pictures of shapes"
-  "http://web.mit.edu/greghale/Public/shapes"
+  StimulusSequence "SimplePictures"
+   (A.String "Sample Metadata")
+   (G.Array [sampleStimSeqItem])
+   "Three pictures of shapes"
+   "http://web.mit.edu/greghale/Public/shapes"
 
 
 instance ToSample StimulusRequest where
   toSamples _ = singleSample sampleRequest
 
 sampleRequest :: StimulusRequest
-sampleRequest = StimulusRequest 1 (1,1) (UTCTime (fromGregorian 2015 1 1) 0)
+sampleRequest = StimulusRequest 1 (PositionInfo 1 1)
+                (UTCTime (fromGregorian 2015 1 1) 0)
 
 instance ToSample PositionInfo where
-  toSamples _ = singleSample (PositionInfo (1, sampleSequence) 2)
+  toSamples _ = singleSample (PositionInfo 1 2)

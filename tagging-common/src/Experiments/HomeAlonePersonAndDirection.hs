@@ -17,6 +17,7 @@ import Tagging.Stimulus
 
 clipSet :: StimulusSequence
 clipSet = StimulusSequence "HomeAloneClips"
+                           A.Null
                            (G.Array clips)
                            "Invididual shots from Home Alone 2"
                            "/static/clips/HomeAlone2"

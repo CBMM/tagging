@@ -26,7 +26,7 @@ type TaggingAPI =
   SessionAPI
   :<|> SubjectAPI
   :<|> ResourcesAPI
-  :<|> "docs" :> Raw AppHandler (AppHandler ())
+--   :<|> "docs" :> Raw AppHandler (AppHandler ())
 
 
 ------------------------------------------------------------------------------

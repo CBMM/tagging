@@ -2,8 +2,6 @@
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -27,7 +25,7 @@ data TaggingUser = TaggingUser
     -- ^ Optional student ID number
   , tuRealName  :: Maybe T.Text
     -- ^ Optional student full name
-  , tuCurrentStimulus :: Maybe Int64 -- StimSeqItem
+  , tuCurrentStimulus :: Maybe PositionInfo
     -- ^ Current stimulus assignment (`Nothing` for unassigned)
   , tuRoles     :: [Role]
     -- ^ List of user Roles
@@ -55,7 +53,7 @@ instance A.ToJSON   Role where
 ------------------------------------------------------------------------------
 -- For servant-docs
 instance ToSample TaggingUser where
-  toSamples _ = singleSample $ 
+  toSamples _ = singleSample $
     TaggingUser 1
     (Just "922763745")
     (Just "Greg Hale")

@@ -108,18 +108,18 @@ sessionServer :: Server SessionAPI AppHandler
 sessionServer = apiLogin
                 :<|> apiCurrentUser
                 :<|> apiNewUser
-                :<|> lift (with auth handleLogout)
+                :<|> with auth handleLogout
   where
 
-    apiLogin li = lift $ do
+    apiLogin li = do
       with auth $ loginByUsername
                   (liUsername li)
                   (ClearText . T.encodeUtf8 $ liPassword li)
                   (liRemember li)
       return ()
 
-    apiNewUser RegisterInfo{..} = lift $ maybeT (Server.Utils.err300 "New user error") return $ do
-        user <- hushT $ EitherT $ with auth $ createUser riUsername (T.encodeUtf8 riPassword)
+    apiNewUser RegisterInfo{..} = maybeT (Server.Utils.err300 "New user error") return $ do
+        user <- hushT $ ExceptT $ with auth $ createUser riUsername (T.encodeUtf8 riPassword)
         uId   <- hoistMaybe (readMay . T.unpack =<< (unUid <$> userId user))
         nUser <- lift $ runGH $ countAll (undefined :: TaggingUser)
         lift $ runGH $ do
@@ -128,7 +128,7 @@ sessionServer = apiLogin
           insert (TaggingUser (uId :: Int64) Nothing Nothing Nothing newRoles)
         return ()
     apiCurrentUser =
-      lift $ eitherT
+      exceptT
              (Server.Utils.err300 . ("apiCurrentUser error: " ++))
              return
              getCurrentTaggingUser

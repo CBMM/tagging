@@ -23,21 +23,10 @@ import Server.Utils
 import Server.Application
 
 ------------------------------------------------------------------------------
-assignUserSeqStart :: Handler App App ()
-assignUserSeqStart =
-  maybeT (finishEarly 400 "Bad params for 'user' and 'seqitem'")
-  (\_ -> return ()) $ do
-
-    uId       <- (hoistMaybe . readMay . B8.unpack)
-                 =<< (MaybeT $ getParam "user")
-
-    seqItemId <- (hoistMaybe . readMay . B8.unpack) =<<
-                 (MaybeT $ getParam "seqitem")
-
-    MaybeT . fmap Just . runGH $
-      update
-      [TuCurrentStimulusField =. Just (seqItemId :: Int64)]
-      (TuIdField ==. (uId :: Int64))
-
-
-
+assignUserSeqStart :: Int64 -> Int64 -> Handler App App ()
+assignUserSeqStart userID seqID = do
+  assertRole [Admin, Researcher]
+  runGH $
+    update
+    [TuCurrentStimulusField =. Just (PositionInfo seqID 0 )]
+    (TuIdField ==. (fromIntegral userID :: Int64))

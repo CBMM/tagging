@@ -22,42 +22,42 @@ import Server.Resources
 import Server.Utils
 
 
-------------------------------------------------------------------------------
-setupStimuli :: DbPersist Postgresql (NoLoggingT IO)
-                  (Key StimulusSequence BackendSpecific)
-setupStimuli = do
+-- ------------------------------------------------------------------------------
+-- setupStimuli :: DbPersist Postgresql (NoLoggingT IO)
+--                   (Key StimulusSequence BackendSpecific)
+-- setupStimuli = do
 
-  let stims = ["lego","holder","big_buck_bunny_480p"]
-  liftIO $ print "About to make Home Alone resource entities"
-  resourceEntities <- forM stims $ \c -> do
-    let r = StimulusResource (T.pack c) (T.pack $ c <> ".ogv") "video/ogv"
-    k <- insert r
-    return (k,r)
+--   let stims = ["lego","holder","big_buck_bunny_480p"]
+--   liftIO $ print "About to make Home Alone resource entities"
+--   resourceEntities <- forM stims $ \c -> do
+--     let r = StimulusResource (T.pack c) (T.pack $ c <> ".ogv") "video/ogv"
+--     k <- insert r
+--     return (k,r)
 
-  let stimSeq = StimulusSequence
-                { ssName        = "HomeAlone2"
-                , ssFirstItem   = Nothing
-                , ssDescription = "Home Alone videos"
-                , ssBaseUrl     = "http://web.mit.edu/greghale/Public/testvids"
-                }
+--   let stimSeq = StimulusSequence
+--                 { ssName        = "HomeAlone2"
+--                 , ssFirstItem   = Nothing
+--                 , ssDescription = "Home Alone videos"
+--                 , ssBaseUrl     = "http://web.mit.edu/greghale/Public/testvids"
+--                 }
 
-  liftIO $ print "About to import Home Alone stimSeq"
-  seqKey <- insert stimSeq
-  liftIO $ print "About to zipWith"
-  -- TODO UUID's as keys, please
-  let seqItems = zipWith f [4.. length resourceEntities - 1 + 4] resourceEntities
-        where f i (k,r) =
-                   StimSeqItem
-                   { ssiStimSeq = keyToInt seqKey
-                   , ssiStimulus = keyToInt k
-                   , ssiNextItem = Nothing
-                   , ssiIndex    = i
-                   , ssiResponseType = "[CharacterAtDir]"
-                   }
-  liftIO $ print "About to addStimSeq"
-  i1 <- addStimulusSequence seqKey stimSeq seqItems
-  liftIO $ print "All done"
-  return i1
+--   liftIO $ print "About to import Home Alone stimSeq"
+--   seqKey <- insert stimSeq
+--   liftIO $ print "About to zipWith"
+--   -- TODO UUID's as keys, please
+--   let seqItems = zipWith f [4.. length resourceEntities - 1 + 4] resourceEntities
+--         where f i (k,r) =
+--                    StimSeqItem
+--                    { ssiStimSeq = keyToInt seqKey
+--                    , ssiStimulus = keyToInt k
+--                    , ssiNextItem = Nothing
+--                    , ssiIndex    = i
+--                    , ssiResponseType = "[CharacterAtDir]"
+--                    }
+--   liftIO $ print "About to addStimSeq"
+--   i1 <- addStimulusSequence seqKey stimSeq seqItems
+--   liftIO $ print "All done"
+--   return i1
 
 
 -- stimuli :: [StimulusResource]

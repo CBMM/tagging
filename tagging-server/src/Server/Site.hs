@@ -60,7 +60,7 @@ import           Server.Subject
 
 apiServer :: Server TaggingAPI AppHandler
 apiServer = sessionServer :<|> subjectServer
-            :<|> resourceServer :<|> docsServer
+            :<|> resourceServer -- :<|> docsServer
 
 
 apiApplication :: Application AppHandler
@@ -139,4 +139,5 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     return $ App h s a d g
 
 
-docsServer = lift . writeBS . BS.pack . markdown $ docsWithIntros [docsIntro] apiProxy
+--docsServ
+--docsServer = writeBS . BS.pack . markdown $ docsWithIntros [docsIntro] apiProxy

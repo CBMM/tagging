@@ -42,12 +42,12 @@ class (PersistEntity v,
   autoToInt :: Proxy v -> AutoKey v -> Int64
 
 ------------------------------------------------------------------------------
-getCurrentTaggingUser :: EitherT String (Handler App App) TaggingUser
+getCurrentTaggingUser :: ExceptT String (Handler App App) TaggingUser
 getCurrentTaggingUser = do
   lift $ modifyResponse $ setHeader "Cache-Control" "no-cache"
   cu <- noteT "No authUser" $ MaybeT $ with auth currentUser
   case readMay . T.unpack . unUid =<< userId cu of
-    Nothing         -> EitherT (return $ Left "Could not read userId")
+    Nothing         -> ExceptT (return $ Left "Could not read userId")
     Just (i :: Int) ->
       noteT "Zero matches in lookup" $ MaybeT $ fmap listToMaybe $ runGH $
       select (TuIdField ==. (fromIntegral i :: Int64))
@@ -55,7 +55,7 @@ getCurrentTaggingUser = do
 
 ------------------------------------------------------------------------------
 assertRole :: [Role] -> Handler App App ()
-assertRole okRoles = eitherT Server.Utils.err300 return $ do
+assertRole okRoles = exceptT Server.Utils.err300 return $ do
   TaggingUser{..} <- getCurrentTaggingUser
   when (null (okRoles `intersect` tuRoles)) (lift forbidden)
   return ()
@@ -94,14 +94,3 @@ json a = do
 ------------------------------------------------------------------------------
 err300 :: String -> Handler App App b
 err300 = finishEarly 300 . BS.pack
-
--- instance HasKey TaggingUser where
---   intToKey _ i = TaggingUserKey (PersistInt64 i)
--- instance HasKey StimulusResource where
---   intToKey _ i = StimulusResourceKey (PersistInt64 i)
--- instance HasKey StimulusSequence where
---   intToKey _ i = StimulusSequenceKey (PersistInt64 i)
--- instance HasKey StimulusResponse where
---   intToKey _ i = StimulusResponseKey (PersistInt64 i)
--- instance HasKey StimSeqItem where
---   intToKey _ i = StimSeqItemKey (PersistInt64 i)

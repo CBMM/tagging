@@ -32,16 +32,14 @@ main = do
 
         runMigration $ do
           migrate (undefined :: TaggingUser)
-          migrate (undefined :: StimulusResource)
           migrate (undefined :: StimulusSequence)
-          migrate (undefined :: StimSeqItem)
           migrate (undefined :: StimulusRequest)
           migrate (undefined :: StimulusResponse)
 
         --insert admin0
 
-        SimplePics.setupStimuli
-        HomeAlone.setupStimuli
+        --SimplePics.setupStimuli
+        --HomeAlone.setupStimuli
 
       return ()
     _ -> putStrLn $ unwords ["Usage: fixtures"
