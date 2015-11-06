@@ -15,10 +15,11 @@ import qualified Database.Groundhog.Postgresql.Array as G
 import GHC.Generics
 import Tagging.Stimulus
 
+-- TODO: Shouldn't this be in tagging-server Fixtures?
 clipSet :: StimulusSequence
 clipSet = StimulusSequence "HomeAloneClips"
                            A.Null
-                           (G.Array clips)
+                           -- (G.Array clips)
                            "Invididual shots from Home Alone 2"
                            "/static/clips/HomeAlone2"
   where clips :: [StimSeqItem]

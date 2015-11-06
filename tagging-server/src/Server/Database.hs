@@ -37,6 +37,19 @@ definitions:
 |]
 
 mkPersist defaultCodegenConfig [groundhog|
+  - entity: StimSeqItem
+    keys:
+      - name: SeqAndIndexConstraint
+    constructors:
+      - name: StimSeqItem
+        uniques:
+          - name: SeqAndIndexConstraint
+            fields: [ssiStimulusSequence, ssiIndex]
+|]
+
+
+
+mkPersist defaultCodegenConfig [groundhog|
   - primitive: Role
     representation: showread
   - entity: TaggingUser

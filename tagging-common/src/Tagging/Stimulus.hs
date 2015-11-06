@@ -11,19 +11,25 @@
 
 module Tagging.Stimulus where
 
+------------------------------------------------------------------------------
 import           Control.Lens
-import           Control.Monad    (mzero)
+import           Control.Monad      (mzero)
 import           Data.Aeson
-import qualified Data.Aeson       as A
-import qualified Data.Aeson.Types as A
-import qualified Data.ByteString  as BS
+import qualified Data.Aeson         as A
+import qualified Data.Aeson.Types   as A
+import qualified Data.ByteString    as BS
 import           Data.Char
-import           Data.Maybe       (fromMaybe)
-import qualified Data.Text        as T
+import           Data.Maybe         (fromMaybe)
+import qualified Data.Text          as T
+import qualified Data.Text.Lazy     as T (toStrict, fromStrict)
+import qualified Data.Text.Lazy.Encoding as T
 import           Data.Time
-import qualified Data.Vector      as V
+import           Data.UUID
+import qualified Data.Vector        as V
 import qualified Database.PostgreSQL.Simple.ToField   as PGS
 import qualified Database.PostgreSQL.Simple.FromField as PGS
+import qualified Database.PostgreSQL.Simple.ToRow     as PGS
+import qualified Database.PostgreSQL.Simple.FromRow   as PGS
 import qualified Database.Groundhog.Core    as G
 import qualified Database.Groundhog.Generic as G
 import qualified Database.Groundhog.Postgresql.Array as G
@@ -63,8 +69,8 @@ instance FromJSON PositionInfo where
 
 data StimulusSequence = StimulusSequence
   { ssName        :: !T.Text
+  , ssUUID        :: UUID
   , ssMetaData    :: !A.Value
-  , ssItems       :: G.Array StimSeqItem
   , ssDescription :: !T.Text
   , ssBaseUrl     :: !T.Text
   } deriving (Eq, Show, Generic)
@@ -72,7 +78,7 @@ data StimulusSequence = StimulusSequence
 type StimSeqName = T.Text
 
 data StimSeqItem = StimSeqItem
-  { ssiStimulus     :: A.Value
+  { ssiStimulus         :: A.Value
   , ssiStimulusSequence :: !Int64
   , ssiIndex            :: !Int
   } deriving (Eq, Show, Generic)
@@ -82,6 +88,12 @@ instance G.PersistField PositionInfo where
   toPersistValues = G.primToPersistValue
   fromPersistValues = G.primFromPersistValue
   dbType _ _ = G.DbTypePrimitive G.DbBlob False Nothing Nothing
+
+instance PGS.FromRow StimSeqItem where
+  fromRow = StimSeqItem <$> PGS.field <*> PGS.field <*> PGS.field
+
+instance PGS.ToRow StimSeqItem where
+  toRow (StimSeqItem v s i) = [PGS.toField v, PGS.toField s, PGS.toField i]
 
 -- TODO this seems very unsafe!
 instance G.PrimitivePersistField PositionInfo where
@@ -93,18 +105,18 @@ instance G.PrimitivePersistField PositionInfo where
 instance G.NeverNull PositionInfo where
 
 
-instance G.PersistField StimSeqItem where
-  persistName _ = "StimSeqItem"
-  toPersistValues = G.primToPersistValue
-  fromPersistValues = G.primFromPersistValue
-  dbType _ _ = G.DbTypePrimitive G.DbBlob False Nothing Nothing
+-- instance G.PersistField StimSeqItem where
+--   persistName _ = "StimSeqItem"
+--   toPersistValues = G.primToPersistValue
+--   fromPersistValues = G.primFromPersistValue
+--   dbType _ _ = G.DbTypePrimitive G.DbBlob False Nothing Nothing
 
--- TODO this seems very unsafe!
-instance G.PrimitivePersistField StimSeqItem where
-  toPrimitivePersistValue p a = G.toPrimitivePersistValue p $ A.encode a
-  fromPrimitivePersistValue p x = fromMaybe (error "decode error")
-                                  $ A.decode
-                                  $ G.fromPrimitivePersistValue p x
+-- -- TODO this seems very unsafe!
+-- instance G.PrimitivePersistField StimSeqItem where
+--   toPrimitivePersistValue p a = G.toPrimitivePersistValue p $ A.encode a
+--   fromPrimitivePersistValue p x = fromMaybe (error "decode error")
+--                                   $ A.decode
+--                                   $ G.fromPrimitivePersistValue p x
 
 data StimulusRequest = StimulusRequest
   { sreqUser        :: Int64         -- AuthUser key
@@ -121,11 +133,12 @@ instance A.ToJSON   StimSeqItem where
 instance A.FromJSON StimulusRequest where
 instance A.ToJSON   StimulusRequest where
 
-instance PGS.ToField StimSeqItem where
-  toField (StimSeqItem v) = PGS.toField v
-instance PGS.FromField StimSeqItem where
-  fromField a b = StimSeqItem <$> PGS.fromField a b
+-- instance PGS.ToField StimSeqItem where
+--   toField (StimSeqItem v) = PGS.toField v
+-- instance PGS.FromField StimSeqItem where
+--   fromField a b = StimSeqItem <$> PGS.fromField a b
 
+-- TODO figure out which of these instances is really needed
 instance A.ToJSON a => ToJSON (G.Array a) where
   toJSON (G.Array xs) = toJSON xs
 
@@ -135,14 +148,14 @@ instance A.FromJSON a => FromJSON (G.Array a) where
 
 instance G.PersistField A.Value where
   persistName _     = "json"
-  toPersistValues   = G.primToPersistValue . A.encode
+  toPersistValues   = G.primToPersistValue -- . T.decodeUtf8 . A.encode
   fromPersistValues = G.primFromPersistValue
   dbType _ _        = G.DbTypePrimitive G.DbString False Nothing Nothing
 
 instance G.PrimitivePersistField A.Value where
-  toPrimitivePersistValue p v   = G.toPrimitivePersistValue p $ A.encode v
+  toPrimitivePersistValue p v   = G.toPrimitivePersistValue p . T.toStrict . T.decodeUtf8 $ A.encode v
   fromPrimitivePersistValue p s = fromMaybe A.Null
-                                  (A.decode $ G.fromPrimitivePersistValue p s)
+                                  (A.decode . T.encodeUtf8 . T.fromStrict $ G.fromPrimitivePersistValue p s)
 
 
 -- instance G.PurePersistField A.Value where
@@ -158,7 +171,7 @@ instance ToSample StimSeqItem where
 
 sampleStimSeqItem :: StimSeqItem
 sampleStimSeqItem =
-  StimSeqItem (A.String "http://example.com/img.png") -- "Preference"
+  StimSeqItem (A.String "http://example.com/img.png") 1 1
 
 instance ToSample StimulusSequence where
   toSamples _ = singleSample sampleSequence
@@ -168,7 +181,7 @@ sampleSequence :: StimulusSequence
 sampleSequence =
   StimulusSequence "SimplePictures"
    (A.String "Sample Metadata")
-   (G.Array [sampleStimSeqItem])
+   -- (G.Array [sampleStimSeqItem])
    "Three pictures of shapes"
    "http://web.mit.edu/greghale/Public/shapes"
 

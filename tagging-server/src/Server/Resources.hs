@@ -28,6 +28,7 @@ import Tagging.Response
 -----------------------------------------------------------------------------
 import Server.Utils
 import Server.Application
+import Server.Utils
 import Server.Crud
 import Server.Database
 
@@ -36,11 +37,12 @@ import Server.Database
 type ResourcesAPI =
        "tagginguser"      :> CrudAPI TaggingUser
   :<|> "stimulussequence" :> CrudAPI StimulusSequence
+  :<|> "stimseqitem"      :> CrudAPI StimSeqItem
   :<|> "stimulusresponse" :> CrudAPI StimulusResponse
   :<|> "stimulusrequest"  :> CrudAPI StimulusRequest
 
 resourceServer :: Server ResourcesAPI AppHandler
-resourceServer = crudServer Proxy :<|> crudServer Proxy
+resourceServer = crudServer Proxy :<|> crudServer Proxy :<|> crudServer Proxy
             :<|> crudServer Proxy :<|> crudServer Proxy
 
 instance HasKey TaggingUser where
@@ -65,6 +67,15 @@ instance HasKey StimulusResponse where
   keyToInt (StimulusResponseKey (PersistInt64 i)) = i
   autoToInt Proxy (StimulusResponseKey (PersistInt64 i)) = i
 
+instance Crud StimSeqItem
+
+instance HasKey StimSeqItem where
+  intToKey _ = StimSeqItemKey . PersistInt64
+  intToAuto _ = StimSeqItemKey . PersistInt64
+  keyToInt (StimSeqItemKey (PersistInt64 i)) = i
+  autoToInt Proxy (StimSeqItemKey (PersistInt64 i)) = i
+
+
 instance Crud StimulusResponse
 
 instance HasKey StimulusRequest where
@@ -81,6 +92,7 @@ migrateResources = do
   runGH $ runMigration $ do
     migrate (undefined :: TaggingUser)
     migrate (undefined :: StimulusSequence)
+    migrate (undefined :: StimSeqItem)
     migrate (undefined :: StimulusResponse)
 
 

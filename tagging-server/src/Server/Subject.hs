@@ -136,26 +136,17 @@ getCurrentStimSeqItem = do
       u :: TaggingUser <- exceptT (const $ error "Bad lookup") return getCurrentTaggingUser
       t <- liftIO getCurrentTime
       modifyResponse $ Snap.Core.addHeader "Cache-Control" "no-cache"
-      ssi <- with db $
+      ssi :: [StimSeqItem] <- with db $
                     query
                     "SELCET \"StimSeqItem[?]\" FROM \"StimulusSequence\" WHERE id=?"
                     (key, i)
+      ssi <- runGH $ select $ (SsiStimulusSequenceField ==. key &&. SsiIndexField ==. i)
       case ssi of
         [] -> return Nothing
-        [Only ssi] -> do
+        [ssi] -> do
           runGH $ insert (StimulusRequest (tuId u) pInfo t)
           return $ Just ssi
-      -- runGH $ do
-      --   r <- get $ intToKey (Proxy :: Proxy StimulusSequence) key
-      --   case r of
-      --     Nothing      -> error "Bad stimulussequence lookup" -- TODO better error
-      --     Just stimSeq -> do
-      --       -- ssi <- select $ SsItemsField ! i
-      --       unless (null ssi) (void $ insert (StimulusRequest (tuId u) pInfo t))
-      --       return (listToMaybe ssi)
-      --       --case ssi of
-      --       --  [ssi'] -> insert (StimulusRequest (tuId u) pInfo t) >> return ssi'
-      --       --  _      -> error "Bad stim lookup"
+
 
 handleCurrentStimSeqItem :: AppHandler StimSeqItem
 handleCurrentStimSeqItem =
