@@ -24,30 +24,6 @@ import Tagging.Response
 
 
 
-mkPersist defaultCodegenConfig [groundhog|
-definitions:
-  - entity: StimulusSequence
-    keys:
-      - name: SsName
-    constructors:
-      - name: StimulusSequence
-        uniques:
-          - name: SsName
-            fields: [ssName]
-|]
-
-mkPersist defaultCodegenConfig [groundhog|
-  - entity: StimSeqItem
-    keys:
-      - name: SeqAndIndexConstraint
-    constructors:
-      - name: StimSeqItem
-        uniques:
-          - name: SeqAndIndexConstraint
-            fields: [ssiStimulusSequence, ssiIndex]
-|]
-
-
 
 mkPersist defaultCodegenConfig [groundhog|
   - primitive: Role

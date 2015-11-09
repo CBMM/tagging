@@ -6,20 +6,20 @@
 module Experiments.HomeAlonePersonAndDirection where
 
 import Control.Error
-import qualified Data.Aeson as A
-import Data.Char
 import Control.Monad (mzero)
+import qualified Data.Aeson as A
 import Data.Aeson.Types
+import Data.Char
 import qualified Data.Text as T
-import qualified Database.Groundhog.Postgresql.Array as G
+-- import qualified Database.Groundhog.Postgresql.Array as G
 import GHC.Generics
 import Tagging.Stimulus
 
 -- TODO: Shouldn't this be in tagging-server Fixtures?
 clipSet :: StimulusSequence
 clipSet = StimulusSequence "HomeAloneClips"
+                           nilID
                            A.Null
-                           -- (G.Array clips)
                            "Invididual shots from Home Alone 2"
                            "/static/clips/HomeAlone2"
   where clips :: [StimSeqItem]

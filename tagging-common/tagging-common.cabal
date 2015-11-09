@@ -30,10 +30,11 @@ library
                      , errors
                      , filepath
                      , groundhog
-                     , groundhog-postgresql
+                     , groundhog-th
+--                     , groundhog-postgresql
                      , lens
                      , monad-logger
-                     , postgresql-simple
+--                     , postgresql-simple
                      , servant
                      , servant-docs
                      , text
