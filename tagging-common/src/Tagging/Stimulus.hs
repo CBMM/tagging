@@ -24,7 +24,7 @@ import qualified Data.Text          as T
 import qualified Data.Text.Lazy     as T (toStrict, fromStrict)
 import qualified Data.Text.Lazy.Encoding as T
 import           Data.Time
-import           Data.UUID
+import qualified Data.UUID          as U
 import qualified Data.Vector        as V
 import qualified Database.PostgreSQL.Simple.ToField   as PGS
 import qualified Database.PostgreSQL.Simple.FromField as PGS
@@ -50,6 +50,17 @@ class Experiment t where
   type Answer   t :: *
   -- ^ Type of answers to the question
 
+data EntityID = EntityID {
+  unEntityID :: !U.UUID
+  } deriving (Eq, Ord, Show)
+
+-- TODO this should be pulled out into a more general Types.hs?
+instance ToJSON EntityID where
+  toJSON (EntityID v) = A.object ["uuid" .= U.toWord8 v]
+
+instance FromJSON EntityID where
+  parseJSON (Object v) = EntityID . U.fromWord8 <$> v .: "uuid"
+  parseJSON _          = mzero
 
 data PositionInfo = PositionInfo {
     _piStimulusSequence :: Int64
@@ -69,7 +80,7 @@ instance FromJSON PositionInfo where
 
 data StimulusSequence = StimulusSequence
   { ssName        :: !T.Text
-  , ssUUID        :: UUID
+  , ssUUID        :: !U.UUID
   , ssMetaData    :: !A.Value
   , ssDescription :: !T.Text
   , ssBaseUrl     :: !T.Text
@@ -180,6 +191,7 @@ instance ToSample StimulusSequence where
 sampleSequence :: StimulusSequence
 sampleSequence =
   StimulusSequence "SimplePictures"
+   U.nil
    (A.String "Sample Metadata")
    -- (G.Array [sampleStimSeqItem])
    "Three pictures of shapes"

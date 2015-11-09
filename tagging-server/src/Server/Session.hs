@@ -127,6 +127,7 @@ sessionServer = apiLogin
           let newRoles = if n == 0 then [Admin] else [Subject]
           insert (TaggingUser (uId :: Int64) Nothing Nothing Nothing newRoles)
         return ()
+
     apiCurrentUser =
       exceptT
              (Server.Utils.err300 . ("apiCurrentUser error: " ++))
