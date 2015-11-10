@@ -25,6 +25,7 @@ import Servant.Docs
 
 import Tagging.User
 import Tagging.Stimulus
+import Utils
 
 -- | A particular response to one stimulus in a sequence
 data StimulusResponse = StimulusResponse
@@ -69,7 +70,7 @@ sampleResponse :: StimulusResponse
 sampleResponse =
   StimulusResponse
   1
-  (PositionInfo 1 1)
+  (PositionInfo (intToKey 1) 1)
   (UTCTime (fromGregorian 2015 08 21) 0)
   (UTCTime (fromGregorian 2015 08 21) 1)
   "SimplePicturePreference (todo fix)"

@@ -11,6 +11,7 @@ import qualified Data.Aeson as A
 import Data.Aeson.Types
 import Data.Char
 import qualified Data.Text as T
+import qualified Data.UUID as U
 -- import qualified Database.Groundhog.Postgresql.Array as G
 import GHC.Generics
 import Tagging.Stimulus
@@ -18,7 +19,7 @@ import Tagging.Stimulus
 -- TODO: Shouldn't this be in tagging-server Fixtures?
 clipSet :: StimulusSequence
 clipSet = StimulusSequence "HomeAloneClips"
-                           nilID
+                           U.nil
                            A.Null
                            "Invididual shots from Home Alone 2"
                            "/static/clips/HomeAlone2"

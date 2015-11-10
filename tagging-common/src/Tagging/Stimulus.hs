@@ -10,6 +10,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module Tagging.Stimulus where
 
@@ -22,24 +23,22 @@ import qualified Data.Aeson.Types   as A
 import qualified Data.ByteString    as BS
 import           Data.Char
 import           Data.Maybe         (fromJust, fromMaybe)
+import           Data.Proxy
 import qualified Data.Text          as T
 import qualified Data.Text.Lazy     as T (toStrict, fromStrict)
 import qualified Data.Text.Lazy.Encoding as T
 import           Data.Time
 import qualified Data.UUID          as U
 import qualified Data.Vector        as V
--- import qualified Database.PostgreSQL.Simple.ToField   as PGS
--- import qualified Database.PostgreSQL.Simple.FromField as PGS
--- import qualified Database.PostgreSQL.Simple.ToRow     as PGS
--- import qualified Database.PostgreSQL.Simple.FromRow   as PGS
 import qualified Database.Groundhog         as G
 import qualified Database.Groundhog.Core    as G
 import qualified Database.Groundhog.TH      as G
 import qualified Database.Groundhog.Generic as G
--- import qualified Database.Groundhog.Postgresql.Array as G
+import qualified Database.Groundhog.TH.Settings
 import           GHC.Generics
 import           GHC.Int
 import           Servant.Docs
+import           Utils
 
 -----------------------------------------------------------------------------
 -- | Experiments define a @Stimulus@, @Question@, and @Answer@,
@@ -54,50 +53,41 @@ class Experiment t where
   type Answer   t :: *
   -- ^ Type of answers to the question
 
-data EntityID v = EntityID {
-  unEntityID :: !U.UUID
-  } deriving (Eq, Ord, Show)
-
-nilID :: EntityID a
-nilID = EntityID U.nil
-
--- TODO this should be pulled out into a more general Types.hs?
-instance ToJSON (EntityID a) where
-  toJSON (EntityID v) = A.object ["uuid" .= U.toWords v]
-
-instance FromJSON (EntityID a) where
-  parseJSON (Object v) = do
-    ws <- v .: "uuid"
-    case ws of
-      [a,b,c,d] -> return $ EntityID (U.fromWords a b c d)
-      _         -> mzero
-  parseJSON _          = mzero
-
-data PositionInfo = PositionInfo {
-    _piStimulusSequence :: Int64
-  , _piStimSeqIndex     :: Int
-  } deriving (Eq, Show, Generic)
-
-makeLenses ''PositionInfo
-
-instance ToJSON PositionInfo where
-  toJSON = A.genericToJSON A.defaultOptions
-             { A.fieldLabelModifier = drop 3 . map toLower }
-
-instance FromJSON PositionInfo where
-  parseJSON = A.genericParseJSON A.defaultOptions
-                { A.fieldLabelModifier = drop 2 . map toLower }
-
 
 data StimulusSequence = StimulusSequence
   { ssName        :: !T.Text
-  , ssUuid        :: !EntityID
+  , ssUuid        :: !U.UUID -- An extra key for namespacing the StimSeqItems
   , ssMetaData    :: !A.Value
   , ssDescription :: !T.Text
   , ssBaseUrl     :: !T.Text
   } deriving (Eq, Show, Generic)
 
-#if (defined(ghc_HOST_OS))
+
+#ifdef __GHCJS__
+
+G.mkPersist G.defaultCodegenConfig $ Database.Groundhog.TH.Settings.PersistDefinitions
+      [Database.Groundhog.TH.Settings.PSEntityDef
+         "StimulusSequence"
+         Nothing
+         Nothing
+         Nothing
+         (Just
+            [Database.Groundhog.TH.Settings.PSUniqueKeyDef
+               "SsName" Nothing Nothing Nothing Nothing Nothing Nothing])
+         (Just
+            [Database.Groundhog.TH.Settings.PSConstructorDef
+               "StimulusSequence"
+               Nothing
+               Nothing
+               Nothing
+               Nothing
+               (Just
+                  [Database.Groundhog.TH.Settings.PSUniqueDef
+                     "SsName" Nothing [Left "ssName"]])])]
+      []
+      []
+
+#else
 G.mkPersist G.defaultCodegenConfig [G.groundhog|
 definitions:
   - entity: StimulusSequence
@@ -109,9 +99,6 @@ definitions:
           - name: SsName
             fields: [ssName]
 |]
-#else
-instance G.PersistEntity StimulusSequence where
-  data Key StimulusSequence G.BackendSpecific = EntityID StimulusSequence
 #endif
 
 
@@ -124,7 +111,9 @@ data StimSeqItem = StimSeqItem
   } deriving (Eq, Show, Generic)
 
 
-#if(defined(ghc_HOST_OS))
+#ifdef __GHCJS__
+
+#else
 G.mkPersist G.defaultCodegenConfig [G.groundhog|
   - entity: StimSeqItem
     keys:
@@ -135,10 +124,40 @@ G.mkPersist G.defaultCodegenConfig [G.groundhog|
           - name: SeqAndIndexConstraint
             fields: [ssiStimulusSequence, ssiIndex]
 |]
-#else
-instance G.PersistEntity StimSeqItem where
-  data Key StimSeqItem G.BackendSpecific = EntityID StimSeqItem
 #endif
+
+
+data PositionInfo = PositionInfo {
+    _piStimulusSequence :: G.DefaultKey StimulusSequence
+  , _piStimSeqIndex     :: Int
+  } deriving (Generic)
+
+deriving instance Eq PositionInfo
+deriving instance Show PositionInfo
+--deriving instance Generic PositionInfo
+
+makeLenses ''PositionInfo
+
+instance ToJSON U.UUID where
+  toJSON u = A.object ["uuid" .= U.toWords u]
+
+instance FromJSON U.UUID where
+  parseJSON (A.Object v) = do
+    ws <- v .: "uuid"
+    case ws of
+      [a,b,c,d] -> return (U.fromWords a b c d)
+      _         -> mzero
+  parseJSON _ = mzero
+
+
+instance ToJSON PositionInfo where
+  toJSON = A.genericToJSON A.defaultOptions
+             { A.fieldLabelModifier = drop 3 . map toLower }
+
+instance FromJSON PositionInfo where
+  parseJSON = A.genericParseJSON A.defaultOptions
+                { A.fieldLabelModifier = drop 2 . map toLower }
+
 
 
 instance G.PersistField PositionInfo where
@@ -161,39 +180,6 @@ instance G.PrimitivePersistField PositionInfo where
                                   $ G.fromPrimitivePersistValue p x
 
 instance G.NeverNull PositionInfo where
-
-instance G.PrimitivePersistField EntityID where
-  toPrimitivePersistValue _ (EntityID u)         = G.PersistString (U.toString u)
-  fromPrimitivePersistValue _ (G.PersistString s) = EntityID $ fromJust (U.fromString s)
-  -- TODO how to make this safe?
-
-instance G.PersistField EntityID where
-  persistName _     = "UUID"
-  toPersistValues   = G.primToPersistValue
-  fromPersistValues = G.primFromPersistValue
-  dbType _ _ = G.DbTypePrimitive (G.DbOther $ G.OtherTypeDef [Left "uuid"])
-               False Nothing Nothing
-
--- instance G.PrimitivePersistField T.Text where
---   toPrimitivePersistValue _ t         = G.PersistString t
---   fromPrimitivePersistValue _ (G.PersistString s) = s
-
--- instance G.PersistField T.Text where
---   persistName _     = "Text"
---   toPersistValues   = G.primToPersistValue
---   fromPersistValues = G.primFromPersistValue
---   dbType _ _ = G.DbTypePrimitive G.DbBlob False Nothing Nothing
-
--- instance G.PrimitivePersistField Int where
---   toPrimitivePersistValue _ t         = G.PersistNumber t
---   fromPrimitivePersistValue _ (G.PersistNumber s) = s
-
--- instance G.PersistField Int where
---   persistName _     = "Int"
---   toPersistValues   = G.primToPersistValue
---   fromPersistValues = G.primFromPersistValue
---   dbType _ _ = G.DbTypePrimitive G.DbInt False Nothing Nothing
-
 
 
 data StimulusRequest = StimulusRequest
@@ -260,7 +246,7 @@ instance ToSample StimulusSequence where
 sampleSequence :: StimulusSequence
 sampleSequence =
   StimulusSequence "SimplePictures"
-   (EntityID U.nil)
+   U.nil
    (A.String "Sample Metadata")
    -- (G.Array [sampleStimSeqItem])
    "Three pictures of shapes"
@@ -271,8 +257,8 @@ instance ToSample StimulusRequest where
   toSamples _ = singleSample sampleRequest
 
 sampleRequest :: StimulusRequest
-sampleRequest = StimulusRequest 1 (PositionInfo 1 1)
+sampleRequest = StimulusRequest 1 (PositionInfo (intToKey 1) 1)
                 (UTCTime (fromGregorian 2015 1 1) 0)
 
 instance ToSample PositionInfo where
-  toSamples _ = singleSample (PositionInfo 1 2)
+  toSamples _ = singleSample (PositionInfo (intToKey 2) 2)
