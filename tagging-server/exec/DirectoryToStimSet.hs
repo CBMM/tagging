@@ -6,9 +6,11 @@
 module Main where
 
 ------------------------------------------------------------------------------
+import           Control.Lens                        ((&),(?~))
 import           Control.Monad                       (filterM)
 import           Control.Monad.IO.Class              (liftIO)
 import qualified Data.Aeson                          as A
+import qualified Data.ByteString.Char8               as BSC
 import qualified Data.ByteString.Lazy.Char8          as BS
 import           Data.Configurator
 import           Data.Function                       (on)
@@ -59,7 +61,7 @@ hiddenName StimulusSequence{..} videoPath =
 ------------------------------------------------------------------------------
 -- | The main point of the utility: grab video filenames from dir and build a
 --   StimulusSequence from them
-mkStimSeq :: SetupOpts -> IO (StimulusSequence, [StimSeqItem])
+mkStimSeq :: SetupOpts -> IO (StimulusSequence, [([FilePath],StimSeqItem)])
 mkStimSeq opts@SetupOpts{..} = do
 
   files <- getDirectoryContents soPath >>=
@@ -69,13 +71,12 @@ mkStimSeq opts@SetupOpts{..} = do
                    . sort
                    $ map takeFileName files :: [[FilePath]]
 
-  -- stimSeqItems <- G.Array <$> traverse (getStimSeqItem opt) fileGroups
   u <- U4.nextRandom
   let stimSeq = StimulusSequence (T.pack soTitle) u
                                  A.Null (T.pack soDescr) (T.pack soUrlBase)
   ssItems <- traverse (getStimSeqItem opts) (zip [0..] fileGroups)
 
-  return (stimSeq, ssItems)
+  return (stimSeq, zip fileGroups ssItems)
 
 
 ------------------------------------------------------------------------------
@@ -185,32 +186,50 @@ fullOpts = info (helper <*>
            <> progDesc fullDescription
            <> header "directoryToStimSet - a tool for Tagging")
 
-uploadOne :: UploadOpts -> StimulusSequence -> StimSeqItem -> IO Bool
-uploadOne UploadOpts{..} sSeq ssItem =
-  let opts = W.defaults
-  in  undefined
+
+uploadOne :: UploadOpts
+          -> W.Options
+          -> StimulusSequence
+          -> ([FilePath], StimSeqItem)
+          -> IO Bool
+uploadOne UploadOpts{..} wreqOpts sSeq (paths, ssItem) = do
+  flip traverse paths $ \fp -> do
+    picContents <- BSC.readFile fp
+    r <- W.putWith wreqOpts
+      (uoBucket <> ".s3.amazonaws.com")
+      picContents -- TODO right url?
+    print r -- TODO maybe get the response code out?
+  return True
+
 
 main :: IO ()
 main = do
+  let readStimSeq f = fmap (fromMaybe (error "Read Error") . A.decode) $ BS.readFile f
   opts    <- execParser fullOpts
   case opts of
+
     SOpts so@SetupOpts{..} -> do
       s <- mkStimSeq so
       BS.writeFile (soOutFile) (A.encode s)
-    DOpts dOpts -> writeDB dOpts
 
+    DOpts dOpts -> do
+      (stimSeq :: StimulusSequence, ssItems) <- readStimSeq (doSeqFile dOpts)
+      withDB dOpts $ do
+        ssKey <- insert (stimSeq :: StimulusSequence)
+        traverse insert
+          ((\ssi -> ssi { ssiStimulusSequence = ssKey} ) <$>
+           (map snd (ssItems :: [([FilePath],StimSeqItem)])))
+        return ()
 
-writeDB :: DbOpts -> IO ()
-writeDB opts@DbOpts{..} = do
-  (stimSeq, ssItems) <- fmap (fromMaybe (error "Read error") . A.decode)
-                             (BS.readFile doSeqFile)
+    UOpts uOpts -> do
+      cfg <- load [Required (uoConfig uOpts)]
+      kId <- require cfg "researcherid"
+      key <- require cfg "researcherkey"
+      let opts = W.defaults & W.auth ?~ (W.awsAuth W.AWSv4) kId key
+      (stimSeq :: StimulusSequence, ssItems) <- readStimSeq (uoSeqFile uOpts)
+      traverse (uploadOne uOpts opts stimSeq) (ssItems :: [([FilePath],StimSeqItem)])
+      return ()
 
-  withDB opts $ do
-    ssKey <- insert (stimSeq :: StimulusSequence)
-    traverse insert
-      ((\ssi -> ssi { ssiStimulusSequence = ssKey} ) <$>
-       (ssItems :: [StimSeqItem]))
-  return ()
 
 -- TODO: Find out what type this actually is
 -- withDB :: DirOpts -> (Postgresql  -> IO a) -> IO a
