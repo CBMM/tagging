@@ -99,15 +99,17 @@ handleSubmitResponse t =
     tNow     <- lift $ liftIO getCurrentTime
 
     stim     <- noteT "Bad stim lookup from response" $ MaybeT $ runGH
-                $ get (intToKey (Proxy :: Proxy StimulusSequence)
-                                (_piStimulusSequence pos))
+                $ get (_piStimulusSequence pos)
+                -- $ get (intToKey (Proxy :: Proxy StimulusSequence)
+                --                 (_piStimulusSequence pos))
 
     -- TODO: How to query the array length in groundhog?
     -- TODO This is definitely a (runtime) name error
-    [Only l] <- lift $ with db $
-           query
-           "SELECT array_length(\"StimSeqItems\") FROM \"StimulusSequence\" WHERE id = ?"
-           (Only (_piStimulusSequence pos))
+    l <- lift $ runGH $ count (SsiStimulusSequenceField ==. _piStimulusSequence pos)
+    -- [Only l] <- lift $ with db $
+    --        query
+    --        "SELECT array_length(\"StimSeqItems\") FROM \"StimulusSequence\" WHERE id = ?"
+    --        (Only (_piStimulusSequence pos))
     lift . runGH $ do
       insert (StimulusResponse (tuId u) pos
               (sreqTime thisReq) tNow "sometype" (rpJson t))
@@ -136,10 +138,6 @@ getCurrentStimSeqItem = do
       u :: TaggingUser <- exceptT (const $ error "Bad lookup") return getCurrentTaggingUser
       t <- liftIO getCurrentTime
       modifyResponse $ Snap.Core.addHeader "Cache-Control" "no-cache"
-      ssi :: [StimSeqItem] <- with db $
-                    query
-                    "SELCET \"StimSeqItem[?]\" FROM \"StimulusSequence\" WHERE id=?"
-                    (key, i)
       ssi <- runGH $ select $ (SsiStimulusSequenceField ==. key &&. SsiIndexField ==. i)
       case ssi of
         [] -> return Nothing

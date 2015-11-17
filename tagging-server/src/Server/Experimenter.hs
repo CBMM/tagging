@@ -19,14 +19,15 @@ import Tagging.Stimulus
 
 import Server.Database
 import Server.Resources
-import Server.Utils
+import Server.Utils hiding (intToKey)
 import Server.Application
+import Utils
 
 ------------------------------------------------------------------------------
-assignUserSeqStart :: Int64 -> Int64 -> Handler App App ()
+assignUserSeqStart :: Int64 -> Int -> Handler App App ()
 assignUserSeqStart userID seqID = do
   assertRole [Admin, Researcher]
   runGH $
     update
-    [TuCurrentStimulusField =. Just (PositionInfo seqID 0 )]
+    [TuCurrentStimulusField =. Just (PositionInfo (intToKey seqID) 0 )]
     (TuIdField ==. (fromIntegral userID :: Int64))

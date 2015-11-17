@@ -63,31 +63,6 @@ data StimulusSequence = StimulusSequence
   } deriving (Eq, Show, Generic)
 
 
-#ifdef __GHCJS__
-
-G.mkPersist G.defaultCodegenConfig $ Database.Groundhog.TH.Settings.PersistDefinitions
-      [Database.Groundhog.TH.Settings.PSEntityDef
-         "StimulusSequence"
-         Nothing
-         Nothing
-         Nothing
-         (Just
-            [Database.Groundhog.TH.Settings.PSUniqueKeyDef
-               "SsName" Nothing Nothing Nothing Nothing Nothing Nothing])
-         (Just
-            [Database.Groundhog.TH.Settings.PSConstructorDef
-               "StimulusSequence"
-               Nothing
-               Nothing
-               Nothing
-               Nothing
-               (Just
-                  [Database.Groundhog.TH.Settings.PSUniqueDef
-                     "SsName" Nothing [Left "ssName"]])])]
-      []
-      []
-
-#else
 G.mkPersist G.defaultCodegenConfig [G.groundhog|
 definitions:
   - entity: StimulusSequence
@@ -99,21 +74,17 @@ definitions:
           - name: SsName
             fields: [ssName]
 |]
-#endif
 
 
 type StimSeqName = T.Text
 
 data StimSeqItem = StimSeqItem
   { ssiStimulus         :: A.Value
-  , ssiStimulusSequence :: !Int64
+  , ssiStimulusSequence :: G.DefaultKey StimulusSequence
   , ssiIndex            :: !Int
   } deriving (Eq, Show, Generic)
 
 
-#ifdef __GHCJS__
-
-#else
 G.mkPersist G.defaultCodegenConfig [G.groundhog|
   - entity: StimSeqItem
     keys:
@@ -124,7 +95,6 @@ G.mkPersist G.defaultCodegenConfig [G.groundhog|
           - name: SeqAndIndexConstraint
             fields: [ssiStimulusSequence, ssiIndex]
 |]
-#endif
 
 
 data PositionInfo = PositionInfo {
@@ -237,7 +207,7 @@ instance ToSample StimSeqItem where
 
 sampleStimSeqItem :: StimSeqItem
 sampleStimSeqItem =
-  StimSeqItem (A.String "http://example.com/img.png") 1 1
+  StimSeqItem (A.String "http://example.com/img.png") (intToKey 1) 1
 
 instance ToSample StimulusSequence where
   toSamples _ = singleSample sampleSequence

@@ -1,31 +1,35 @@
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main where
 
 ------------------------------------------------------------------------------
-import           Control.Monad                   (filterM)
-import           Control.Monad.IO.Class          (liftIO)
-import qualified Data.Aeson                      as A
-import qualified Data.ByteString.Lazy.Char8      as BS
+import           Control.Monad                       (filterM)
+import           Control.Monad.IO.Class              (liftIO)
+import qualified Data.Aeson                          as A
+import qualified Data.ByteString.Lazy.Char8          as BS
 import           Data.Configurator
-import           Data.Function                   (on)
-import           Data.List                       (groupBy, intercalate, sort)
+import           Data.Function                       (on)
+import           Data.List                           (groupBy, intercalate,
+                                                      sort)
+import           Data.Maybe                          (fromMaybe)
 import           Data.Proxy
-import qualified Data.Text                       as T
-import qualified Data.UUID                       as U
-import qualified Data.UUID.V4                    as U4
-import qualified Data.UUID.V5                    as U5
+import qualified Data.Text                           as T
+import qualified Data.UUID                           as U
+import qualified Data.UUID.V4                        as U4
+import qualified Data.UUID.V5                        as U5
 import           Database.Groundhog.Postgresql
 import           Database.Groundhog.Postgresql.Array as G
+import qualified Network.Wreq                        as W
 import           Options.Applicative
 import           Data.String.QQ
 import           System.Directory
 import           System.FilePath
 import           System.Environment
 import           System.IO
-import           Prelude                         hiding (FilePath)
+import           Prelude                             hiding (FilePath)
 ------------------------------------------------------------------------------
 import           Tagging.Stimulus
 import           Server.Database
@@ -44,20 +48,22 @@ import           Server.Resources
 hiddenName :: StimulusSequence -> FilePath -> FilePath
 hiddenName StimulusSequence{..} videoPath =
   let fullFilename = takeFileName  videoPath
-      fullNameStr  = maybe (error "path conversion failure") id
-                     (toString fullFilename)
-      fullNameCode = map (fromIntegral . ord) fullNameStr
-      hiddenBase   = U.toString $ U5.generateNamed ssUUID (fullNameCode)
-      hiddenName   = fromString hiddenBase </> takeExtension videoPath
+      fullNameStr  = -- maybe (error "path conversion failure") id
+                     (fullFilename)
+      fullNameCode = map (fromIntegral . fromEnum) fullNameStr
+      hiddenBase   = U.toString $ U5.generateNamed ssUuid (fullNameCode)
+      hiddenName   = hiddenBase </> takeExtension videoPath
+  in  hiddenName
+
 
 ------------------------------------------------------------------------------
--- | The main point of the utility: grab video filenames from dir and  build a
+-- | The main point of the utility: grab video filenames from dir and build a
 --   StimulusSequence from them
-work :: DirOpts -> IO (StimulusSequence, [StimSeqItem])
-work opt@DirOpts{..} = do
+mkStimSeq :: SetupOpts -> IO (StimulusSequence, [StimSeqItem])
+mkStimSeq opts@SetupOpts{..} = do
 
-  files <- getDirectoryContents directory >>=
-           filterM (doesFileExist . (directory </>))
+  files <- getDirectoryContents soPath >>=
+           filterM (doesFileExist . (soPath </>))
 
   let fileGroups = groupBy ((==) `on` takeBaseName)
                    . sort
@@ -65,9 +71,9 @@ work opt@DirOpts{..} = do
 
   -- stimSeqItems <- G.Array <$> traverse (getStimSeqItem opt) fileGroups
   u <- U4.nextRandom
-  let stimSeq = StimulusSequence (T.pack title) u
-                                 A.Null (T.pack descr) (T.pack urlBase)
-  ssItems <- traverse (getStimSeqItem opt) (zip [0..] fileGroups)
+  let stimSeq = StimulusSequence (T.pack soTitle) u
+                                 A.Null (T.pack soDescr) (T.pack soUrlBase)
+  ssItems <- traverse (getStimSeqItem opts) (zip [0..] fileGroups)
 
   return (stimSeq, ssItems)
 
@@ -75,11 +81,11 @@ work opt@DirOpts{..} = do
 ------------------------------------------------------------------------------
 -- | Wrap a group of filenames as a StimSeqItem as long as they have
 --   a valid extension
-getStimSeqItem :: DirOpts -> (Int, [FilePath]) -> IO StimSeqItem
-getStimSeqItem DirOpts{..} (ind, fileGroup) =
+getStimSeqItem :: SetupOpts -> (Int, [FilePath]) -> IO StimSeqItem
+getStimSeqItem SetupOpts{..} (ind, fileGroup) =
   let okFiles = filter ((`elem` vidExtensions) . takeExtension)
                 fileGroup
-  in  return $ StimSeqItem (A.toJSON okFiles) 0 ind
+  in  return $ StimSeqItem (A.toJSON okFiles) (intToKey Proxy 0) ind
 
 
 -- TODO: Unused. Use or delete
@@ -88,16 +94,6 @@ data SortBy = Name | Created | Modified
 
 vidExtensions :: [FilePath]
 vidExtensions = [".mp4",".ogv"]
-
-data DirOpts = DirOpts
-  { directory :: !String
-  , sortBy    :: !SortBy -- TODO Unused. Use or remove
-  , urlBase   :: !String
-  , title     :: !String
-  , descr     :: !String
-  , dbCfg     :: !String
-  , outFile   :: !String
-  } deriving (Show)
 
 fullDescription :: String
 fullDescription = [s|
@@ -114,53 +110,111 @@ with an s3 secret key, if one is provided, and the result is hmac-sha256
 encoded
 |]
 
-dirOpts :: Parser DirOpts
-dirOpts = DirOpts
+data Opts = SOpts SetupOpts | DOpts DbOpts | UOpts UploadOpts
 
+data SetupOpts = SetupOpts
+  { soPath    :: !String
+  , soSortBy  :: !SortBy
+  , soUrlBase :: !String
+  , soTitle   :: !String
+  , soDescr   :: !String
+  , soOutFile :: !String
+}
+
+
+data DbOpts = DbOpts
+  { doSeqFile :: !FilePath
+  , dbCfg     :: !String
+  } deriving (Show)
+
+
+data UploadOpts = UploadOpts
+  { uoSeqFile :: FilePath
+  , uoConfig  :: FilePath
+  , uoBucket  :: FilePath
+  } deriving (Show)
+
+
+setupOpts :: Parser Opts
+setupOpts = fmap SOpts $ SetupOpts
   <$> (option str (long "path" <> short 'p'
                    <> help "Path to data directory") <|> pure ".")
-
   <*> (option auto (long "sort" <> short 's'
                    <> help ("Sort by [" ++ sr ++ "]")) <|> pure Name)
-
   <*> option str (long "url" <> short 'u' <> help "Base url")
-
   <*> option str (long "title" <> short 't' <> help "Title")
-
   <*> option str (long "description" <> short 'd' <> help "Description")
-
-  <*> option str (long "config" <> short 'c'
-                  <> help "Database snaplet config file")
-
   <*> (option str (long "output" <> short 'o' <> help "Output json file")
        <|> pure "./out.json")
-
   where sr = intercalate "|" (map show [minBound..(maxBound :: SortBy)])
 
-fullOpts :: ParserInfo DirOpts
-fullOpts = info (helper <*> dirOpts)
+
+dbOpts :: Parser Opts
+dbOpts = fmap DOpts $ DbOpts
+  <$> (option str (long "path" <> short 'p'
+                  <> help "Setup file"))
+  <*> option str (long "config" <> short 'c' <> help "DB snaplet config")
+
+
+uploadOpts :: Parser Opts
+uploadOpts = fmap UOpts $ UploadOpts
+  <$> (option str (long "path" <> short 'p'
+                   <> help "Path to data directory") <|> pure ".")
+  <*> option str (long "config" <> short 'c'
+                  <> help "Snaplet config file with AWS keys")
+  <*> option str (long "bucket" <> short 'b'
+                  <> help "S3 bucket name")
+
+
+fullOpts :: ParserInfo Opts
+fullOpts = info (helper <*>
+                 (subparser
+                  (command "setup"
+                   (info setupOpts
+                    (progDesc "Set up the stimulus sequence"))
+                  <>
+                  command "database"
+                    (info dbOpts
+                     (progDesc "Create stimulus database entries"))
+                  <>
+                  command "s3"
+                    (info uploadOpts
+                     (progDesc "Upload resources to s3")))))
+
            (fullDesc
            <> progDesc fullDescription
            <> header "directoryToStimSet - a tool for Tagging")
 
+uploadOne :: UploadOpts -> StimulusSequence -> StimSeqItem -> IO Bool
+uploadOne UploadOpts{..} sSeq ssItem =
+  let opts = W.defaults
+  in  undefined
 
 main :: IO ()
 main = do
   opts    <- execParser fullOpts
-  (stimSeq, ssItems) <- work opts
-  print (outFile opts)
-  BS.writeFile (outFile opts) (A.encode stimSeq)
+  case opts of
+    SOpts so@SetupOpts{..} -> do
+      s <- mkStimSeq so
+      BS.writeFile (soOutFile) (A.encode s)
+    DOpts dOpts -> writeDB dOpts
+
+
+writeDB :: DbOpts -> IO ()
+writeDB opts@DbOpts{..} = do
+  (stimSeq, ssItems) <- fmap (fromMaybe (error "Read error") . A.decode)
+                             (BS.readFile doSeqFile)
 
   withDB opts $ do
-    ssKey <- insert stimSeq
-    let p = Proxy :: Proxy StimulusSequence
+    ssKey <- insert (stimSeq :: StimulusSequence)
     traverse insert
-      ((\ssi -> ssi { ssiStimulusSequence = autoToInt p ssKey} ) <$> ssItems)
+      ((\ssi -> ssi { ssiStimulusSequence = ssKey} ) <$>
+       (ssItems :: [StimSeqItem]))
   return ()
 
 -- TODO: Find out what type this actually is
 -- withDB :: DirOpts -> (Postgresql  -> IO a) -> IO a
-withDB DirOpts{..} act = do
+withDB DbOpts{..} act = do
   cfg <- load [Required dbCfg]
   hostName <- require cfg "host"
   password <- require cfg "pass"
@@ -174,17 +228,17 @@ withDB DirOpts{..} act = do
   withPostgresqlConn dbString $ runDbConn act
 
 
-dbInsert :: DirOpts -> StimulusSequence -> IO (AutoKey StimulusSequence)
-dbInsert DirOpts{..} stimSeq = do
-  cfg <- load [Required dbCfg]
-  hostName <- require cfg "host"
-  password <- require cfg "pass"
-  dbName   <- require cfg "db"
-  userName <- require cfg "user"
-  let dbString = unwords ["user="     <> userName
-                         ,"dbname="   <> dbName
-                         ,"host="     <> hostName
-                         ,"password=" <> password
-                         ]
-  withPostgresqlConn dbString $ runDbConn $ insert stimSeq
+-- dbInsert :: DirOpts -> StimulusSequence -> IO (AutoKey StimulusSequence)
+-- dbInsert DirOpts{..} stimSeq = do
+--   cfg <- load [Required dbCfg]
+--   hostName <- require cfg "host"
+--   password <- require cfg "pass"
+--   dbName   <- require cfg "db"
+--   userName <- require cfg "user"
+--   let dbString = unwords ["user="     <> userName
+--                          ,"dbname="   <> dbName
+--                          ,"host="     <> hostName
+--                          ,"password=" <> password
+--                          ]
+--   withPostgresqlConn dbString $ runDbConn $ insert stimSeq
 

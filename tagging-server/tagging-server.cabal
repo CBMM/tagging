@@ -125,15 +125,28 @@ executable directoryToStimSet
                   , bytestring
                   , configurator
                   , directory
+                  , errors
                   , filepath
                   , groundhog
+                  , groundhog-th
                   , groundhog-postgresql
+                  , lens
                   , monad-logger
+                  , monads-tf
+                  , mtl
                   , optparse-applicative
+                  , postgresql-simple
+                  , resource-pool
                   , s3-signer
+                  , servant
+                  , servant-snap
+                  , snap
+                  , snap-core
                   , string-qq
                   , tagging-common
                   , tagging-server
                   , text
                   , time
                   , transformers
+                  , uuid
+                  , wreq
