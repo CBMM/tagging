@@ -6,8 +6,9 @@
 module Main where
 
 ------------------------------------------------------------------------------
-import           Control.Lens                        ((&),(?~))
-import           Control.Monad                       (filterM)
+import           Control.Concurrent                  (threadDelay)
+import           Control.Lens                        ((&),(?~),(^.))
+import           Control.Monad                       (filterM, when)
 import           Control.Monad.IO.Class              (liftIO)
 import qualified Data.Aeson                          as A
 import qualified Data.ByteString.Char8               as BSC
@@ -41,6 +42,41 @@ import           Server.Resources
 
 
 ------------------------------------------------------------------------------
+-- | Respond to the CLI by either setting up a file with the StimulusSequence
+--   and StimSeqItem info (what are the original filenames, what are the
+--   StimSeqItems) | or writing those entries to the database | or uploading
+--   those files with mangled names to S3 according to the s3 creds in a
+--   snaplet config file
+main :: IO ()
+main = do
+  let readStimSeq f = fmap (fromMaybe (error "Read Error") . A.decode) $ BS.readFile f
+  opts    <- execParser fullOpts
+  case opts of
+
+    SOpts so@SetupOpts{..} -> do
+      s <- mkStimSeq so
+      BS.writeFile (soOutFile) (A.encode s)
+
+    DOpts dOpts -> do
+      (stimSeq :: StimulusSequence, ssItems) <- readStimSeq (doSeqFile dOpts)
+      withDB dOpts $ do
+        ssKey <- insert (stimSeq :: StimulusSequence)
+        traverse insert
+          ((\ssi -> ssi { ssiStimulusSequence = ssKey} ) <$>
+           (map snd (ssItems :: [([FilePath],StimSeqItem)])))
+        return ()
+
+    UOpts uOpts -> do
+      cfg <- load [Required (uoConfig uOpts)]
+      kId <- require cfg "researcherid"
+      key <- require cfg "researcherkey"
+      let opts = W.defaults & W.auth ?~ (W.awsAuth W.AWSv4) kId key
+      (stimSeq :: StimulusSequence, ssItems) <- readStimSeq (uoSeqFile uOpts)
+      traverse (uploadOne uOpts opts stimSeq) (ssItems :: [([FilePath],StimSeqItem)])
+      return ()
+
+
+------------------------------------------------------------------------------
 -- | Mangle a filename by generating a UUID from the UUID of the parent
 --   sequence and the filename (including extension, excluding path) of
 --   the stimulus
@@ -50,12 +86,9 @@ import           Server.Resources
 hiddenName :: StimulusSequence -> FilePath -> FilePath
 hiddenName StimulusSequence{..} videoPath =
   let fullFilename = takeFileName  videoPath
-      fullNameStr  = -- maybe (error "path conversion failure") id
-                     (fullFilename)
-      fullNameCode = map (fromIntegral . fromEnum) fullNameStr
+      fullNameCode = map (fromIntegral . fromEnum) fullFilename
       hiddenBase   = U.toString $ U5.generateNamed ssUuid (fullNameCode)
-      hiddenName   = hiddenBase </> takeExtension videoPath
-  in  hiddenName
+  in  hiddenBase <> takeExtension videoPath
 
 
 ------------------------------------------------------------------------------
@@ -74,7 +107,7 @@ mkStimSeq opts@SetupOpts{..} = do
   u <- U4.nextRandom
   let stimSeq = StimulusSequence (T.pack soTitle) u
                                  A.Null (T.pack soDescr) (T.pack soUrlBase)
-  ssItems <- traverse (getStimSeqItem opts) (zip [0..] fileGroups)
+  ssItems <- traverse (getStimSeqItem opts stimSeq) (zip [0..] fileGroups)
 
   return (stimSeq, zip fileGroups ssItems)
 
@@ -82,11 +115,13 @@ mkStimSeq opts@SetupOpts{..} = do
 ------------------------------------------------------------------------------
 -- | Wrap a group of filenames as a StimSeqItem as long as they have
 --   a valid extension
-getStimSeqItem :: SetupOpts -> (Int, [FilePath]) -> IO StimSeqItem
-getStimSeqItem SetupOpts{..} (ind, fileGroup) =
+getStimSeqItem :: SetupOpts -> StimulusSequence -> (Int, [FilePath]) -> IO StimSeqItem
+getStimSeqItem SetupOpts{..} stimSeq (ind, fileGroup) =
   let okFiles = filter ((`elem` vidExtensions) . takeExtension)
                 fileGroup
-  in  return $ StimSeqItem (A.toJSON okFiles) (intToKey Proxy 0) ind
+  in  return $ StimSeqItem (A.toJSON (map (hiddenName stimSeq) okFiles))
+                           (intToKey Proxy 0)
+                           ind
 
 
 -- TODO: Unused. Use or delete
@@ -131,9 +166,49 @@ data DbOpts = DbOpts
 
 data UploadOpts = UploadOpts
   { uoSeqFile :: FilePath
+  , uoBaseDir :: FilePath
   , uoConfig  :: FilePath
   , uoBucket  :: FilePath
   } deriving (Show)
+
+
+uploadOne :: UploadOpts
+          -> W.Options
+          -> StimulusSequence
+          -> ([FilePath], StimSeqItem)
+          -> IO Bool
+uploadOne UploadOpts{..} wreqOpts sSeq (paths, ssItem) = do
+  flip traverse paths $ \fp -> do
+    picContents <- BSC.readFile (uoBaseDir <> fp)
+    r <- W.putWith wreqOpts
+      ("http://" <> uoBucket <> ".s3.amazonaws.com/" <> hiddenName sSeq fp)
+      picContents
+    when (r ^. W.responseStatus . W.statusCode /= 200) $ do
+      putStrLn "Failed"
+      print    ssItem
+      putStrLn "Response:"
+      print    r
+    when (r ^. W.responseStatus . W.statusCode == 200) $ do
+      putStrLn $ "Success on index " <> show (ssiIndex ssItem)
+    threadDelay 200000 -- Wait half a second to to be bombarding the server
+  return True
+
+
+-- TODO: Find out what type this actually is
+-- withDB :: DirOpts -> (Postgresql  -> IO a) -> IO a
+withDB DbOpts{..} act = do
+  cfg <- load [Required dbCfg]
+  hostName <- require cfg "host"
+  password <- require cfg "pass"
+  dbName   <- require cfg "db"
+  userName <- require cfg "user"
+  let dbString = unwords ["user="     <> userName
+                         ,"dbname="   <> dbName
+                         ,"host="     <> hostName
+                         ,"password=" <> password
+                         ]
+  withPostgresqlConn dbString $ runDbConn act
+
 
 
 setupOpts :: Parser Opts
@@ -159,8 +234,10 @@ dbOpts = fmap DOpts $ DbOpts
 
 uploadOpts :: Parser Opts
 uploadOpts = fmap UOpts $ UploadOpts
-  <$> (option str (long "path" <> short 'p'
+  <$> (option str (long "seqfile" <> short 's'
                    <> help "Path to data directory") <|> pure ".")
+  <*> option str (long "base" <> short 'b'
+                  <> help "Base path of stimuli")
   <*> option str (long "config" <> short 'c'
                   <> help "Snaplet config file with AWS keys")
   <*> option str (long "bucket" <> short 'b'
@@ -185,79 +262,4 @@ fullOpts = info (helper <*>
            (fullDesc
            <> progDesc fullDescription
            <> header "directoryToStimSet - a tool for Tagging")
-
-
-uploadOne :: UploadOpts
-          -> W.Options
-          -> StimulusSequence
-          -> ([FilePath], StimSeqItem)
-          -> IO Bool
-uploadOne UploadOpts{..} wreqOpts sSeq (paths, ssItem) = do
-  flip traverse paths $ \fp -> do
-    picContents <- BSC.readFile fp
-    r <- W.putWith wreqOpts
-      (uoBucket <> ".s3.amazonaws.com")
-      picContents -- TODO right url?
-    print r -- TODO maybe get the response code out?
-  return True
-
-
-main :: IO ()
-main = do
-  let readStimSeq f = fmap (fromMaybe (error "Read Error") . A.decode) $ BS.readFile f
-  opts    <- execParser fullOpts
-  case opts of
-
-    SOpts so@SetupOpts{..} -> do
-      s <- mkStimSeq so
-      BS.writeFile (soOutFile) (A.encode s)
-
-    DOpts dOpts -> do
-      (stimSeq :: StimulusSequence, ssItems) <- readStimSeq (doSeqFile dOpts)
-      withDB dOpts $ do
-        ssKey <- insert (stimSeq :: StimulusSequence)
-        traverse insert
-          ((\ssi -> ssi { ssiStimulusSequence = ssKey} ) <$>
-           (map snd (ssItems :: [([FilePath],StimSeqItem)])))
-        return ()
-
-    UOpts uOpts -> do
-      cfg <- load [Required (uoConfig uOpts)]
-      kId <- require cfg "researcherid"
-      key <- require cfg "researcherkey"
-      let opts = W.defaults & W.auth ?~ (W.awsAuth W.AWSv4) kId key
-      (stimSeq :: StimulusSequence, ssItems) <- readStimSeq (uoSeqFile uOpts)
-      traverse (uploadOne uOpts opts stimSeq) (ssItems :: [([FilePath],StimSeqItem)])
-      return ()
-
-
--- TODO: Find out what type this actually is
--- withDB :: DirOpts -> (Postgresql  -> IO a) -> IO a
-withDB DbOpts{..} act = do
-  cfg <- load [Required dbCfg]
-  hostName <- require cfg "host"
-  password <- require cfg "pass"
-  dbName   <- require cfg "db"
-  userName <- require cfg "user"
-  let dbString = unwords ["user="     <> userName
-                         ,"dbname="   <> dbName
-                         ,"host="     <> hostName
-                         ,"password=" <> password
-                         ]
-  withPostgresqlConn dbString $ runDbConn act
-
-
--- dbInsert :: DirOpts -> StimulusSequence -> IO (AutoKey StimulusSequence)
--- dbInsert DirOpts{..} stimSeq = do
---   cfg <- load [Required dbCfg]
---   hostName <- require cfg "host"
---   password <- require cfg "pass"
---   dbName   <- require cfg "db"
---   userName <- require cfg "user"
---   let dbString = unwords ["user="     <> userName
---                          ,"dbname="   <> dbName
---                          ,"host="     <> hostName
---                          ,"password=" <> password
---                          ]
---   withPostgresqlConn dbString $ runDbConn $ insert stimSeq
 
