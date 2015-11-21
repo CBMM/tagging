@@ -28,6 +28,9 @@ cabal sandbox add-source deps/servant-snap/
 
 cabal sandbox add-source deps/servant-matlab/
 
+cabal sandbox add-source deps/yaml-ghcjs/
+cabal sandbox add-source deps/groundhog/
+
 cabal sandbox add-source tagging-common
 
 (cd tagging-server && cabal sandbox init --sandbox=../.cabal-sandbox)

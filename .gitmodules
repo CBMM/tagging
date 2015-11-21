@@ -16,3 +16,9 @@
 [submodule "deps/snap-loader-dynamic"]
 	path = deps/snap-loader-dynamic
 	url = http://github.com/snapframework/snap-loader-dynamic
+[submodule "deps/yaml-ghcjs"]
+	path = deps/yaml-ghcjs
+	url = http://github.com/imalsogreg/yaml-ghcjs
+[submodule "deps/groundhog"]
+	path = deps/groundhog
+	url = http://github.com/imalsogreg/groundhog
