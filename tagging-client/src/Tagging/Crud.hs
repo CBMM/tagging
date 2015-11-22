@@ -26,6 +26,7 @@ import Data.Monoid
 import Data.Proxy
 import qualified Data.Text as T
 import Data.Traversable
+import qualified Data.UUID as U
 import GHC.Int
 import Reflex.Dom
 import Reflex.Dom.Xhr
@@ -134,23 +135,6 @@ crudRowWidget p k dynVal = do
                       ]
 
 
------------------------------------------------------------------------------
-instance Crud StimulusResource where
-  resourceName _ = "stimulusresource"
-  resourceHeaders _ = ["Name","URL Suffix","MIME Type"]
-  resourceWidget dynVal dynB = do
-    pb <- getPostBuild
-    let pbV = (tag (current dynVal) pb)
-    attrs <- forDyn dynB $ \b ->
-                if b then mempty else (s "disabled" =: s "disabled")
-    f1 <- crudPieceField pbV (T.unpack . srName) attrs
-    f2 <- crudPieceField pbV (T.unpack . srUrlSuffix) attrs
-    f3 <- crudPieceField pbV (T.unpack . srMimeType) attrs
-    $( qDyn [| Just $ StimulusResource
-                        (T.pack $(unqDyn [|f1|]))
-                        (T.pack $(unqDyn [|f2|]))
-                        (T.pack $(unqDyn [|f3|])) |] )
-
 instance Crud TaggingUser where
   resourceName _ = "tagginguser"
   resourceHeaders _ = ["Tagging Id","Student Id","Name","Current Stimulus","Roles"]
@@ -170,31 +154,30 @@ instance Crud TaggingUser where
                         in  if null f2' then Nothing else Just (T.pack f2'))
               <*> pure (let f3' = $(unqDyn [|f3|])
                         in  if null f3' then Nothing else Just (T.pack f3'))
-              <*> (let f4' = $(unqDyn [|f4|])
-                   in  bool Nothing (Just $ readMay f4') (all isNumber f4'))
+              <*> (A.decode . BL.pack) $(unqDyn [|f4|])
               <*> readMay $(unqDyn [|f5|])
             |])
 
 
 instance Crud StimulusSequence where
   resourceName _ = "stimulussequence"
-  resourceHeaders _ = ["Name","First Stimulus","Description","Base url"]
+  resourceHeaders _ = ["Name","UUID","Metadata","Description", "Base Url"]
   resourceWidget dynVal dynB = do
     pb <- getPostBuild
     let pbV = tag (current dynVal) pb
     attrs <- forDyn dynB $ \b ->
       if b then mempty else (s "disabled" =: s "disabled")
     f1 <- crudPieceField pbV (T.unpack . ssName) attrs
-    f2 <- crudPieceField pbV (maybe "" show . ssFirstItem) attrs
-    f3 <- crudPieceField pbV (T.unpack . ssDescription) attrs
-    f4 <- crudPieceField pbV (T.unpack . ssBaseUrl) attrs
+    f2 <- crudPieceField pbV (show     . ssUuid) attrs
+    f3 <- crudPieceField pbV (BL.unpack . A.encode . ssMetaData) attrs
+    f4 <- crudPieceField pbV (T.unpack . ssDescription) attrs
+    f5 <- crudPieceField pbV (T.unpack . ssBaseUrl) attrs
     $(qDyn [| StimulusSequence
-              <$> (let f1' = $(unqDyn [|f1|])
-                   in  if null f1' then Nothing else Just (T.pack f1'))
-              <*> (let f2' = $(unqDyn [|f2|])
-                   in  bool Nothing (Just $ readMay f2') (all isNumber f2'))
-              <*> pure (T.pack $(unqDyn [|f3|]))
+              <$> pure (T.pack $(unqDyn [|f1|]))
+              <*> U.fromText (T.pack $(unqDyn [|f2|]))
+              <*> (A.decode . BL.pack) $(unqDyn [|f3|])
               <*> pure (T.pack $(unqDyn [|f4|]))
+              <*> pure (T.pack $(unqDyn [|f5|]))
             |])
 
 instance Crud StimSeqItem where
@@ -205,18 +188,13 @@ instance Crud StimSeqItem where
     let pbV = tag (current dynVal) pb
     attrs <- forDyn dynB $ \b ->
       if b then mempty else (s "disabled" =: s "disabled")
-    f1 <- crudPieceField pbV (show . ssiStimSeq) attrs
-    f2 <- crudPieceField pbV (show . ssiStimulus) attrs
-    f3 <- crudPieceField pbV (maybe "" show . ssiNextItem) attrs
-    f4 <- crudPieceField pbV (show . ssiIndex) attrs
-    f5 <- crudPieceField pbV (T.unpack . ssiResponseType) attrs
+    f1 <- crudPieceField pbV (show . ssiStimulus) attrs
+    f2 <- crudPieceField pbV (show . ssiStimulusSequence) attrs
+    f3 <- crudPieceField pbV (show . ssiIndex) attrs
     $(qDyn [| StimSeqItem
               <$> readMay $(unqDyn [|f1|])
               <*> readMay $(unqDyn [|f2|])
-              <*> (let f3' = $(unqDyn [|f3|])
-                   in bool Nothing (Just $ readMay f3') (all isNumber f3'))
-              <*> readMay $(unqDyn [|f4|])
-              <*> pure (T.pack $(unqDyn [|f5|]))
+              <*> readMay $(unqDyn [|f3|])
             |])
 
 
@@ -233,7 +211,7 @@ instance Crud StimulusRequest where
     f3 <- crudPieceField pbV (show . sreqTime) attrs
     $(qDyn [| StimulusRequest
               <$> readMay $(unqDyn [|f1|])
-              <*> readMay $(unqDyn [|f2|])
+              <*> (A.decode . BL.pack) $(unqDyn [|f2|])
               <*> readMay $(unqDyn [|f3|])
             |])
 
@@ -254,11 +232,11 @@ instance Crud StimulusResponse where
     f6 <- crudPieceField pbV (show . srResponseData) attrs
     $(qDyn [| StimulusResponse
               <$> readMay $(unqDyn [|f1|])
-              <*> readMay $(unqDyn [|f2|])
+              <*> (A.decode . BL.pack) $(unqDyn [|f2|])
               <*> readMay $(unqDyn [|f3|])
               <*> readMay $(unqDyn [|f4|])
               <*> pure (T.pack  $(unqDyn [|f5|]))
-              <*> pure (T.pack  $(unqDyn [|f6|]))
+              <*> (A.decode . BL.pack)  $(unqDyn [|f6|])
             |])
 
 crudPieceField :: MonadWidget t m

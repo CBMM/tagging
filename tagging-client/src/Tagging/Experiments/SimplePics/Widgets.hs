@@ -31,7 +31,7 @@ import           Tagging.Stimulus
 import           Tagging.User
 import           Experiments.SimplePics
 
-
+{-
 pageWidget :: forall t m.MonadWidget t m => TaggingUser -> m ()
 pageWidget TaggingUser{..} = mdo
 
@@ -99,3 +99,4 @@ questionWidget = mdo
   return v
   where validate n | n >= 0 && n < 10 = Right (n :: Int)
                    | otherwise        = Left "Must be between 0 an 10"
+-}

@@ -10,9 +10,6 @@ import Tagging.Crud
 
 main = mainWidget $ do
   el "hr" $ return ()
-  text "StimulusResource Table"
-  crudTableWidget (Proxy :: Proxy StimulusResource) (constDyn (const True))
-  el "br" $ return ()
 
   el "hr" $ return ()
   text "TaggingUser Table"
