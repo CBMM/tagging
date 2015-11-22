@@ -27,6 +27,7 @@ import Data.Proxy
 import qualified Data.Text as T
 import Data.Traversable
 import qualified Data.UUID as U
+import           Database.Groundhog.Core (PersistValue(PersistInt64))
 import GHC.Int
 import Reflex.Dom
 import Reflex.Dom.Xhr
@@ -35,6 +36,7 @@ import Reflex.Dynamic.TH
 import Tagging.User
 import Tagging.Stimulus
 import Tagging.Response
+import Utils
 
 class (A.FromJSON v, A.ToJSON v) => Crud v where
 
@@ -146,7 +148,7 @@ instance Crud TaggingUser where
     f1 <- crudPieceField pbV (show . tuId) attrs
     f2 <- crudPieceField pbV (maybe "" T.unpack . tuStudentID) attrs
     f3 <- crudPieceField pbV (maybe "" T.unpack . tuRealName) attrs
-    f4 <- crudPieceField pbV (maybe "" show . tuCurrentStimulus) attrs
+    f4 <- crudPieceField pbV (printPosString . tuCurrentStimulus) attrs
     f5 <- crudPieceField pbV (show . tuRoles) attrs
     $(qDyn [| TaggingUser
               <$> readMay $(unqDyn [|f1|])
@@ -154,9 +156,22 @@ instance Crud TaggingUser where
                         in  if null f2' then Nothing else Just (T.pack f2'))
               <*> pure (let f3' = $(unqDyn [|f3|])
                         in  if null f3' then Nothing else Just (T.pack f3'))
-              <*> (A.decode . BL.pack) $(unqDyn [|f4|])
+              <*> parsePosString $(unqDyn [|f4|])
               <*> readMay $(unqDyn [|f5|])
             |])
+
+
+parsePosString :: String -> Maybe (Maybe PositionInfo)
+parsePosString "" = Just Nothing
+parsePosString s  = let (x,y) = break (== ':') s
+                    in  return $ PositionInfo 
+                                 <$> fmap intToKey (readMay x) 
+                                 <*> readMay y
+
+printPosString :: Maybe PositionInfo -> String
+printPosString Nothing = ""
+printPosString (Just (PositionInfo (StimulusSequenceKey (PersistInt64 x)) y)) =
+  show x ++ ":" ++ show y
 
 
 instance Crud StimulusSequence where

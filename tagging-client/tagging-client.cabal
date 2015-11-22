@@ -26,6 +26,7 @@ library
                      , data-default
                      , errors
                      , ghcjs-dom >= 0.2 && < 0.3
+                     , groundhog
                      , reflex
 --                      , reflex-dom-contrib
                      , reflex-dom >= 0.2
@@ -53,6 +54,7 @@ executable AdminPanel
   build-depends: base >= 4.8 && < 4.9
                , bytestring
                , ghcjs-dom
+               , groundhog
                , reflex
                , reflex-dom
                , tagging-common
