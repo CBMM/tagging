@@ -25,10 +25,10 @@ library
                      , containers
                      , data-default
                      , errors
-                     , ghcjs-dom
+                     , ghcjs-dom >= 0.2 && < 0.3
                      , reflex
-                     , reflex-dom-contrib
-                     , reflex-dom >= 0.2.1 && < 0.3
+--                      , reflex-dom-contrib
+                     , reflex-dom >= 0.2
                      , text
                      , time
                      , tagging-common
@@ -85,7 +85,7 @@ executable HomeAlone
                      , ghcjs-dom
                      , groundhog
                      , reflex
-                     , reflex-dom >= 0.2.1 && < 0.3
+                     , reflex-dom
                      , tagging-common
                      , tagging-client
                      , text

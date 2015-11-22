@@ -86,14 +86,24 @@ instance HasKey StimulusRequest where
 
 instance Crud StimulusRequest
 
-migrateResources :: Handler App App ()
-migrateResources = do
+migrateResourcesIO :: (MonadIO m, PersistBackend m) => m ()
+migrateResourcesIO = runMigration $ do
+  migrate (undefined :: TaggingUser)
+  migrate (undefined :: StimulusSequence)
+  migrate (undefined :: StimSeqItem)
+  migrate (undefined :: StimulusResponse)
+
+migrateHandler :: Handler App App ()
+migrateHandler = do
   assertRole [Admin]
+  runGH $ migrateResourcesIO
+{-
   runGH $ runMigration $ do
     migrate (undefined :: TaggingUser)
     migrate (undefined :: StimulusSequence)
     migrate (undefined :: StimSeqItem)
     migrate (undefined :: StimulusResponse)
+-}
 
 
 -----------------------------------------------------------------------------

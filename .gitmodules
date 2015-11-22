@@ -22,3 +22,6 @@
 [submodule "deps/groundhog"]
 	path = deps/groundhog
 	url = http://github.com/imalsogreg/groundhog
+[submodule "deps/reflex-dom"]
+	path = deps/reflex-dom
+	url = http://github.com/imalsogreg/reflex-dom

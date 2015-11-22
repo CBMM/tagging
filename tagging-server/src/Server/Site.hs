@@ -83,7 +83,7 @@ routes = [ ("login",    handleLoginSubmit)
          , ("adminPanel", adminPanel)
          , ("api", applicationToSnap apiApplication)
          --, ("/", with auth $ handleLogin Nothing)
-         , ("migrateResources", migrateResources)
+         , ("migrateResources", migrateHandler)
          , ("",          Snap.Util.FileServe.serveDirectory "static")
          ]
 
@@ -136,6 +136,9 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
 
     addRoutes routes
     addAuthSplices h auth
+
+    liftIO $ GH.runDbConn migrateResourcesIO g
+
     return $ App h s a d g
 
 
