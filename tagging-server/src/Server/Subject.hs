@@ -44,20 +44,23 @@ import           Server.Utils
 
 
 ------------------------------------------------------------------------------
-type SubjectAPI = "currentstim" :> Get '[JSON] StimSeqItem
---             :<|> "sequence"    :> Get '[JSON] (Int64, StimulusSequence)
-             :<|> "posinfo"     :> Get '[JSON] PositionInfo
-             :<|> "response"    :> ReqBody '[JSON] ResponsePayload
-                                :> Post '[JSON] ()
-
+type SubjectAPI = "currentstim"     :> Get '[JSON] StimSeqItem
+             :<|> "currentsequence" :> Get '[JSON] StimulusSequence
+             :<|> "posinfo"         :> Get '[JSON] PositionInfo
+             :<|> "fullposinfo"     :> Get '[JSON] (Maybe
+                                       (PositionInfo, 
+                                        StimulusSequence, 
+                                        StimSeqItem))
+             :<|> "response"        :> ReqBody '[JSON] ResponsePayload
+                                    :> Post '[JSON] ()
 
 ------------------------------------------------------------------------------
 subjectServer :: Server SubjectAPI AppHandler
-subjectServer = handleCurrentStimSeqItem :<|> handleCurrentPositionInfo :<|> response
-  where -- resource   = getCurrentStimSeqItem
---        sequence   = lift $ getCurrentStimulusSequence
-        pos        = getCurrentPositionInfo
-        response v = handleSubmitResponse v
+subjectServer = handleCurrentStimSeqItem 
+           :<|> handleCurrentStimulusSequence 
+           :<|> handleCurrentPositionInfo 
+           :<|> handleFullPosInfo
+           :<|> handleSubmitResponse
 
 -- ------------------------------------------------------------------------------
 -- -- | Add or revoke roles on a user
@@ -133,7 +136,7 @@ getCurrentStimSeqItem :: AppHandler (Maybe StimSeqItem)
 getCurrentStimSeqItem = do
   res <- getCurrentPositionInfo
   case res of
-    Nothing -> error "NoUser" -- TODO
+    Nothing -> error "NoPosInfo" -- TODO
     Just pInfo@(PositionInfo key i) -> do
       u :: TaggingUser <- exceptT (const $ error "Bad lookup") return getCurrentTaggingUser
       t <- liftIO getCurrentTime
@@ -151,3 +154,23 @@ handleCurrentStimSeqItem =
   maybeT (Server.Utils.err300 "No stmilusus sequence assigned") return
   $ MaybeT getCurrentStimSeqItem
 
+getCurrentStimulusSequence :: AppHandler (Maybe StimulusSequence)
+getCurrentStimulusSequence = do
+  res <- getCurrentPositionInfo
+  case res of
+    Nothing -> error "NoUser" -- TODO
+    Just pInfo@(PositionInfo key _) -> do
+      ssi <- runGH $ get key
+      return ssi
+
+handleCurrentStimulusSequence :: AppHandler StimulusSequence
+handleCurrentStimulusSequence =
+  maybeT (error "Bad sequence lookup") return 
+  (MaybeT getCurrentStimulusSequence)
+
+handleFullPosInfo 
+  :: AppHandler (Maybe (PositionInfo, StimulusSequence, StimSeqItem))
+handleFullPosInfo = 
+  maybeT (return Nothing) (return . Just) $ (,,) <$> MaybeT getCurrentPositionInfo
+                                                 <*> MaybeT getCurrentStimulusSequence
+                                                 <*> MaybeT getCurrentStimSeqItem

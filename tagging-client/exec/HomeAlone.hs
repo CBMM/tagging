@@ -4,6 +4,7 @@
 module Main where
 
 import Data.Bool (bool)
+import Data.Maybe (isJust)
 import Reflex
 import Reflex.Dom
 import Tagging.Stimulus
@@ -17,12 +18,12 @@ main = mainWidget contentWidget
 contentWidget :: MonadWidget t m => m ()
 contentWidget = elClass "div" "content" $ mdo
 
-  posEvents <- getPostBuild
-  posInfos <- fmapMaybe id <$> getAndDecode ("/api/posinfo" <$ posEvents)
+  postBuild <- getPostBuild
+  posEvents <- (getAndDecode ("/api/fullposinfo" <$ postBuild))
 
   (selClicks, delClicks, submits, togClicks) <- elClass "div" "top-half" $ do
       (sc, dc, sub) <- elClass "div" "top-left" $ do
-        elClass "div" "movie-widget" (movieWidget posInfos)
+        elClass "div" "movie-widget" (movieWidget (fmapMaybe id posEvents))
         elClass "div" "selections-widget" $
           selectionsWidget currentSetSel
       togs <- elClass "div" "choice-bank-widget"
