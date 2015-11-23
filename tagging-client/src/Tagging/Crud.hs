@@ -144,24 +144,28 @@ crudRowWidget p k dynVal = do
 
 instance Crud TaggingUser where
   resourceName _ = "tagginguser"
-  resourceHeaders _ = ["Tagging Id","Student Id","Name","Current Stimulus","Roles"]
+  resourceHeaders _ = ["Tagging Id","Student IdTest","Name","Current Stimulus","Roles"]
   resourceWidget dynVal dynB = do
     pb <- getPostBuild
     let pbV = tag (current dynVal) pb
     attrs <- forDyn dynB $ \b ->
       if b then mempty else (s "disabled" =: s "disabled")
-    f1 <- crudPieceField pbV (show . tuId) attrs
+    -- f1 <- crudPieceField pbV (show . tuId) attrs
+    f1 <- validatingCrudPieceField pbV (show . tuId) attrs (readEither "No id parse")
     f2 <- crudPieceField pbV (maybe "" T.unpack . tuStudentID) attrs
     f3 <- crudPieceField pbV (maybe "" T.unpack . tuRealName) attrs
-    f4 <- crudPieceField pbV (printPosString . tuCurrentStimulus) attrs
+    -- f4 <- crudPieceField pbV (printPosString . tuCurrentStimulus) attrs
+    f4 <- validatingCrudPieceField pbV (printPosString . tuCurrentStimulus) attrs parsePosString
     f5 <- crudPieceField pbV (show . tuRoles) attrs
     $(qDyn [| TaggingUser
-              <$> readEither "No Id parse" $(unqDyn [|f1|])
+              -- <$> readEither "No Id parse" $(unqDyn [|f1|])
+              <$> $(unqDyn [|f1|])
               <*> pure (let f2' = $(unqDyn [|f2|])
                         in  if null f2' then Nothing else Just (T.pack f2'))
               <*> pure (let f3' = $(unqDyn [|f3|])
                         in  if null f3' then Nothing else Just (T.pack f3'))
-              <*> parsePosString $(unqDyn [|f4|])
+              -- <*> parsePosString $(unqDyn [|f4|])
+              <*> $(unqDyn [|f4|])
               <*> readEither "No Roles parse" $(unqDyn [|f5|])
             |])
 
@@ -282,6 +286,27 @@ crudPieceField pbV proj attrs = el "td" $ do
                      , _textInputConfig_attributes   = attrs
                      , _textInputConfig_inputType    = "text"
                      , _textInputConfig_initialValue = "empty"})
+
+validatingCrudPieceField :: MonadWidget t m
+                         => Event t v
+                         -> (v -> String)
+                         -> Dynamic t (Map.Map String String)
+                         -> (String -> Either String a)
+                         -> m (Dynamic t (Either String a))
+validatingCrudPieceField pbV proj attrs validate = el "td" $ mdo
+  tInput <- textInput (TextInputConfig 
+                        { _textInputConfig_setValue =
+                            fmap (\v -> proj $ v) pbV
+                        , _textInputConfig_attributes   = fullAttrs
+                        , _textInputConfig_inputType    = "text"
+                        , _textInputConfig_initialValue = "empty"})
+  parseRes <- mapDyn validate  (_textInput_value tInput)
+  extraAttrs <- forDyn parseRes $ \case
+    Left s  -> "background" =: "red"
+    Right _ -> mempty
+  fullAttrs <- combineDyn (<>) attrs extraAttrs
+  return parseRes
+  
 
 s :: String -> String
 s = id
