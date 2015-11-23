@@ -9,6 +9,7 @@ module Server.Crud where
 
 import Control.Arrow (first)
 import Control.Error
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Char8 as B8
@@ -97,18 +98,18 @@ class (A.ToJSON v,
     ExceptT . fmap Right $ crudDelete delId
 
   ------------------------------------------------------------------------
-  crudRoutes :: Typeable v
-             => Proxy v
-             -> [(B8.ByteString, Handler App App ())]
-  crudRoutes p =
-    let tName = B8.pack $ show (typeRep p)
-        andId = (<> "/:id")
-    in  [(andId tName , method GET    (handleGet p))
-        ,(tName <> "s", method GET    (handleGet p))
-        ,(tName,        method POST   (handlePost p))
-        ,(tName,        method PUT    (handlePut p))
-        ,(tName,        method DELETE (handleDelete p))
-        ]
+--   crudRoutes :: Typeable v
+--              => Proxy v
+--              -> [(B8.ByteString, Handler App App ())]
+--   crudRoutes p =
+--     let tName = B8.pack $ show (typeRep p)
+--         andId = (<> "/:id")
+--     in  [(andId tName , method GET    (handleGet p))
+--         ,(tName <> "s", method GET    (handleGet p))
+--         ,(tName,        method POST   (handlePost p))
+--         ,(tName,        method PUT    (handlePut p))
+--         ,(tName,        method DELETE (handleDelete p))
+--         ]
 
 ------------------------------------------------------------------------------
 getEntity :: (PersistEntity a, PrimitivePersistField (Key a BackendSpecific))
@@ -181,6 +182,7 @@ postServer _ v = do
 putServer :: Crud v => Server (PutAPI v) AppHandler
 putServer i v = do
   let k  = intToKey Proxy i
+  liftIO $ print "HELLO"
   putEntity k v
 
 deleteServer :: Crud v => Proxy v -> Server (DeleteAPI v) AppHandler
