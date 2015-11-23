@@ -13,6 +13,7 @@
 module Tagging.Crud where
 
 import           Control.Error
+import           Control.Monad (join)
 import           Data.Char (isNumber)
 import           Data.Functor
 import qualified Data.Aeson as A
@@ -42,7 +43,11 @@ class (A.FromJSON v, A.ToJSON v) => Crud v where
 
   resourceName :: Proxy v -> String
 
-  resourceWidget  :: MonadWidget t m  => (Dynamic t v) -> (Dynamic t Bool) -> m (Dynamic t (Maybe v))
+  resourceWidget  :: MonadWidget t m  
+                  => (Dynamic t v) 
+                  -> (Dynamic t Bool) 
+                  -> m (Dynamic t (Either String v))
+
   resourceHeaders :: Proxy v -> [String]
 
   inputWidget :: MonadWidget t m => v -> m (Dynamic t v)
@@ -115,7 +120,7 @@ crudRowWidget p k dynVal = do
 
     saveAttrs <- combineDyn (\b mV ->
       s "style" =: s ("display:" <> bool "none" "normal" b)
-      <> (bool (s "disabled" =: s "disabled") mempty (isJust mV)))
+      <> (bool (s "disabled" =: s "disabled") mempty (isRight mV)))
       dynEditing dynM
 
     editAttrs <- forDyn dynEditing $ \b ->
@@ -123,11 +128,11 @@ crudRowWidget p k dynVal = do
 
     saveButton <- fmap fst $ elDynAttr' "button" saveAttrs $ text "Save"
 
-    _ <- putEntity p (fmap (k,) (fmapMaybe id (tag (current dynM) saveClicks)))
+    _ <- putEntity p (fmap (k,) (fmapMaybe hush (tag (current dynM) saveClicks)))
     _ <- deleteEntity p (k <$ delButton)
 
     let saveClicks = domEvent Click saveButton
-    let vAtClick = fmapMaybe id $ tagDyn dynM saveClicks
+    let vAtClick = fmapMaybe hush $ tagDyn dynM saveClicks
         fAtClick = fmap (\v m -> Map.insert k v m) vAtClick
 
     editButton <- fmap (domEvent Click . fst) $ elDynAttr' "button" editAttrs $ text "Edit"
@@ -151,28 +156,37 @@ instance Crud TaggingUser where
     f4 <- crudPieceField pbV (printPosString . tuCurrentStimulus) attrs
     f5 <- crudPieceField pbV (show . tuRoles) attrs
     $(qDyn [| TaggingUser
-              <$> readMay $(unqDyn [|f1|])
+              <$> readEither "No Id parse" $(unqDyn [|f1|])
               <*> pure (let f2' = $(unqDyn [|f2|])
                         in  if null f2' then Nothing else Just (T.pack f2'))
               <*> pure (let f3' = $(unqDyn [|f3|])
                         in  if null f3' then Nothing else Just (T.pack f3'))
               <*> parsePosString $(unqDyn [|f4|])
-              <*> readMay $(unqDyn [|f5|])
+              <*> readEither "No Roles parse" $(unqDyn [|f5|])
             |])
 
 
-parsePosString :: String -> Maybe (Maybe PositionInfo)
-parsePosString "" = Just Nothing
+parsePosString :: String -> Either String (Maybe PositionInfo)
+parsePosString "" = Right Nothing
 parsePosString s  = let (x,y) = break (== ':') s
-                    in  return $ PositionInfo 
-                                 <$> fmap intToKey (readMay x) 
-                                 <*> readMay y
+                        mPI   = PositionInfo 
+                                <$> fmap intToKey (readMay x) 
+                                <*> (readMay =<< safeTail y)
+                    in case mPI of
+                      Nothing -> Left "No Index parse (either \"\" or \"m:n\""
+                      Just p  -> Right (Just p)
 
 printPosString :: Maybe PositionInfo -> String
 printPosString Nothing = ""
 printPosString (Just (PositionInfo (StimulusSequenceKey (PersistInt64 x)) y)) =
   show x ++ ":" ++ show y
 
+safeTail :: [a] -> Maybe [a]
+safeTail []     = Nothing
+safeTail (x:xs) = Just xs
+
+readEither :: Read a => String -> String -> Either String a
+readEither n a = note n (readMay a)
 
 instance Crud StimulusSequence where
   resourceName _ = "stimulussequence"
@@ -189,8 +203,9 @@ instance Crud StimulusSequence where
     f5 <- crudPieceField pbV (T.unpack . ssBaseUrl) attrs
     $(qDyn [| StimulusSequence
               <$> pure (T.pack $(unqDyn [|f1|]))
-              <*> U.fromText (T.pack $(unqDyn [|f2|]))
-              <*> (A.decode . BL.pack) $(unqDyn [|f3|])
+              <*> note "No UUID parse" (U.fromText (T.pack $(unqDyn [|f2|])))
+              <*> note "No metadata parse (should be valid JSON)" 
+                  ((A.decode . BL.pack) $(unqDyn [|f3|]))
               <*> pure (T.pack $(unqDyn [|f4|]))
               <*> pure (T.pack $(unqDyn [|f5|]))
             |])
@@ -207,9 +222,9 @@ instance Crud StimSeqItem where
     f2 <- crudPieceField pbV (show . ssiStimulusSequence) attrs
     f3 <- crudPieceField pbV (show . ssiIndex) attrs
     $(qDyn [| StimSeqItem
-              <$> readMay $(unqDyn [|f1|])
-              <*> readMay $(unqDyn [|f2|])
-              <*> readMay $(unqDyn [|f3|])
+              <$> readEither "No stimulus parse (should be JSON)" $(unqDyn [|f1|])
+              <*> readEither "No parend id parse" $(unqDyn [|f2|])
+              <*> readEither "No sequence index parse" $(unqDyn [|f3|])
             |])
 
 
@@ -222,12 +237,12 @@ instance Crud StimulusRequest where
     attrs <- forDyn dynB $ \b ->
       if b then mempty else (s "disabled" =: s "disabled")
     f1 <- crudPieceField pbV (show . sreqUser) attrs
-    f2 <- crudPieceField pbV (show . sreqStimSeqItem) attrs
+    f2 <- crudPieceField pbV (printPosString . Just . sreqStimSeqItem) attrs
     f3 <- crudPieceField pbV (show . sreqTime) attrs
     $(qDyn [| StimulusRequest
-              <$> readMay $(unqDyn [|f1|])
-              <*> (A.decode . BL.pack) $(unqDyn [|f2|])
-              <*> readMay $(unqDyn [|f3|])
+              <$> readEither "No user id parse" $(unqDyn [|f1|])
+              <*> (join . fmap (note "No parse")) (parsePosString $(unqDyn [|f2|]))
+              <*> readEither "No parse for timestamp" $(unqDyn [|f3|])
             |])
 
 instance Crud StimulusResponse where
@@ -246,12 +261,13 @@ instance Crud StimulusResponse where
     f5 <- crudPieceField pbV (show . srResponseType) attrs
     f6 <- crudPieceField pbV (show . srResponseData) attrs
     $(qDyn [| StimulusResponse
-              <$> readMay $(unqDyn [|f1|])
-              <*> (A.decode . BL.pack) $(unqDyn [|f2|])
-              <*> readMay $(unqDyn [|f3|])
-              <*> readMay $(unqDyn [|f4|])
+              <$> readEither "No user id parse" $(unqDyn [|f1|])
+              <*> note "No stimulus parse" ((A.decode . BL.pack) $(unqDyn [|f2|]))
+              <*> readEither "No delivery timestamp parse" $(unqDyn [|f3|])
+              <*> readEither "No receipt timestamp parse" $(unqDyn [|f4|])
               <*> pure (T.pack  $(unqDyn [|f5|]))
-              <*> (A.decode . BL.pack)  $(unqDyn [|f6|])
+              <*> note "No response data parse (should be JSON)"
+                  ((A.decode . BL.pack)  $(unqDyn [|f6|]))
             |])
 
 crudPieceField :: MonadWidget t m
