@@ -126,7 +126,7 @@ instance ToJSON PositionInfo where
 
 instance FromJSON PositionInfo where
   parseJSON = A.genericParseJSON A.defaultOptions
-                { A.fieldLabelModifier = drop 2 . map toLower }
+                { A.fieldLabelModifier = drop 3 . map toLower }
 
 
 

@@ -119,7 +119,7 @@ choiceBankSingleChoice n dynStatus = do
 -----------------------------------------------------------------------------
 -- | Show movie clip
 movieWidget :: MonadWidget t m
-            => Event t (PositionInfo, StimulusSequence, StimSeqItem) 
+            => Event t (PositionInfo, StimulusSequence, StimSeqItem)
             -- ^ Location within stimulus sequence
             -> m ()
 movieWidget pEvent = do
@@ -130,95 +130,100 @@ movieWidget pEvent = do
                          "src"  =: (T.unpack ssBaseUrl <> "/" <> (T.unpack fn))
                          <> "type" =: nameToMime (T.unpack fn)
 
+  dynText =<< mapDyn (show :: Int -> String) =<< count pEvent
   widgetHold (text "waiting")
                 (ffor pEvent $ \p ->
                   elAttr "video" ("width" =: "320"
                                <> "height" =: "240"
                                <> "controls" =: "controls") $ do
-                   forM_ (movieSrcs p) $ \attrs -> 
+                   forM_ (movieSrcs p) $ \attrs ->
                      elAttr "source" attrs (return ())
                 )
 
   return ()
 
 
-type StableProps t = Map.Map CharacterName (Dynamic t (Maybe StableProperties))
+type StableProps t = Map.Map CharacterName (Dynamic t StableProperties)
 
 -----------------------------------------------------------------------------
 -- Options for updating stable properties of a character
 stablePropsWidget :: forall t m. MonadWidget t m
-                  => StableProps t -- ^ StableProps Character mapping
+                  => [CharacterName] -- ^ List of characters
+--                   -> StableProps t -- ^ StableProps Character mapping
                   -> Event t (Maybe CharacterName)
                      -- ^ Currently selected character name
                   -> m ()
-stablePropsWidget propsMap' selName = elClass "div" "stable-props-div" $ mdo
+stablePropsWidget characterNames selName =
+
+  elClass "div" "stable-props-div" $ mdo
 
   nameDyn <- holdDyn Nothing selName
 
-  oldPropsDyn <- fmap joinDyn $ forDyn nameDyn $ \mName ->
-                  case mName of
-                    Nothing -> constDyn Nothing
-                    Just n  -> maybe (constDyn Nothing) id
-                               (Map.lookup n propsMap)
+  stableProps :: StableProps t <- fmap Map.fromList $ forM characterNames $ \c -> do
 
-  let propUpdates = updated oldPropsDyn :: Event t (Maybe StableProperties)
+    singleCharacterProps <- forDyn nameDyn $ \selName ->
+      bool ("style" =: "display:none;") mempty (Just c == selName)
 
-  let gendUpdates = fmap (>>= _spGender) propUpdates :: Event t (Maybe Gender)
-  gendDropdown <- elClass "div" "stable-props-gender" $ do
-       dropdown Nothing
-        (constDyn $ Map.fromList
-          [ (Nothing,"")
-          , (Just MaleGender,"Male")
-          , (Just FemaleGender,"Female")
-          , (Just OtherGender,"Other")
-          ]) (DropdownConfig gendUpdates (constDyn mempty))
+    elDynAttr "div" singleCharacterProps $ do
+      dynGend <- elClass "div" "stable-props-gender" $ do
+           fmap _dropdown_value $ dropdown Nothing
+            (constDyn $ Map.fromList
+              [ (Nothing,"")
+              , (Just MaleGender,"Male")
+              , (Just FemaleGender,"Female")
+              , (Just OtherGender,"Other")
+              ]) (DropdownConfig never (constDyn mempty))
 
-  dynGend <- holdDyn Nothing (_dropdown_change gendDropdown)
+      dynFeel <- elClass "div" "stable-props-feeling" $ do
+          fmap _dropdown_value $ dropdown Nothing
+            (constDyn $ Map.fromList
+              [ (Nothing,"")
+              , (Just GoodGuy,"Goodguy")
+              , (Just NeutralGuy,"Neutral")
+              , (Just BadGuy,"Badguy")
+              ]) (DropdownConfig never (constDyn mempty))
 
-  let a = dynGend :: Dynamic t (Maybe Gender)
+      dynFam <- elClass "div" "stable-props-famous" $ do
+          fmap _dropdown_value $ dropdown Nothing
+            (constDyn $ Map.fromList
+              [ (Nothing,"")
+              , (Just True,"Famous")
+              , (Just False,"Not Famous")
+              ]) (DropdownConfig never (constDyn mempty))
 
-  let feelUpdates = fmap (>>= _spFeeling) propUpdates
-  feelDropdown <- elClass "div" "stable-props-feeling" $ do
-      dropdown Nothing
-        (constDyn $ Map.fromList
-          [ (Nothing,"")
-          , (Just GoodGuy,"Goodguy")
-          , (Just NeutralGuy,"Neutral")
-          , (Just BadGuy,"Badguy")
-          ]) (DropdownConfig feelUpdates (constDyn mempty))
+      stableProps <- $(qDyn [| StableProperties c
+                               ($(unqDyn [| dynGend |]))
+                               ($(unqDyn [| dynFeel |]))
+                               ($(unqDyn [| dynFam  |]))
+                            |]) :: m (Dynamic t StableProperties)
 
-  dynFeel <- holdDyn Nothing (_dropdown_change feelDropdown)
-
-  let famUpdates = fmap (>>= _spFamous) propUpdates
-  famDropdown <- elClass "div" "stable-props-famous" $ do
-      dropdown Nothing
-        (constDyn $ Map.fromList
-          [ (Nothing,"")
-          , (Just True,"Famous")
-          , (Just False,"Not Famous")
-          ]) (DropdownConfig famUpdates (constDyn mempty))
-
-  dynFam <- holdDyn Nothing (_dropdown_change famDropdown)
-
-  stableProps <- $(qDyn [| StableProperties
-                           <$> $(unqDyn [| nameDyn |])
-                           <*> pure ($(unqDyn [| dynGend |]))
-                           <*> pure ($(unqDyn [| dynFeel |]))
-                           <*> pure ($(unqDyn [| dynFam  |]))
-                        |]) :: m (Dynamic t (Maybe StableProperties))
-
-  display stableProps
-
-  propsMap <- Map.fromList <$> forM choices (\c -> do
-   cStProps <- holdDyn Nothing
-               ((Just <$>) (ffilter (\sp -> _spCharacterName sp == c)
-               (fmapMaybe id $ tagDyn stableProps submitClicks)))
-   return (c, cStProps))
+      return (c,stableProps)
 
   submitClicks <- button "Submit"
 
-  let okToRequest = fmapMaybe id (tagDyn stableProps submitClicks)
-      propReqs    = ffor okToRequest $ \sp ->
+--   let okNames :: Event t CharacterName = fmapMaybe id selName
+--       lookups = fmapMaybe id $ fmap (flip Map.lookup stableProps) okNames
+--       a = lookups :: Event t (Dynamic t StableProperties)
+--   testDyn <- forDyn dynName $ \n -> Map.lookup
+--   holdLookup <- holdDyn lookups
+--   focusDyn <- forDyn nameDyn $ \n -> flip Map.lookup stableProps =<< n
+  -- let a = focusDyn :: Dynamic t (Maybe (Dynamic t StableProperties))
+  xs <- flip mapM (Map.elems stableProps) $ \dynMayProps ->
+               combineDyn (\n props -> bool [] [props]
+                                        (Just (_spCharacterName props) == n))
+               nameDyn dynMayProps
+  x <- mapDyn listToMaybe =<< mconcatDyn xs
+  -- focusDyn' <- forDyn nameDyn $ \n -> Map.filter
+  --                (\v -> Just (_spCharacterName v) == n) stableProps
+  -- focusOk  <- ffilter id focusDyn
+  -- matchMap :: Dynamic t (Map.Map CharacterName (StableProperties)) <- forDyn nameDyn $ \n ->
+--     Map.filter (\e -> Just (_spCharacterName e) == n) stableProps
+  -- jMap :: Dynamic t (Map.Map CharacterName StableProperties) <- joinDynThroughMap matchMap
+
+  -- dynElems <- mapDyn (listToMaybe . Map.elems) jMap
+
+  let okToRequest = fmapMaybe id  (updated x)
+  let propReqs    = ffor okToRequest $ \(sp :: StableProperties) ->
         XhrRequest "POST" "/api/response" $
         XhrRequestConfig ("Content-Type" =: "application/json") Nothing Nothing
           Nothing (Just . BSL.unpack $ A.encode
@@ -233,88 +238,91 @@ type ClipPropsMap t = Map.Map CharacterName
 
 -----------------------------------------------------------------------------
 clipPropsWidget :: forall t m. MonadWidget t m
-                => Event  t (Maybe CharacterName)
+                => [CharacterName] -- ^ List of characters
+                -> Event  t (Maybe CharacterName)
                    -- ^ Updates to the singley selected character
                 -> Event t ()
                    -- ^ External commands that reset the property listing
                 -> m (ClipPropsMap t)
                    -- ^ Returning current set of properties
-clipPropsWidget selName resetEvents = mdo
+clipPropsWidget characterNames selName resetEvents = mdo
 
   nameDyn <- holdDyn Nothing selName
 
-  propsMap <- Map.fromList <$> forM choices (\c -> do
-    cClProps <- holdDyn Nothing $
-                leftmost [ ((Just <$>) (ffilter (\cp -> _cpCharacterName cp == c)
-                            (fmapMaybe id (updated clipProps))))
-                         , Nothing <$ resetEvents
-                         ]
+  fmap Map.fromList $ forM characterNames $ \c -> do
 
-    return (c, cClProps))
+    singleCharacterProps <- forDyn nameDyn $ \selName ->
+      bool ("style" =: "display:none;") mempty (Just c == selName)
 
-  let propUpdates = updated clipProps
+    elDynAttr "div" singleCharacterProps $ do
 
-  let headDirUpdates = fmap (_cpHeadDir <$>) propUpdates
-  headDropdown <- elClass "div" "clip-props-head" $ do
-    dropdown Nothing
-      (constDyn $ Map.fromList $
-        (Nothing, "") : map (\hd -> (Just hd, drop 2  (show hd) ))
-                        [HDLeft .. HDOffscreen]
-      ) (DropdownConfig headDirUpdates (constDyn mempty))
+      headDropdown <- elClass "div" "clip-props-head" $ do
+        dropdown Nothing
+          (constDyn $ Map.fromList $
+            (Nothing, "") : map (\hd -> (Just hd, drop 2  (show hd) ))
+                            [HDLeft .. HDOffscreen]
+          ) (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
 
-  dynHeadDir <- holdDyn Nothing
-                (_dropdown_change headDropdown) :: m (Dynamic t (Maybe HeadInfo))
+      dynHeadDir <- holdDyn Nothing
+                    (_dropdown_change headDropdown) :: m (Dynamic t (Maybe HeadInfo))
 
-  let talkingUpdates = fmap (_cpTalking <$>) propUpdates
-  talkingDropdown <- elClass "div" "clip-props-talking" $ do
-    dropdown Nothing
-      (constDyn $ Map.fromList $ [ (Nothing, "")
-                                 , (Just True,"Talking")
-                                 , (Just False, "Quiet")]
-      ) (DropdownConfig talkingUpdates (constDyn mempty))
+      talkingDropdown <- elClass "div" "clip-props-talking" $ do
+        dropdown Nothing
+          (constDyn $ Map.fromList $ [ (Nothing, "")
+                                     , (Just True,"Talking")
+                                     , (Just False, "Quiet")]
+          ) (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
 
-  dynTalking <- holdDyn Nothing
-                (_dropdown_change talkingDropdown) :: m (Dynamic t (Maybe Bool))
+      dynTalking <- holdDyn Nothing
+                    (_dropdown_change talkingDropdown) :: m (Dynamic t (Maybe Bool))
 
-  clipProps <- $(qDyn [| ClipProperties
-                         <$> $(unqDyn [| nameDyn |])
-                         <*> $(unqDyn [| dynHeadDir |])
-                         <*> $(unqDyn [| dynTalking |]) |]) -- :: m (Dynamic t (Maybe ClipProperties))
-  return propsMap
+      clipProps <- $(qDyn [| ClipProperties c
+                             <$> $(unqDyn [| dynHeadDir |])
+                             <*> $(unqDyn [| dynTalking |]) |])
+
+      return (c,clipProps)
+
+
 
 -----------------------------------------------------------------------------
 -- | View currently selected characters, detecting clicks
 --   Provide a 'submit' button for submitting the per-clip properties
---   Returning event stream of face clicks (for single-selecting) and submit
---   clicks
+--   Returning event stream of tuples:
+--   (Select character clicks, remove character clicks, send-button clicks)
 selectionsWidget :: MonadWidget t m
                  => Dynamic t [CharacterName]
                     -- ^ Listing of selected characters' names
+                 -> Dynamic t Bool
+                    -- ^ Flag for whether send button should be enabled
                  -> m (Event t CharacterName,
                        Event t CharacterName,
                        Event t ())
-selectionsWidget selChars = elClass "div" "selections-container" $ do
+selectionsWidget selChars okToSend = elClass "div" "selections-container" $ do
   charMap <- mapDyn (Map.fromList . map (,())) selChars
   clickMap <- listViewWithKey charMap $ \n _ -> do
-    (e,btn) <- elAttr' "div" ("class" =: "selection-choice") $ mdo
-      elAttr "img" (("src" :: String) =: nameToFile (T.unpack n)) $ return ()
+    (e,btn) <- elAttr "div" ("class" =: "selection-choice") $ mdo
+      (e,_) <- elAttr' "img" (("src" :: String) =: nameToFile (T.unpack n)) $ return ()
       btnAttr <- holdDyn ("class" =: "fa fa-times") $
                    leftmost [ domEvent Mouseenter btn $>
                                   ("class" =: "fa fa-times-circle")
                             , domEvent Mouseleave btn $>
                                   ("class" =: "fa fa-times")
                             ]
-      btn <- fmap fst $ elDynAttr' "span" btnAttr $ return ()
+      (btn,_) <- elDynAttr' "span" btnAttr $ return ()
       elClass "div" "selection-choice-text" $ text (T.unpack n)
-      return btn
+      return (e,btn)
     return $ leftmost [ (n,True)  <$ domEvent Click e
                       , (n,False) <$ domEvent Click btn]
   let clks = oneFromMap clickMap
-  sendClicks <- button "Send"
-  -- let selClicks = ffor (selChars `attachDyn` (ffilter snd clks)) $ \(cSet,c) ->
-  --                   if fst c `elem` cSet
-  --                   then Nothing
-  --                   else Just c
+
+  sendAttrs <- forDyn okToSend $ \b ->
+       "type" =: "button"
+       <> bool ("disabled" =: "disabled") mempty b
+
+  sendClicks <- el "div" $ do
+    (e,_) <- elDynAttr' "button" sendAttrs $ text "Send"
+    return (domEvent Click e)
+
   return $ (fmap fst (ffilter snd clks),
             fmap fst (ffilter (not . snd) clks),
             sendClicks)
@@ -384,5 +392,5 @@ nameToFile = ("http://web.mit.edu/greghale/Public/hapics/" <>)
 nameToMime :: String -> String
 nameToMime fn = case extension fn of
   "ogg" -> "video/ogg"
-  "mp4" -> "video/mpeg"
+  "mp4" -> "video/mp4"
   where extension = reverse . takeWhile (/= '.') . reverse
