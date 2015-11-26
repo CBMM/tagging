@@ -21,10 +21,10 @@ main = mainWidget $ do
   crudTableWidget (Proxy :: Proxy StimulusSequence) (constDyn (const True))
   el "br" $ return ()
 
-  el "hr" $ return ()
-  text "StimSeqItem Table"
-  crudTableWidget (Proxy :: Proxy StimSeqItem) (constDyn (const True))
-  el "br" $ return ()
+  -- el "hr" $ return ()
+  -- text "StimSeqItem Table"
+  -- crudTableWidget (Proxy :: Proxy StimSeqItem) (constDyn (const True))
+  -- el "br" $ return ()
 
   el "hr" $ return ()
   text "StimulusRequest Table"

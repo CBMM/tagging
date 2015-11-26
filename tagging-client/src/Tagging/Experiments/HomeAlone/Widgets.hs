@@ -152,7 +152,7 @@ stablePropsWidget :: forall t m. MonadWidget t m
 --                   -> StableProps t -- ^ StableProps Character mapping
                   -> Event t (Maybe CharacterName)
                      -- ^ Currently selected character name
-                  -> m ()
+                  -> m (Event t ())
 stablePropsWidget characterNames selName =
 
   elClass "div" "stable-props-div" $ mdo
@@ -201,38 +201,24 @@ stablePropsWidget characterNames selName =
 
   submitClicks <- button "Submit"
 
---   let okNames :: Event t CharacterName = fmapMaybe id selName
---       lookups = fmapMaybe id $ fmap (flip Map.lookup stableProps) okNames
---       a = lookups :: Event t (Dynamic t StableProperties)
---   testDyn <- forDyn dynName $ \n -> Map.lookup
---   holdLookup <- holdDyn lookups
---   focusDyn <- forDyn nameDyn $ \n -> flip Map.lookup stableProps =<< n
-  -- let a = focusDyn :: Dynamic t (Maybe (Dynamic t StableProperties))
   xs <- flip mapM (Map.elems stableProps) $ \dynMayProps ->
                combineDyn (\n props -> bool [] [props]
                                         (Just (_spCharacterName props) == n))
                nameDyn dynMayProps
   x <- mapDyn listToMaybe =<< mconcatDyn xs
-  -- focusDyn' <- forDyn nameDyn $ \n -> Map.filter
-  --                (\v -> Just (_spCharacterName v) == n) stableProps
-  -- focusOk  <- ffilter id focusDyn
-  -- matchMap :: Dynamic t (Map.Map CharacterName (StableProperties)) <- forDyn nameDyn $ \n ->
---     Map.filter (\e -> Just (_spCharacterName e) == n) stableProps
-  -- jMap :: Dynamic t (Map.Map CharacterName StableProperties) <- joinDynThroughMap matchMap
 
-  -- dynElems <- mapDyn (listToMaybe . Map.elems) jMap
-
-  let okToRequest = fmapMaybe id  (updated x)
+  let okToRequest = fmapMaybe id (tagDyn x submitClicks)
   let propReqs    = ffor okToRequest $ \(sp :: StableProperties) ->
         XhrRequest "POST" "/api/response" $
         XhrRequestConfig ("Content-Type" =: "application/json") Nothing Nothing
           Nothing (Just . BSL.unpack $ A.encode
             (ResponsePayload (A.toJSON (Sporadic sp))))
-  performRequestAsync propReqs
+  stableResponses <- performRequestAsync propReqs
 
-  return ()
+  return (() <$ stableResponses)
 
 
+-----------------------------------------------------------------------------
 type ClipPropsMap t = Map.Map CharacterName
                      (Dynamic t (Maybe ClipProperties))
 

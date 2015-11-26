@@ -84,6 +84,7 @@ executable AdminPanel
 executable HomeAlone
   main-is:             HomeAlone.hs
   build-depends:       base >=4.8 && <4.9
+                     , aeson
                      , bytestring
                      , containers
                      , ghcjs-dom

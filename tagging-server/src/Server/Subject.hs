@@ -48,17 +48,17 @@ type SubjectAPI = "currentstim"     :> Get '[JSON] StimSeqItem
              :<|> "currentsequence" :> Get '[JSON] StimulusSequence
              :<|> "posinfo"         :> Get '[JSON] PositionInfo
              :<|> "fullposinfo"     :> Get '[JSON] (Maybe
-                                       (PositionInfo, 
-                                        StimulusSequence, 
+                                       (PositionInfo,
+                                        StimulusSequence,
                                         StimSeqItem))
              :<|> "response"        :> ReqBody '[JSON] ResponsePayload
                                     :> Post '[JSON] ()
 
 ------------------------------------------------------------------------------
 subjectServer :: Server SubjectAPI AppHandler
-subjectServer = handleCurrentStimSeqItem 
-           :<|> handleCurrentStimulusSequence 
-           :<|> handleCurrentPositionInfo 
+subjectServer = handleCurrentStimSeqItem
+           :<|> handleCurrentStimulusSequence
+           :<|> handleCurrentPositionInfo
            :<|> handleFullPosInfo
            :<|> handleSubmitResponse
 

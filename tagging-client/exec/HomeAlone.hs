@@ -5,7 +5,9 @@
 
 module Main where
 
+import qualified Data.Aeson as A
 import           Data.Bool (bool)
+import qualified Data.ByteString.Lazy.Char8 as BSL
 import qualified Data.List as List
 import qualified Data.Map  as Map
 import           Data.Maybe (catMaybes, isJust, maybeToList)
@@ -14,6 +16,7 @@ import           Reflex
 import           Reflex.Dom
 import           Experiments.HomeAlonePersonAndDirection
 import           Tagging.Stimulus
+import           Tagging.Response
 import           Tagging.User
 import           Tagging.Experiments.HomeAlone.Widgets
 
@@ -25,7 +28,8 @@ contentWidget :: MonadWidget t m => m ()
 contentWidget = elClass "div" "content" $ mdo
 
   postBuild <- getPostBuild
-  posEvents <- (getAndDecode ("/api/fullposinfo" <$ postBuild))
+  let fetchEvents = postBuild <> (() <$ clipXhr) <> (() <$ stableUpdates)
+  posEvents <- (getAndDecode ("/api/fullposinfo" <$ fetchEvents))
 
   (selClicks, delClicks, submits, togClicks) <- elClass "div" "top-half" $ do
       (sc, dc, sub) <- elClass "div" "top-left" $ do
@@ -40,7 +44,7 @@ contentWidget = elClass "div" "content" $ mdo
       clUps <- elClass "div" "clip-properties-widget"
         (clipPropsWidget choices (updated currentSingleSel) submits)
       stUps <- elClass "div" "stable-properties-widget" $
-                 (stablePropsWidget mempty (updated currentSingleSel))
+                 (stablePropsWidget choices (updated currentSingleSel))
       return (clUps, stUps)
 
 
@@ -55,6 +59,13 @@ contentWidget = elClass "div" "content" $ mdo
   clipProps <- sampleClipProperties clipUpdates currentSetSel
   okToSend  <- combineDyn (\cp selSet -> length cp == length selSet)
                clipProps currentSetSel
+  let clipResponses =
+        ffor (gate (current okToSend) (tag (current clipProps) submits)) $
+        \cp -> XhrRequest "POST" "/api/response" $
+               XhrRequestConfig ("Content-Type" =: "application/json")
+               Nothing Nothing Nothing (Just . BSL.unpack $ A.encode
+                                        (ResponsePayload (A.toJSON (PerClip cp))))
+  clipXhr <- performRequestAsync clipResponses
 
 
   text "currentSetSel: "
