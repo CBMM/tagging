@@ -28,7 +28,7 @@ contentWidget :: MonadWidget t m => m ()
 contentWidget = elClass "div" "content" $ mdo
 
   postBuild <- getPostBuild
-  let fetchEvents = postBuild <> (() <$ clipXhr) <> (() <$ stableUpdates)
+  let fetchEvents = postBuild <> (() <$ clipXhr)
   posEvents <- (getAndDecode ("/api/fullposinfo" <$ fetchEvents))
 
   (selClicks, delClicks, submits, togClicks) <- elClass "div" "top-half" $ do
@@ -61,7 +61,7 @@ contentWidget = elClass "div" "content" $ mdo
                clipProps currentSetSel
   let clipResponses =
         ffor (gate (current okToSend) (tag (current clipProps) submits)) $
-        \cp -> XhrRequest "POST" "/api/response" $
+        \cp -> XhrRequest "POST" "/api/response?advance" $
                XhrRequestConfig ("Content-Type" =: "application/json")
                Nothing Nothing Nothing (Just . BSL.unpack $ A.encode
                                         (ResponsePayload (A.toJSON (PerClip cp))))

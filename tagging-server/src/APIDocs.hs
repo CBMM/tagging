@@ -68,5 +68,10 @@ instance ToParam (QueryParam "studentid" T.Text) where
                "(Optional) Full name"
                Normal
 
+instance ToParam (QueryFlag "advance") where
+  toParam _ = DocQueryParam "advance" []
+              ("Set this flag to advance when submitted " ++
+              "stim response should advance the trial index")
+              Normal
 -- instance HasDocs (Raw a b) where
 --   docsFor _ _ = mempty

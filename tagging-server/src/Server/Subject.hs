@@ -51,7 +51,7 @@ type SubjectAPI = "currentstim"     :> Get '[JSON] StimSeqItem
                                        (PositionInfo,
                                         StimulusSequence,
                                         StimSeqItem))
-             :<|> "response"        :> ReqBody '[JSON] ResponsePayload
+             :<|> "response"        :> QueryFlag "advance" :> ReqBody '[JSON] ResponsePayload
                                     :> Post '[JSON] ()
 
 ------------------------------------------------------------------------------
@@ -86,8 +86,8 @@ subjectServer = handleCurrentStimSeqItem
 --   field to @Just@ `the next sequence stimulus` if there is one, or to
 --   @Nothing@ if the sequence is done
 --handleSubmitResponse :: StimulusResponse -> Handler App App ()
-handleSubmitResponse :: ResponsePayload -> Handler App App ()
-handleSubmitResponse t =
+handleSubmitResponse :: Bool -> ResponsePayload -> Handler App App ()
+handleSubmitResponse advanceStim t =
   exceptT Server.Utils.err300 (const $ return ()) $ do
 
     u        <- getCurrentTaggingUser
@@ -113,7 +113,7 @@ handleSubmitResponse t =
     --        query
     --        "SELECT array_length(\"StimSeqItems\") FROM \"StimulusSequence\" WHERE id = ?"
     --        (Only (_piStimulusSequence pos))
-    lift . runGH $ do
+    when advanceStim $ lift . runGH $ do
       insert (StimulusResponse (tuId u) pos
               (sreqTime thisReq) tNow "sometype" (rpJson t))
       let p' | i == l - 1 = Nothing
