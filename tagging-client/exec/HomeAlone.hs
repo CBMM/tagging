@@ -24,6 +24,7 @@ import           Tagging.Experiments.HomeAlone.Widgets
 main :: IO ()
 main = mainWidget contentWidget
 
+-------------------------------------------------------------------------------
 contentWidget :: MonadWidget t m => m ()
 contentWidget = elClass "div" "content" $ mdo
 
@@ -31,36 +32,52 @@ contentWidget = elClass "div" "content" $ mdo
   let fetchEvents = postBuild <> (() <$ clipXhr)
   posEvents <- (getAndDecode ("/api/fullposinfo" <$ fetchEvents))
 
-  (selClicks, delClicks, submits, togClicks) <- elClass "div" "top-half" $ do
-      (sc, dc, sub) <- elClass "div" "top-left" $ do
-        elClass "div" "movie-widget" (movieWidget (fmapMaybe id posEvents))
-        elClass "div" "selections-widget" $
-          selectionsWidget currentSetSel okToSend
-      togs <- elClass "div" "choice-bank-widget"
-                (choiceBankWidget choices (constDyn []))
-      return (sc, dc, sub, togs)
 
-  (clipUpdates, stableUpdates) <- elClass "div" "bottom-half" $ do
-      clUps <- elClass "div" "clip-properties-widget"
-        (clipPropsWidget choices (updated currentSingleSel) submits)
-      stUps <- elClass "div" "stable-properties-widget" $
-                 (stablePropsWidget choices (updated currentSingleSel))
-      return (clUps, stUps)
+  {-  Left Half -}
 
+  (selWidget, clipUps, stableUps) <- elClass "div" "left-half" $ mdo
+
+    elClass "div" "left-child" $ do
+      elClass "div" "movie-widget" (movieWidget (fmapMaybe id posEvents))
+
+    selWidget <- elClass "div" "left-child" $ do
+      elClass "div" "selections-widget" $
+        selectionsWidget currentSetSel currentSingleSel okToSend
+
+    (clipUps, stableUps) <- elClass "div" "left-child properties" $ do
+        clUps <- elClass "div" "clip-properties-widget" $
+          clipPropsWidget choices (updated currentSingleSel)
+            (swSends selWidget)
+        stUps <- elClass "div" "stable-properties-widget" $
+                   (stablePropsWidget choices (updated currentSingleSel))
+        return (clUps, stUps)
+
+    return (selWidget, clipUps, stableUps)
+
+  {-  Right Half -}
+
+  togs <- elClass "div" "right-half" $ mdo
+
+    togs <- elClass "div" "righc-child choice-bank-widget"
+              (choiceBankWidget choices (constDyn []))
+    return togs
+
+
+  {- Logic -}
 
   sel <- foldDyn foldAux (Nothing, [])
-         (traceEventWith show $ leftmost [fmap (, Nothing)    togClicks
-                   ,fmap (, Just True)  (traceEvent "sel" selClicks)
-                   ,fmap (, Just False) (traceEvent "del" delClicks)])
+         (traceEventWith show $ leftmost [fmap (, Nothing) togs -- TODO right?
+                   ,fmap (, Just True)  (swAdditions selWidget)
+                   ,fmap (, Just False) (swDeletions selWidget)])
 
   currentSingleSel :: Dynamic t (Maybe CharacterName) <- mapDyn fst sel
   currentSetSel    :: Dynamic t [CharacterName]       <- mapDyn snd sel
 
-  clipProps <- sampleClipProperties clipUpdates currentSetSel
+  clipProps <- sampleClipProperties clipUps currentSetSel
   okToSend  <- combineDyn (\cp selSet -> length cp == length selSet)
                clipProps currentSetSel
   let clipResponses =
-        ffor (gate (current okToSend) (tag (current clipProps) submits)) $
+        ffor (gate (current okToSend) (tag (current clipProps) (swSends selWidget))) $
         \cp -> XhrRequest "POST" "/api/response?advance" $
                XhrRequestConfig ("Content-Type" =: "application/json")
                Nothing Nothing Nothing (Just . BSL.unpack $ A.encode
@@ -68,14 +85,14 @@ contentWidget = elClass "div" "content" $ mdo
   clipXhr <- performRequestAsync clipResponses
 
 
-  text "currentSetSel: "
-  display currentSetSel
-  el "br" $ return ()
-  text "currentSingleSel: "
-  display currentSingleSel
-  el "br" $ return ()
-  text "CurrentProps: "
-  display clipProps
+  -- text "currentSetSel: "
+  -- display currentSetSel
+  -- el "br" $ return ()
+  -- text "currentSingleSel: "
+  -- display currentSingleSel
+  -- el "br" $ return ()
+  -- text "CurrentProps: "
+  -- display clipProps
 
   return ()
 

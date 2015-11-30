@@ -3,23 +3,35 @@ html, body {
 }
 
 .content {
+  height: 100%;
+  width: 100%;
+}
+
+.left-half {
+  float: left;
   display:         flex;
   display:      -webkit-flex;
   flex-flow:       column nowrap;
   -webkit-flex-flow: column nowrap;
   justify-content: flex-start;
-  background-color: white;
-  height: 100%;
-  width: 100%;
+
+  padding: 20px;
+  width: 58%;
 }
 
-.top-half {
+.right-half {
   padding: 20px;
   display: flex;
-  background-color: red;
   flex-flow: row nowrap;
-  width: 100%;
 }
+
+.left-child {
+  display: flex;
+  flex-flow: row nowrap;
+    margin: 5px;
+    padding: 5px;
+}
+
 
 .top-left {
   flex-grow: 1;
@@ -27,7 +39,6 @@ html, body {
 
 .bottom-half {
   padding: 20px;
-  background-color: blue;
   display: flex;
   flex-flow: row nowrap;
 }
@@ -39,41 +50,38 @@ html, body {
 
 .movie-widget {
   order: 1;
-  background-color: pink;
   min-height: 240px;
 }
 
 .selections-widget{
   order: 2;
-  background-color: #9f9; /* light green */
   min-height: 70px;
 }
 
 .choice-bank-widget{
   order: 3;
   flex: 1;
-  background-color: #bb9; /* lighth purple */
-  max-width:400px;
-  min-width:400px;
+  /* max-width:400px; 
+  min-width:400px; */
 }
 
 .clip-properties-widget{
   order: 1;
   flex: 1;
   background-color: #99f; /* light blue */
-  min-height: 200px;
+  /* min-height: 200px;
   max-height: 200px;
-  min-width:300px;
+  min-width:300px; */
 }
 
 .stable-properties-widget{
   order: 2;
   flex: 1;
   background-color: #9ff; /* cyan? */
-  min-height: 200px;
+  /* min-height: 200px;
   max-height: 200px;
   min-width:400px;
-  max-width:400px;
+  max-width:400px; */
 }
 
 /****************************************
@@ -86,7 +94,7 @@ html, body {
   flex-wrap: wrap;
   -webkit-flex-wrap: wrap;
   background-color: white;
-  width: 90%;
+  /* width: 90%; */
   padding: 5px;
 }
 
@@ -99,6 +107,7 @@ html, body {
   width: 65px;
   height: 65px;
   margin: 5px;
+  border-radius: 5px;
 }
 
 .choice-bank-choice img, .selection-choice img {
@@ -138,6 +147,10 @@ html, body {
 .text-found {
   color: hsl(120, 50%, 75%);
   background: rgba(255,255,255,0.4);
+}
+
+video {
+    width: 100%;
 }
 
 .head-dir-button-container {
@@ -207,4 +220,8 @@ html, body {
   color: white;
   opacity: 0.75;
   text-shadow: 1px 1px 1px black;
+}
+
+.selected {
+    box-shadow: 0px 0px 14px hsla(122,34%,42%,1);
 }

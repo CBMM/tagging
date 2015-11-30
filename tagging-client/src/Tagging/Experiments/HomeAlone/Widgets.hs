@@ -40,10 +40,6 @@ import           Tagging.Stimulus
 import           Tagging.User
 import           Experiments.HomeAlonePersonAndDirection
 
--- TODO: 'get' a new stim by posting the answer to this one,
---       rather than two different calls
--- TODO: Drop the Maybe part of Maybe HeadDirection in ChacartecAtDir;
---       All characters have direction now that "Noone" is not a character
 
 ------------------------------------------------------------------------------
 -- | Widget collecting all of the selectable characters. Uses the List
@@ -83,12 +79,6 @@ choiceBankWidget allChars dynSelChars = mdo
     return $ _textInput_value tBox
 
   return ns
-
-
-------------------------------------------------------------------------------
--- | Utility function for pulling one (arbitrary) event out of a Map of events
-oneFromMap :: Reflex t => Event t (Map.Map k a) -> Event t a
-oneFromMap = fmapMaybe (listToMaybe . Map.elems)
 
 
 ------------------------------------------------------------------------------
@@ -133,9 +123,7 @@ movieWidget pEvent = do
   dynText =<< mapDyn (show :: Int -> String) =<< count pEvent
   widgetHold (text "waiting")
                 (ffor pEvent $ \p ->
-                  elAttr "video" ("width" =: "320"
-                               <> "height" =: "240"
-                               <> "controls" =: "controls") $ do
+                  elAttr "video" ("controls" =: "controls") $ do
                    forM_ (movieSrcs p) $ \attrs ->
                      elAttr "source" attrs (return ())
                 )
@@ -147,9 +135,9 @@ type StableProps t = Map.Map CharacterName (Dynamic t StableProperties)
 
 -----------------------------------------------------------------------------
 -- Options for updating stable properties of a character
+-- Returns a Event t (), one () for each click on the update button
 stablePropsWidget :: forall t m. MonadWidget t m
                   => [CharacterName] -- ^ List of characters
---                   -> StableProps t -- ^ StableProps Character mapping
                   -> Event t (Maybe CharacterName)
                      -- ^ Currently selected character name
                   -> m (Event t ())
@@ -159,13 +147,18 @@ stablePropsWidget characterNames selName =
 
   nameDyn <- holdDyn Nothing selName
 
-  stableProps :: StableProps t <- fmap Map.fromList $ forM characterNames $ \c -> do
+  stableProps <- fmap Map.fromList $ forM characterNames $ \c -> do
 
     singleCharacterProps <- forDyn nameDyn $ \selName ->
       bool ("style" =: "display:none;") mempty (Just c == selName)
 
     elDynAttr "div" singleCharacterProps $ do
-      dynGend <- elClass "div" "stable-props-gender" $ do
+     el "table" $ do
+
+      dynGend <- el "tr" $ do
+       el "td" $ text "Gender"
+       el "td" $ do
+        elClass "div" "stable-props-gender" $ do
            fmap _dropdown_value $ dropdown Nothing
             (constDyn $ Map.fromList
               [ (Nothing,"")
@@ -174,7 +167,10 @@ stablePropsWidget characterNames selName =
               , (Just OtherGender,"Other")
               ]) (DropdownConfig never (constDyn mempty))
 
-      dynFeel <- elClass "div" "stable-props-feeling" $ do
+      dynFeel <- el "tr" $ do
+       el "td" $ text "Type"
+       el "td" $ do
+        elClass "div" "stable-props-feeling" $ do
           fmap _dropdown_value $ dropdown Nothing
             (constDyn $ Map.fromList
               [ (Nothing,"")
@@ -183,7 +179,10 @@ stablePropsWidget characterNames selName =
               , (Just BadGuy,"Badguy")
               ]) (DropdownConfig never (constDyn mempty))
 
-      dynFam <- elClass "div" "stable-props-famous" $ do
+      dynFam <- el "tr" $ do
+       el "td" $ text "Famous"
+       el "td" $ do
+        elClass "div" "stable-props-famous" $ do
           fmap _dropdown_value $ dropdown Nothing
             (constDyn $ Map.fromList
               [ (Nothing,"")
@@ -199,7 +198,10 @@ stablePropsWidget characterNames selName =
 
       return (c,stableProps)
 
-  submitClicks <- button "Submit"
+  buttonProps <- forDyn nameDyn $
+                  maybe ("style" =: "display:none;") (const mempty)
+  submitClicks <- elDynAttr "div" buttonProps $
+                  button "Submit"
 
   xs <- flip mapM (Map.elems stableProps) $ \dynMayProps ->
                combineDyn (\n props -> bool [] [props]
@@ -222,6 +224,7 @@ stablePropsWidget characterNames selName =
 type ClipPropsMap t = Map.Map CharacterName
                      (Dynamic t (Maybe ClipProperties))
 
+
 -----------------------------------------------------------------------------
 clipPropsWidget :: forall t m. MonadWidget t m
                 => [CharacterName] -- ^ List of characters
@@ -240,35 +243,42 @@ clipPropsWidget characterNames selName resetEvents = mdo
     singleCharacterProps <- forDyn nameDyn $ \selName ->
       bool ("style" =: "display:none;") mempty (Just c == selName)
 
-    elDynAttr "div" singleCharacterProps $ do
-
-      headDropdown <- elClass "div" "clip-props-head" $ do
+    elDynAttr "div" singleCharacterProps $ el "table" $ do
+     dynHeadDir <- el "tr" $ do
+      el "td" $ text "Head Direction"
+      headDropdown <- el "td" $ do
         dropdown Nothing
           (constDyn $ Map.fromList $
             (Nothing, "") : map (\hd -> (Just hd, drop 2  (show hd) ))
                             [HDLeft .. HDOffscreen]
           ) (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
 
-      dynHeadDir <- holdDyn Nothing
-                    (_dropdown_change headDropdown) :: m (Dynamic t (Maybe HeadInfo))
+      holdDyn Nothing (_dropdown_change headDropdown)
 
-      talkingDropdown <- elClass "div" "clip-props-talking" $ do
+     dynTalking <- el "tr" $ do
+      el "td" $ text "Talking"
+      talkingDropdown <- el "td" $ do
         dropdown Nothing
           (constDyn $ Map.fromList $ [ (Nothing, "")
                                      , (Just True,"Talking")
                                      , (Just False, "Quiet")]
           ) (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
 
-      dynTalking <- holdDyn Nothing
-                    (_dropdown_change talkingDropdown) :: m (Dynamic t (Maybe Bool))
+      holdDyn Nothing (_dropdown_change talkingDropdown)
 
-      clipProps <- $(qDyn [| ClipProperties c
-                             <$> $(unqDyn [| dynHeadDir |])
-                             <*> $(unqDyn [| dynTalking |]) |])
+     clipProps <- $(qDyn [| ClipProperties c
+                            <$> $(unqDyn [| dynHeadDir |])
+                            <*> $(unqDyn [| dynTalking |]) |])
 
-      return (c,clipProps)
+     return (c,clipProps)
 
 
+
+data SelectionWidget t = SelectionWidget
+  { swAdditions :: Event t CharacterName
+  , swDeletions :: Event t CharacterName
+  , swSends     :: Event t ()
+  }
 
 -----------------------------------------------------------------------------
 -- | View currently selected characters, detecting clicks
@@ -278,15 +288,24 @@ clipPropsWidget characterNames selName resetEvents = mdo
 selectionsWidget :: MonadWidget t m
                  => Dynamic t [CharacterName]
                     -- ^ Listing of selected characters' names
+                 -> Dynamic t (Maybe CharacterName)
                  -> Dynamic t Bool
                     -- ^ Flag for whether send button should be enabled
-                 -> m (Event t CharacterName,
-                       Event t CharacterName,
-                       Event t ())
-selectionsWidget selChars okToSend = elClass "div" "selections-container" $ do
-  charMap <- mapDyn (Map.fromList . map (,())) selChars
-  clickMap <- listViewWithKey charMap $ \n _ -> do
-    (e,btn) <- elAttr "div" ("class" =: "selection-choice") $ mdo
+                 -> m (SelectionWidget t)
+selectionsWidget selChars selChar okToSend =
+ elClass "div" "selections-container" $ do
+
+  -- This map just gets the character list into a map shape for compatability
+  -- with listViewWithKey, putting characters from the multi-selection in
+  -- the key positions, and flagging whether that character is the single
+  -- selection in the value position
+  charMap <- combineDyn (\chrs chr -> Map.fromList $
+                                      map (\c -> (c, Just c == chr)) chrs)
+             selChars selChar
+  clickMap <- listViewWithKey charMap $ \n dynMatch -> do
+    selChoiceAttrs <- forDyn dynMatch $ \b ->
+         "class" =: bool "selection-choice" "selection-choice selected" b
+    (e,btn) <- elDynAttr "div" selChoiceAttrs $ mdo
       (e,_) <- elAttr' "img" (("src" :: String) =: nameToFile (T.unpack n)) $ return ()
       btnAttr <- holdDyn ("class" =: "fa fa-times") $
                    leftmost [ domEvent Mouseenter btn $>
@@ -309,9 +328,9 @@ selectionsWidget selChars okToSend = elClass "div" "selections-container" $ do
     (e,_) <- elDynAttr' "button" sendAttrs $ text "Send"
     return (domEvent Click e)
 
-  return $ (fmap fst (ffilter snd clks),
-            fmap fst (ffilter (not . snd) clks),
-            sendClicks)
+  return $ SelectionWidget (fmap fst (ffilter snd clks))
+                           (fmap fst (ffilter (not . snd) clks))
+                           sendClicks
 
 
 -----------------------------------------------------------------------------
@@ -333,8 +352,8 @@ fragmentWith source query =
 -----------------------------------------------------------------------------
 -- Utility that renders a string according to a search query that may hit
 searchText :: MonadWidget t m
-           => Dynamic t String
-           -> String
+           => Dynamic t String -- ^ String to search for
+           -> String           -- ^ String to search in
            -> m (Dynamic t (m ()))
 searchText query source = do
 
@@ -363,7 +382,7 @@ choices= ["Kevin McC" ,"Tracy McC" ,"Sondra McC" ,"Rod McC" ,"Rob McC"
          ,"Not Sure" ,"Mrs. Stone" ,"Mr. Hector" ,"Mr. Duncan"
          ,"Megan McC" ,"Marv Merch" ,"Linnie McC" ,"Leslie McC" ,"Kate McC"
          ,"Jeff McC" ,"Harry Lyme" ,"Fuller McC" ,"Frank McC" ,"Cedric"
-         ,"Buzz McC" ,"Brooke McC" ,"Bird Lady"
+         ,"Brooke McC" ,"Bird Lady"
          ]
 
 choicesMap :: Map.Map String String
@@ -380,3 +399,10 @@ nameToMime fn = case extension fn of
   "ogg" -> "video/ogg"
   "mp4" -> "video/mp4"
   where extension = reverse . takeWhile (/= '.') . reverse
+
+
+------------------------------------------------------------------------------
+-- | Utility function for pulling one (arbitrary) event out of a Map of events
+oneFromMap :: Reflex t => Event t (Map.Map k a) -> Event t a
+oneFromMap = fmapMaybe (listToMaybe . Map.elems)
+

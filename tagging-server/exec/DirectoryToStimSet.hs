@@ -9,7 +9,7 @@ module Main where
 import           Control.Concurrent                  (threadDelay)
 import           Control.Lens                        ((&),(?~),(^.))
 import           Control.Monad                       (filterM, when)
-import           Control.Monad.IO.Class              (liftIO)
+import           Control.Monad.Logger                (NoLoggingT)
 import qualified Data.Aeson                          as A
 import qualified Data.ByteString.Char8               as BSC
 import qualified Data.ByteString.Lazy.Char8          as BS
@@ -20,25 +20,24 @@ import           Data.List                           (groupBy, intercalate,
 import           Data.Maybe                          (fromMaybe)
 import           Data.Proxy
 import qualified Data.Text                           as T
+import           Data.Traversable                    (for)
 import qualified Data.UUID                           as U
 import qualified Data.UUID.V4                        as U4
 import qualified Data.UUID.V5                        as U5
 import           Database.Groundhog.Postgresql
-import           Database.Groundhog.Postgresql.Array as G
 import qualified Network.Wreq                        as W
 import           Options.Applicative
 import           Data.String.QQ
 import           System.Directory
 import           System.FilePath
-import           System.Environment
 import           System.IO
 import           Prelude                             hiding (FilePath)
 ------------------------------------------------------------------------------
 import           Tagging.Stimulus
-import           Server.Database
-import           Server.Crud
+-- import           Server.Database
+import           Server.Crud                         ()
 import           Server.Utils
-import           Server.Resources
+import           Server.Resources                    ()
 
 
 ------------------------------------------------------------------------------
@@ -49,30 +48,30 @@ import           Server.Resources
 --   snaplet config file
 main :: IO ()
 main = do
-  let readStimSeq f = fmap (fromMaybe (error "Read Error") . A.decode) $ BS.readFile f
+  let readStimSeq f = fromMaybe (error "Read Error") . A.decode <$> BS.readFile f
   opts    <- execParser fullOpts
   case opts of
 
     SOpts so@SetupOpts{..} -> do
-      s <- mkStimSeq so
-      BS.writeFile (soOutFile) (A.encode s)
+      ss <- mkStimSeq so
+      BS.writeFile soOutFile (A.encode ss)
 
     DOpts dOpts -> do
       (stimSeq :: StimulusSequence, ssItems) <- readStimSeq (doSeqFile dOpts)
       withDB dOpts $ do
         ssKey <- insert (stimSeq :: StimulusSequence)
-        traverse insert
+        _ <- traverse insert
           ((\ssi -> ssi { ssiStimulusSequence = ssKey} ) <$>
-           (map snd (ssItems :: [([FilePath],StimSeqItem)])))
+           map snd (ssItems :: [([FilePath],StimSeqItem)]))
         return ()
 
     UOpts uOpts -> do
       cfg <- load [Required (uoConfig uOpts)]
       kId <- require cfg "researcherid"
       key <- require cfg "researcherkey"
-      let opts = W.defaults & W.auth ?~ (W.awsAuth W.AWSv4) kId key
+      let s3Opts = W.defaults & W.auth ?~ W.awsAuth W.AWSv4 kId key
       (stimSeq :: StimulusSequence, ssItems) <- readStimSeq (uoSeqFile uOpts)
-      traverse (uploadOne uOpts opts stimSeq) (ssItems :: [([FilePath],StimSeqItem)])
+      _ <- traverse (uploadOne uOpts s3Opts stimSeq) (ssItems :: [([FilePath],StimSeqItem)])
       return ()
 
 
@@ -87,7 +86,7 @@ hiddenName :: StimulusSequence -> FilePath -> FilePath
 hiddenName StimulusSequence{..} videoPath =
   let fullFilename = takeFileName  videoPath
       fullNameCode = map (fromIntegral . fromEnum) fullFilename
-      hiddenBase   = U.toString $ U5.generateNamed ssUuid (fullNameCode)
+      hiddenBase   = U.toString $ U5.generateNamed ssUuid fullNameCode
   in  hiddenBase <> takeExtension videoPath
 
 
@@ -178,7 +177,7 @@ uploadOne :: UploadOpts
           -> ([FilePath], StimSeqItem)
           -> IO Bool
 uploadOne UploadOpts{..} wreqOpts sSeq (paths, ssItem) = do
-  flip traverse paths $ \fp -> do
+  _ <- for paths $ \fp -> do
     picContents <- BSC.readFile (uoBaseDir <> fp)
     r <- W.putWith wreqOpts
       ("http://" <> uoBucket <> ".s3.amazonaws.com/" <> hiddenName sSeq fp)
@@ -188,7 +187,7 @@ uploadOne UploadOpts{..} wreqOpts sSeq (paths, ssItem) = do
       print    ssItem
       putStrLn "Response:"
       print    r
-    when (r ^. W.responseStatus . W.statusCode == 200) $ do
+    when (r ^. W.responseStatus . W.statusCode == 200) $
       putStrLn $ "Success on index " <> show (ssiIndex ssItem)
     threadDelay 200000 -- Wait half a second to to be bombarding the server
   return True
@@ -196,6 +195,7 @@ uploadOne UploadOpts{..} wreqOpts sSeq (paths, ssItem) = do
 
 -- TODO: Find out what type this actually is
 -- withDB :: DirOpts -> (Postgresql  -> IO a) -> IO a
+withDB :: DbOpts -> DbPersist Postgresql (NoLoggingT IO) a -> IO a
 withDB DbOpts{..} act = do
   cfg <- load [Required dbCfg]
   hostName <- require cfg "host"
@@ -227,8 +227,8 @@ setupOpts = fmap SOpts $ SetupOpts
 
 dbOpts :: Parser Opts
 dbOpts = fmap DOpts $ DbOpts
-  <$> (option str (long "path" <> short 'p'
-                  <> help "Setup file"))
+  <$> option str (long "path" <> short 'p'
+                 <> help "Setup file")
   <*> option str (long "config" <> short 'c' <> help "DB snaplet config")
 
 
@@ -246,7 +246,7 @@ uploadOpts = fmap UOpts $ UploadOpts
 
 fullOpts :: ParserInfo Opts
 fullOpts = info (helper <*>
-                 (subparser
+                 subparser
                   (command "setup"
                    (info setupOpts
                     (progDesc "Set up the stimulus sequence"))
@@ -257,7 +257,7 @@ fullOpts = info (helper <*>
                   <>
                   command "s3"
                     (info uploadOpts
-                     (progDesc "Upload resources to s3")))))
+                     (progDesc "Upload resources to s3"))))
 
            (fullDesc
            <> progDesc fullDescription
