@@ -35,6 +35,7 @@ import           Servant.Server.Internal.SnapShims
 import           Snap.Core
 import           Snap.Snaplet
 import           Snap.Snaplet.Auth
+import           Snap.Snaplet.Session
 import           Snap.Snaplet.PostgresqlSimple
 import           Snap.Snaplet.Auth.Backends.PostgresqlSimple
 import           Snap.Snaplet.Heist
