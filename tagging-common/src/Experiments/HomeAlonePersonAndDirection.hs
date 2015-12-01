@@ -61,12 +61,15 @@ instance FromJSON HomeAloneResponse where
 data ClipProperties = ClipProperties
   { _cpCharacterName :: CharacterName
   , _cpHeadDir       :: HeadInfo
-  , _cpTalking       :: Bool
+  , _cpInteracting   :: Bool
+  , _cpPain          :: Maybe Bool
+  , _cpMentalizing   :: Maybe Bool
   } deriving (Eq, Ord, Show, Generic)
 
 instance ToJSON   ClipProperties where
   toJSON = genericToJSON defaultOptions {
-    fieldLabelModifier = drop 3 . map toLower }
+    fieldLabelModifier = drop 3 . map toLower
+    , omitNothingFields = True }
 
 instance FromJSON ClipProperties where
   parseJSON = genericParseJSON defaultOptions {
@@ -87,8 +90,8 @@ instance FromJSON StableProperties where
   parseJSON = genericParseJSON defaultOptions {
     fieldLabelModifier = drop 3 . map toLower }
 
-data HeadInfo = HDLeft | HDLeftMid | HDCenter | HDRightMid | HDRight
-              | HDBack | HDOffscreen
+data HeadInfo = HDLeft | HDFront | HDRight
+              | HDBack | HDBody  | HDOffscreen
   deriving (Eq, Ord, Enum, Show, Read, Generic)
 
 data GoodBadGuy = BadGuy | NeutralGuy | GoodGuy

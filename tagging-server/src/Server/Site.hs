@@ -1,7 +1,5 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE DeriveGeneric       #-}
 
 ------------------------------------------------------------------------------
 -- | This module is where all the routes and handlers are defined for your
@@ -138,6 +136,10 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     addAuthSplices h auth
 
     liftIO $ GH.runDbConn migrateResourcesIO g
+
+    --  Touch the session on each interaction to keep the key
+    --  from expiring
+    wrapSite (\s -> with sess touchSession >> s >> with sess commitSession)
 
     return $ App h s a d g
 

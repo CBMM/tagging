@@ -50,7 +50,7 @@ html, body {
 
 .movie-widget {
   order: 1;
-  min-height: 240px;
+  min-height: 400px;
 }
 
 .selections-widget{
@@ -68,7 +68,7 @@ html, body {
 .clip-properties-widget{
   order: 1;
   flex: 1;
-  background-color: #99f; /* light blue */
+  /* background-color: #99f; */ /* light blue */
   /* min-height: 200px;
   max-height: 200px;
   min-width:300px; */
@@ -77,25 +77,39 @@ html, body {
 .stable-properties-widget{
   order: 2;
   flex: 1;
-  background-color: #9ff; /* cyan? */
+  /* background-color: #9ff; */ /* cyan? */
   /* min-height: 200px;
   max-height: 200px;
   min-width:400px;
   max-width:400px; */
 }
 
+.stable-properties-widget, .clip-properties-widget {
+    border: 1px solid;
+    border-radius: 3px;
+    border-color: rgba(230,230,230,1);
+    margin: 5px;
+    min-height:120px;
+}
 /****************************************
  ************** Choice bank *************
  ****************************************/
 
-.bank-container, .selections-container {
+.bank-container, .selections-container, .movie-widget {
   display: flex;
   display: -webkit-flex;
   flex-wrap: wrap;
   -webkit-flex-wrap: wrap;
   background-color: white;
-  /* width: 90%; */
   padding: 5px;
+  border: 1px solid;
+  border-radius: 10px;
+  border-color: rgba(230,230,230,1);
+}
+
+.selections-container {
+    min-height: 80px;
+    width: 100%;
 }
 
 .bank-item {
@@ -146,7 +160,7 @@ html, body {
 
 .text-found {
   color: hsl(120, 50%, 75%);
-  background: rgba(255,255,255,0.4);
+  background: rgba(200,200,255,0.4);
 }
 
 video {

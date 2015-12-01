@@ -75,7 +75,7 @@ choiceBankWidget allChars dynSelChars = mdo
   searchText' <- elClass "div" "search-div" $ mdo
     tBox <- textInput (def {_textInputConfig_setValue = clearEvents})
     (e, _) <- elAttr' "div" ("class" =: "search-clear-button") $ return ()
-    let clearEvents = fmap (const "") $ domEvent Click e
+    let clearEvents = const "" <$> domEvent Click e
     return $ _textInput_value tBox
 
   return ns
@@ -114,16 +114,16 @@ movieWidget :: MonadWidget t m
             -> m ()
 movieWidget pEvent = do
 
-  let movieSrcs  = \(pInfo, StimulusSequence{..}, StimSeqItem{..}) ->
-                     case ssiStimulus of
-                       A.Array fileNames -> ffor fileNames $ \(A.String fn) ->
-                         "src"  =: (T.unpack ssBaseUrl <> "/" <> (T.unpack fn))
-                         <> "type" =: nameToMime (T.unpack fn)
+  let movieSrcs (pInfo, StimulusSequence{..}, StimSeqItem{..}) =
+        case ssiStimulus of
+          A.Array fileNames -> ffor fileNames $ \(A.String fn) ->
+               "src"  =: (T.unpack ssBaseUrl <> "/" <> T.unpack fn)
+            <> "type" =: nameToMime (T.unpack fn)
 
   dynText =<< mapDyn (show :: Int -> String) =<< count pEvent
   widgetHold (text "waiting")
                 (ffor pEvent $ \p ->
-                  elAttr "video" ("controls" =: "controls") $ do
+                  elAttr "video" ("controls" =: "controls") $
                    forM_ (movieSrcs p) $ \attrs ->
                      elAttr "source" attrs (return ())
                 )
@@ -152,14 +152,14 @@ stablePropsWidget characterNames selName =
     singleCharacterProps <- forDyn nameDyn $ \selName ->
       bool ("style" =: "display:none;") mempty (Just c == selName)
 
-    elDynAttr "div" singleCharacterProps $ do
+    elDynAttr "div" singleCharacterProps $
      el "table" $ do
 
       dynGend <- el "tr" $ do
        el "td" $ text "Gender"
-       el "td" $ do
-        elClass "div" "stable-props-gender" $ do
-           fmap _dropdown_value $ dropdown Nothing
+       el "td" $
+        elClass "div" "stable-props-gender" $
+           _dropdown_value <$> dropdown Nothing
             (constDyn $ Map.fromList
               [ (Nothing,"")
               , (Just MaleGender,"Male")
@@ -169,9 +169,9 @@ stablePropsWidget characterNames selName =
 
       dynFeel <- el "tr" $ do
        el "td" $ text "Type"
-       el "td" $ do
-        elClass "div" "stable-props-feeling" $ do
-          fmap _dropdown_value $ dropdown Nothing
+       el "td" $
+        elClass "div" "stable-props-feeling" $
+          _dropdown_value <$> dropdown Nothing
             (constDyn $ Map.fromList
               [ (Nothing,"")
               , (Just GoodGuy,"Goodguy")
@@ -181,9 +181,9 @@ stablePropsWidget characterNames selName =
 
       dynFam <- el "tr" $ do
        el "td" $ text "Famous"
-       el "td" $ do
-        elClass "div" "stable-props-famous" $ do
-          fmap _dropdown_value $ dropdown Nothing
+       el "td" $
+        elClass "div" "stable-props-famous" $
+          _dropdown_value <$> dropdown Nothing
             (constDyn $ Map.fromList
               [ (Nothing,"")
               , (Just True,"Famous")
@@ -203,7 +203,7 @@ stablePropsWidget characterNames selName =
   submitClicks <- elDynAttr "div" buttonProps $
                   button "Submit"
 
-  xs <- flip mapM (Map.elems stableProps) $ \dynMayProps ->
+  xs <- forM (Map.elems stableProps) $ \dynMayProps ->
                combineDyn (\n props -> bool [] [props]
                                         (Just (_spCharacterName props) == n))
                nameDyn dynMayProps
@@ -246,7 +246,7 @@ clipPropsWidget characterNames selName resetEvents = mdo
     elDynAttr "div" singleCharacterProps $ el "table" $ do
      dynHeadDir <- el "tr" $ do
       el "td" $ text "Head Direction"
-      headDropdown <- el "td" $ do
+      headDropdown <- el "td" $
         dropdown Nothing
           (constDyn $ Map.fromList $
             (Nothing, "") : map (\hd -> (Just hd, drop 2  (show hd) ))
@@ -257,18 +257,38 @@ clipPropsWidget characterNames selName resetEvents = mdo
 
      dynTalking <- el "tr" $ do
       el "td" $ text "Talking"
-      talkingDropdown <- el "td" $ do
+      talkingDropdown <- el "td" $
         dropdown Nothing
-          (constDyn $ Map.fromList $ [ (Nothing, "")
-                                     , (Just True,"Talking")
-                                     , (Just False, "Quiet")]
+          (constDyn $ Map.fromList [ (Nothing, "")
+                                   , (Just True,"Talking")
+                                   , (Just False, "Quiet")]
           ) (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
 
       holdDyn Nothing (_dropdown_change talkingDropdown)
 
+     dynPain <- el "tr" $ do
+      el "td" $ text "Physical Pain"
+      painDropdown <- el "td" $
+        dropdown Nothing
+          (constDyn $ Map.fromList [(Nothing,""),(Just False,"No"),(Just True,"Yes")])
+          (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
+      holdDyn Nothing (_dropdown_change painDropdown)
+
+     dynMentalizing <- el "tr" $ do
+      el "td" $ text "Physical Pain"
+      mentalizingDropdown <- el "td" $
+        dropdown Nothing
+          (constDyn $ Map.fromList [(Nothing,""),(Just False,"No"),(Just True,"Yes")])
+          (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
+      holdDyn Nothing (_dropdown_change mentalizingDropdown)
+
+
      clipProps <- $(qDyn [| ClipProperties c
-                            <$> $(unqDyn [| dynHeadDir |])
-                            <*> $(unqDyn [| dynTalking |]) |])
+                            <$>      $(unqDyn [| dynHeadDir    |])
+                            <*>      $(unqDyn [| dynTalking    |])
+                            <*> pure $(unqDyn [| dynPain       |])
+                            <*> pure $(unqDyn [| dynMentalizing|])
+                         |])
 
      return (c,clipProps)
 
@@ -340,7 +360,7 @@ fragmentWith source query =
 
   let qSource = T.pack source
       qText   = (T.toLower . T.pack) query
-  in  if (T.null qText)
+  in  if T.null qText
       then (source, "", "")
       else let breakPoint = T.length . fst . T.breakOn qText . T.toLower
                             $ qSource
@@ -349,7 +369,7 @@ fragmentWith source query =
            in  (T.unpack p0, T.unpack p1, T.unpack p2)
 
 
------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 -- Utility that renders a string according to a search query that may hit
 searchText :: MonadWidget t m
            => Dynamic t String -- ^ String to search for
@@ -359,19 +379,17 @@ searchText query source = do
 
   let qSource = T.pack source
   qText <- mapDyn (T.toLower . T.pack) query
-  dynAction <-
-    forDyn qText $ \q ->
-      case not (T.null q) && T.toLower q `T.isInfixOf` T.toLower qSource of
-        False -> el "h2" $ text source
-        True  ->
-          let breakPoint = T.length . fst . T.breakOn q . T.toLower $ qSource
-              (p0,pTemp) = T.splitAt breakPoint qSource
-              (p1,p2)    = T.splitAt (T.length q) pTemp
-          in el "h2" $ do
-            text (T.unpack p0)
-            elClass "span" "text-found" $ text (T.unpack p1)
-            text (T.unpack p2)
-  return dynAction
+  forDyn qText $ \q ->
+      if not (T.null q) && T.toLower q `T.isInfixOf` T.toLower qSource
+      then let breakPoint = T.length . fst . T.breakOn q . T.toLower $ qSource
+               (p0,pTemp) = T.splitAt breakPoint qSource
+               (p1,p2)    = T.splitAt (T.length q) pTemp
+           in el "h2" $ do
+                text (T.unpack p0)
+                elClass "span" "text-found" $ text (T.unpack p1)
+                text (T.unpack p2)
+
+      else el "h2" $ text source
 
 
 -----------------------------------------------------------------------------
@@ -405,4 +423,3 @@ nameToMime fn = case extension fn of
 -- | Utility function for pulling one (arbitrary) event out of a Map of events
 oneFromMap :: Reflex t => Event t (Map.Map k a) -> Event t a
 oneFromMap = fmapMaybe (listToMaybe . Map.elems)
-

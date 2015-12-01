@@ -4,6 +4,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module Server.Database where
 
@@ -23,7 +24,14 @@ import Tagging.User
 import Tagging.Response
 
 
+-- data Permissions = Perm
+--   { _permOwner      :: DefaultKey TaggingUser
+--   , _permGroup      :: DefaultKey TaggingGroup
+--   , _permPublicRead :: Bool
+--   }
 
+-- deriving instance Show Permissions
+-- deriving instance Eq   Permissions
 
 mkPersist defaultCodegenConfig [groundhog|
   - primitive: Role
