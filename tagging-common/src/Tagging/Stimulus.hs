@@ -63,7 +63,7 @@ data StimulusSequence = StimulusSequence
   } deriving (Eq, Show, Generic)
 
 
-G.mkPersist G.defaultCodegenConfig [G.groundhog|
+G.mkPersist ghCodeGen [G.groundhog|
 definitions:
   - entity: StimulusSequence
     keys:
@@ -85,7 +85,7 @@ data StimSeqItem = StimSeqItem
   } deriving (Eq, Show, Generic)
 
 
-G.mkPersist G.defaultCodegenConfig [G.groundhog|
+G.mkPersist ghCodeGen [G.groundhog|
   - entity: StimSeqItem
     keys:
       - name: SeqAndIndexConstraint
@@ -160,7 +160,7 @@ data StimulusRequest = StimulusRequest
   } deriving (Eq, Show, Generic)
 type ResponseType = T.Text
 
-G.mkPersist G.defaultCodegenConfig [G.groundhog|
+G.mkPersist ghCodeGen [G.groundhog|
   - entity: StimulusRequest
 |]
 

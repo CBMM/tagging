@@ -65,14 +65,15 @@ instance A.FromJSON Role where
 instance A.ToJSON   Role where
 
 data APIKey = APIKey
-  { _kKey     :: UUID.UUID
-  , _kOwner   :: DefaultKey TaggingUser
-  , _kExpires :: UTCTime
+  { kKey     :: UUID.UUID
+  , kOwner   :: DefaultKey TaggingUser
+  , kExpires :: UTCTime
   }
 
-mkPersist defaultCodegenConfig [groundhog|
+mkPersist ghCodeGen [groundhog|
   - primitive: Role
     representation: showread
+  - entity: APIKey
   - entity: TaggingUser
     keys:
       - name: TuId

@@ -52,7 +52,7 @@ newtype ResponsePayload = ResponsePayload {rpJson :: A.Value}
   deriving (Eq, Show, Generic, A.ToJSON, A.FromJSON)
 
 
-G.mkPersist G.defaultCodegenConfig [G.groundhog|
+G.mkPersist ghCodeGen [G.groundhog|
   - entity: StimulusResponse
 |]
 

@@ -22,8 +22,10 @@ import qualified Data.Configurator      as C
 import           Data.Map.Syntax ((##))
 import           Data.Monoid
 import           Data.Proxy
+import           Data.Time              (getCurrentTime)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import qualified Data.UUID          as UUID
 import qualified Database.Groundhog.Postgresql as GH
 import           GHC.Generics
 import           GHC.Int
@@ -111,10 +113,16 @@ adminPanel = do
 
 assertKey :: Handler App App ()
 assertKey = withRequest $ \h -> do
-  maybeKey <- getHeader "Authorization" h
-  case maybeKey >>= (uuidFromText . T.decodeUtf8) of
+  let maybeKey = getHeader "Authorization" h
+  case maybeKey >>= (textToUuid . T.decodeUtf8) of
     Nothing -> pass -- TODO send a good error code
-    Just 
+    Just (u :: UUID.UUID) -> do
+      t <- liftIO getCurrentTime
+      k <- runGH $ GH.select (KKeyField GH.==. u  GH.&&. t GH.>. KExpiresField)
+      case length (k :: [APIKey]) of
+        0 -> pass
+        otherwise -> return ()
+
 
 ------------------------------------------------------------------------------
 -- | The application initializer.

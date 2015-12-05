@@ -9,6 +9,7 @@ module Utils
   , integralToKey
 #ifndef __GHCJS__
   , ghConfig
+  , ghCodeGen
 #endif
   ) where
 
@@ -103,3 +104,6 @@ instance PersistField U.UUID where
 instance PrimitivePersistField U.UUID where
   toPrimitivePersistValue p u = toPrimitivePersistValue p (show u)
   fromPrimitivePersistValue p x = read (fromPrimitivePersistValue p x)
+
+ghCodeGen :: CodegenConfig
+ghCodeGen = defaultCodegenConfig { namingStyle = lowerCaseSuffixNamingStyle }
