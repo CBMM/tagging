@@ -59,7 +59,7 @@ import           Server.Subject
 
 apiServer :: Server TaggingAPI AppHandler
 apiServer = sessionServer :<|> subjectServer
-            :<|> resourceServer -- :<|> docsServer
+            :<|> resourceServer :<|> docsServer
 
 
 apiApplication :: Application AppHandler
@@ -83,6 +83,8 @@ routes = [ ("login",    handleLoginSubmit)
          , ("api", applicationToSnap apiApplication)
          --, ("/", with auth $ handleLogin Nothing)
          , ("migrateResources", migrateHandler)
+         -- , ("library/matlab", matlabLibrary)
+         -- , ("library/javascript", javascriptLibrary)
          , ("",          Snap.Util.FileServe.serveDirectory "static")
          ]
 
@@ -106,6 +108,13 @@ adminPanel = do
   I.renderWithSplices
     "_adminpanel"
     ("jsdir" ## I.textSplice "/media/js/AdminPanel.jsexe")
+
+assertKey :: Handler App App ()
+assertKey = withRequest $ \h -> do
+  maybeKey <- getHeader "Authorization" h
+  case maybeKey >>= (uuidFromText . T.decodeUtf8) of
+    Nothing -> pass -- TODO send a good error code
+    Just 
 
 ------------------------------------------------------------------------------
 -- | The application initializer.
@@ -145,5 +154,7 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     return $ App h s a d g
 
 
---docsServ
---docsServer = writeBS . BS.pack . markdown $ docsWithIntros [docsIntro] apiProxy
+docsServer :: ServerT (Raw AppHandler (AppHandler ())) AppHandler
+docsServer = writeBS . BS.pack . markdown $ docsWithIntros [docsIntro] apiProxy
+
+

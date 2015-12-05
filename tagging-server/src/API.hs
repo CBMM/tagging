@@ -26,8 +26,8 @@ type TaggingAPI =
   SessionAPI
   :<|> SubjectAPI
   :<|> ResourcesAPI
---   :<|> "docs" :> Raw AppHandler (AppHandler ())
-
+  :<|> "docs" :> Raw AppHandler (AppHandler ())
+--   :<|> "clients" :> ClientLibs
 
 ------------------------------------------------------------------------------
 type ResearcherAPI = "assignStart" :> Capture "id" Int :> Put '[JSON] ()
@@ -41,6 +41,11 @@ type AdminAPI = "assignRole" :> QueryParam "id"     Int
                              :> QueryParam "role"   Role
                              :> QueryParam "revoke" Bool
                              :> Put '[JSON] ()
+
+
+type ClientLibs = "matlab"     :> Raw AppHandler (AppHandler ())
+             :<|> "javascript" :> Raw AppHandler (AppHandler ())
+
 
 ------------------------------------------------------------------------------
 apiProxy :: Proxy TaggingAPI

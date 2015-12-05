@@ -19,6 +19,7 @@ import Data.Time
 import Data.Typeable
 import qualified Data.Text as T
 import qualified Data.Vector as V
+import qualified Database.Groundhog.TH as G
 import GHC.Generics
 import GHC.Int
 import Servant.Docs
@@ -49,6 +50,11 @@ instance A.ToJSON   StimulusResponse where
 
 newtype ResponsePayload = ResponsePayload {rpJson :: A.Value}
   deriving (Eq, Show, Generic, A.ToJSON, A.FromJSON)
+
+
+G.mkPersist G.defaultCodegenConfig [G.groundhog|
+  - entity: StimulusResponse
+|]
 
 
 -----------------------------------------------------------------------------

@@ -5,17 +5,32 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE QuasiQuotes #-}
+
 
 module Tagging.User where
 
+import           Control.Error
+import           Control.Monad (mzero)
 import qualified Data.Aeson as A
+import           Data.Aeson ((.:),(.=))
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Base64 as Base64
+import qualified Data.Text.Encoding as T
 import qualified Data.Text as T
+import           Data.Time
+import qualified Data.UUID as UUID
+import Database.Groundhog
+import Database.Groundhog.TH
 import GHC.Generics
 import GHC.Int
 
 import Servant.Docs
 
 import Tagging.Stimulus
+import Utils
 
 -- | A user in the Tagging system
 data TaggingUser = TaggingUser
@@ -49,6 +64,44 @@ data Role =
 instance A.FromJSON Role where
 instance A.ToJSON   Role where
 
+data APIKey = APIKey
+  { _kKey     :: UUID.UUID
+  , _kOwner   :: DefaultKey TaggingUser
+  , _kExpires :: UTCTime
+  }
+
+mkPersist defaultCodegenConfig [groundhog|
+  - primitive: Role
+    representation: showread
+  - entity: TaggingUser
+    keys:
+      - name: TuId
+    constructors:
+      - name: TaggingUser
+        uniques:
+          - name: TuId
+            fields: [tuId]
+  |]
+
+
+instance A.FromJSON APIKey where
+  parseJSON (A.Object o) = do
+    u <- intToKey <$> o .: "user"
+    e <- o .: "expires"
+    k <- o .: "key"
+    case textToUuid k of
+        Just uu -> return (APIKey uu (u :: DefaultKey TaggingUser) e)
+        Nothing -> mzero
+  parseJSON _ = mzero
+
+textToUuid :: T.Text -> Maybe UUID.UUID
+textToUuid t = let bs = T.encodeUtf8 t
+                   b6 = hush $ Base64.decode bs :: Maybe BS.ByteString
+               in  b6 >>= UUID.fromByteString . BSL.fromStrict
+
+uuidToText :: UUID.UUID -> T.Text
+uuidToText u =
+  T.decodeUtf8 . Base64.encode . BSL.toStrict $ UUID.toByteString u
 
 ------------------------------------------------------------------------------
 -- For servant-docs

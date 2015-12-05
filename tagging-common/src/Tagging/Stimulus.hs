@@ -97,6 +97,7 @@ G.mkPersist G.defaultCodegenConfig [G.groundhog|
 |]
 
 
+
 data PositionInfo = PositionInfo {
     _piStimulusSequence :: G.DefaultKey StimulusSequence
   , _piStimSeqIndex     :: Int
@@ -159,6 +160,11 @@ data StimulusRequest = StimulusRequest
   } deriving (Eq, Show, Generic)
 type ResponseType = T.Text
 
+G.mkPersist G.defaultCodegenConfig [G.groundhog|
+  - entity: StimulusRequest
+|]
+
+
 -- TODO defaultToJSON modify the fields to drop 2 chars
 instance A.FromJSON StimulusSequence where
 instance A.ToJSON   StimulusSequence where
@@ -166,19 +172,6 @@ instance A.FromJSON StimSeqItem where
 instance A.ToJSON   StimSeqItem where
 instance A.FromJSON StimulusRequest where
 instance A.ToJSON   StimulusRequest where
-
--- instance PGS.ToField StimSeqItem where
---   toField (StimSeqItem v) = PGS.toField v
--- instance PGS.FromField StimSeqItem where
---   fromField a b = StimSeqItem <$> PGS.fromField a b
-
--- TODO figure out which of these instances is really needed
--- instance A.ToJSON a => ToJSON (G.Array a) where
---   toJSON (G.Array xs) = toJSON xs
-
--- instance A.FromJSON a => FromJSON (G.Array a) where
---   parseJSON (A.Array xs) = (G.Array . V.toList) <$> traverse parseJSON xs
---   parseJSON _            = mzero
 
 instance G.PersistField A.Value where
   persistName _     = "json"
