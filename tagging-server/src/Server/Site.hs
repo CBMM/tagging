@@ -15,10 +15,12 @@ import           Control.Error
 import           Control.Monad.IO.Class    (liftIO)
 import           Control.Monad.Trans.Class (lift)
 import qualified Data.Aeson as A
+import           Data.Bifunctor (first)
 import qualified Data.ByteString.Char8  as BS
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString.Lazy   as BSL
 import qualified Data.Configurator      as C
+import           Data.Foldable
 import           Data.Map.Syntax ((##))
 import           Data.Monoid
 import           Data.Proxy
@@ -26,6 +28,7 @@ import           Data.Time              (getCurrentTime)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.UUID          as UUID
+import qualified Data.UUID.V4       (nextRandom)
 import qualified Database.Groundhog.Postgresql as GH
 import           GHC.Generics
 import           GHC.Int
@@ -61,7 +64,7 @@ import           Server.Subject
 
 apiServer :: Server TaggingAPI AppHandler
 apiServer = sessionServer :<|> subjectServer
-            :<|> resourceServer :<|> docsServer
+            :<|> resourceServer -- :<|> docsServer
 
 
 apiApplication :: Application AppHandler
@@ -70,25 +73,42 @@ apiApplication = serve apiProxy apiServer
 ------------------------------------------------------------------------------
 -- | The application's routes.
 routes :: [(ByteString, Handler App App ())]
-routes = [ ("login",    handleLoginSubmit)
+routes = [ ("login",    with auth handleLoginSubmit)
          , ("currentuser", with auth (currentUser >>= writeBS . BS.pack . show))
          --, ("logout",   handleLogout)
-         --, ("new_user", handleNewUser)
+         , ("new_user", handleNewUser)
          , ("all_users", getAllUsers >>= json)
          , ("client/:taskname", handleTaggingClient)
          -- Experimenter routes
-         --, ("asasign_seq_start", assignUserSeqStart)
 
-         --, ("getCurrentStimulus", getCurrentStimulusResource)
-         --, ("submitResponse",     handleSubmitResponse)
          , ("adminPanel", adminPanel)
          , ("api", applicationToSnap apiApplication)
-         --, ("/", with auth $ handleLogin Nothing)
          , ("migrateResources", migrateHandler)
+         , ("api/docs", docsServer)
+         , ("subjectdata/:seqid/:userid", handleSubjectData)
          -- , ("library/matlab", matlabLibrary)
          -- , ("library/javascript", javascriptLibrary)
-         , ("",          Snap.Util.FileServe.serveDirectory "static")
+         , ("", Snap.Util.FileServe.serveDirectory "static")
+
+         , ("/", with auth $ handleLogin Nothing)
          ]
+
+handleSubjectData :: AppHandler ()
+handleSubjectData = exceptT Server.Utils.err300 (\_ -> return ()) $ do
+  lift $ assertRole [Admin, Researcher]
+  seqId  :: Int <- readParam "seqid"
+  userId :: Int <- readParam "userid"
+  -- vals   <- select (SrUserField ==. intToKey userId &&.
+  --                  SrPositionInfo)
+  undefined
+
+
+------------------------------------------------------------------------------
+readParam :: (MonadSnap m, Read a) => BS.ByteString -> ExceptT String m a
+readParam pName = do
+  p <- noteT ("No parameter " <> BS.unpack pName) $ MaybeT $ getParam pName
+  noteT ("Can't read " <> BS.unpack p <> " in param " <> BS.unpack pName) $
+    hoistMaybe (readMay (BS.unpack p))
 
 
 handleTaggingClient :: AppHandler ()
@@ -122,6 +142,24 @@ assertKey = withRequest $ \h -> do
       case length (k :: [APIKey]) of
         0 -> pass
         otherwise -> return ()
+
+
+handleNewUser :: Handler App App ()
+handleNewUser =
+  Snap.Core.method GET runPage <|> Snap.Core.method POST runCreate
+  where
+    runPage = render "_new_user"
+    runCreate = exceptT Server.Utils.err300 return $ do
+
+      user <- ExceptT $ fmap (first show) $
+              with auth $ registerUser "username" "password"
+
+      uid  <- noteT "No userid" $ hoistMaybe ( readMay . T.unpack . unUid =<< userId user :: Maybe Int64)
+
+      n    <- lift $ runGH $ GH.countAll (undefined :: TaggingUser)
+      let roles = if n == 0 then [Admin,Subject] else [Subject]
+      _ <- lift $ runGH $ GH.insert (TaggingUser (uid :: Int64) Nothing Nothing Nothing roles)
+      return ()
 
 
 ------------------------------------------------------------------------------

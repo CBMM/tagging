@@ -162,6 +162,8 @@ executable makeClients
   main-is:          MakeClients.hs
   build-depends:    base
                   , aeson
+                  , directory
+                  , filepath
                   , servant
                   , servant-foreign
                   , servant-matlab

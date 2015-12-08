@@ -36,15 +36,15 @@ import           Server.Utils
 
 ------------------------------------------------------------------------------
 type SessionAPI =
-       "login" :> ReqBody '[FormUrlEncoded, JSON] LoginInfo
-               :> Raw AppHandler (AppHandler ())
+--       "login" :> ReqBody '[FormUrlEncoded, JSON] LoginInfo
+--               :> Raw AppHandler (AppHandler ())
 
-  :<|> "currentuser" :> Get '[JSON] TaggingUser
+       "currentuser" :> Get '[JSON] TaggingUser
 
-  :<|> "newuser" :> ReqBody '[FormUrlEncoded, JSON] RegisterInfo
-                 :> Post '[JSON] ()
+--  :<|> "newuser" :> ReqBody '[FormUrlEncoded, JSON] RegisterInfo
+--                 :> Post '[JSON] ()
 
-  :<|> "logout" :> Raw AppHandler (AppHandler ())
+--  :<|> "logout" :> Raw AppHandler (AppHandler ())
 
 
 
@@ -86,9 +86,9 @@ handleLogin authError = heistLocal (I.bindSplices errs) $ render "login"
 
 ------------------------------------------------------------------------------
 -- | Handle login submit
-handleLoginSubmit :: Handler App App ()
+handleLoginSubmit :: Handler App (AuthManager App) ()
 handleLoginSubmit =
-    with auth $ loginUser "login" "password" Nothing
+    loginUser "username" "password" Nothing
                 (\_ -> handleLogin err) (redirect "/")
   where
     err = Just "Unknown user or password"
@@ -105,10 +105,11 @@ handleLogout = logout >> redirect "/"
 --handleNewUser :: Handler App App ()
 --handleNewUser = method GET handleForm <|> method POST handleFormSubmit
 sessionServer :: Server SessionAPI AppHandler
-sessionServer = apiLogin
-                :<|> apiCurrentUser
-                :<|> apiNewUser
-                :<|> with auth handleLogout
+sessionServer = -- apiLogin
+                -- :<|> apiCurrentUser
+  apiCurrentUser
+                -- :<|> apiNewUser
+                -- :<|> with auth handleLogout
   where
 
     apiLogin li = do

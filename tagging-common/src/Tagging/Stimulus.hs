@@ -53,6 +53,22 @@ class Experiment t where
   type Answer   t :: *
   -- ^ Type of answers to the question
 
+data SamplingMethod = SampleIncrement
+                    | SampleRandom
+                    | SampleRandomNoReplacement
+                    | SampleIndex
+                    | SampleIndexNoReplacement
+                    deriving (Eq, Show, Read, Enum, Generic)
+
+instance A.ToJSON   SamplingMethod
+instance A.FromJSON SamplingMethod
+
+G.mkPersist ghCodeGen [G.groundhog|
+definitions:
+  - primitive:      SamplingMethod
+    representation: showread
+    default:        SampleIncrement
+|]
 
 data StimulusSequence = StimulusSequence
   { ssName        :: !T.Text
@@ -60,6 +76,7 @@ data StimulusSequence = StimulusSequence
   , ssMetaData    :: !A.Value
   , ssDescription :: !T.Text
   , ssBaseUrl     :: !T.Text
+  , ssSampling    :: !SamplingMethod
   } deriving (Eq, Show, Generic)
 
 
@@ -214,6 +231,7 @@ sampleSequence =
    -- (G.Array [sampleStimSeqItem])
    "Three pictures of shapes"
    "http://web.mit.edu/greghale/Public/shapes"
+   SampleIncrement
 
 
 instance ToSample StimulusRequest where

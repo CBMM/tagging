@@ -91,6 +91,7 @@ migrateResourcesIO = runMigration $ do
   migrate (undefined :: TaggingUser)
   migrate (undefined :: StimulusSequence)
   migrate (undefined :: StimSeqItem)
+  migrate (undefined :: StimulusRequest)
   migrate (undefined :: StimulusResponse)
 
 migrateHandler :: Handler App App ()

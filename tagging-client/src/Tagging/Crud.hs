@@ -194,7 +194,8 @@ readEither n a = note n (readMay a)
 
 instance Crud StimulusSequence where
   resourceName _ = "stimulussequence"
-  resourceHeaders _ = ["Name","UUID","Metadata","Description", "Base Url"]
+  resourceHeaders _ = ["Name","UUID","Metadata","Description"
+                      , "Base Url","Sampling Method"]
   resourceWidget dynVal dynB = do
     pb <- getPostBuild
     let pbV = tag (current dynVal) pb
@@ -205,13 +206,15 @@ instance Crud StimulusSequence where
     f3 <- crudPieceField pbV (BL.unpack . A.encode . ssMetaData) attrs
     f4 <- crudPieceField pbV (T.unpack . ssDescription) attrs
     f5 <- crudPieceField pbV (T.unpack . ssBaseUrl) attrs
+    f6 <- crudPieceField pbV (show      . ssSampling) attrs
     $(qDyn [| StimulusSequence
               <$> pure (T.pack $(unqDyn [|f1|]))
               <*> note "No UUID parse" (U.fromText (T.pack $(unqDyn [|f2|])))
-              <*> note "No metadata parse (should be valid JSON)" 
+              <*> note "No metadata parse (should be valid JSON)"
                   ((A.decode . BL.pack) $(unqDyn [|f3|]))
               <*> pure (T.pack $(unqDyn [|f4|]))
               <*> pure (T.pack $(unqDyn [|f5|]))
+              <*> readEither "No sampling parse" $(unqDyn[|f6|])
             |])
 
 instance Crud StimSeqItem where

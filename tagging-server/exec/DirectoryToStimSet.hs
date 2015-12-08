@@ -106,6 +106,7 @@ mkStimSeq opts@SetupOpts{..} = do
   u <- U4.nextRandom
   let stimSeq = StimulusSequence (T.pack soTitle) u
                                  A.Null (T.pack soDescr) (T.pack soUrlBase)
+                                 soSample
   ssItems <- traverse (getStimSeqItem opts stimSeq) (zip [0..] fileGroups)
 
   return (stimSeq, zip fileGroups ssItems)
@@ -153,6 +154,7 @@ data SetupOpts = SetupOpts
   , soUrlBase :: !String
   , soTitle   :: !String
   , soDescr   :: !String
+  , soSample  :: !SamplingMethod
   , soOutFile :: !String
 }
 
@@ -220,6 +222,8 @@ setupOpts = fmap SOpts $ SetupOpts
   <*> option str (long "url" <> short 'u' <> help "Base url")
   <*> option str (long "title" <> short 't' <> help "Title")
   <*> option str (long "description" <> short 'd' <> help "Description")
+  <*> (option auto (long "sampling" <> short 'n' <> help "Sampling Method")
+       <|> pure SampleIncrement)
   <*> (option str (long "output" <> short 'o' <> help "Output json file")
        <|> pure "./out.json")
   where sr = intercalate "|" (map show [minBound..(maxBound :: SortBy)])

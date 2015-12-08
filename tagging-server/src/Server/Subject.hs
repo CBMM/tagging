@@ -165,12 +165,12 @@ getCurrentStimulusSequence = do
 
 handleCurrentStimulusSequence :: AppHandler StimulusSequence
 handleCurrentStimulusSequence =
-  maybeT (error "Bad sequence lookup") return 
+  maybeT (error "Bad sequence lookup") return
   (MaybeT getCurrentStimulusSequence)
 
-handleFullPosInfo 
+handleFullPosInfo
   :: AppHandler (Maybe (PositionInfo, StimulusSequence, StimSeqItem))
-handleFullPosInfo = 
+handleFullPosInfo =
   maybeT (return Nothing) (return . Just) $ (,,) <$> MaybeT getCurrentPositionInfo
                                                  <*> MaybeT getCurrentStimulusSequence
                                                  <*> MaybeT getCurrentStimSeqItem

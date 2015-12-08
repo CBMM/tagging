@@ -2,7 +2,7 @@
 
 <p><loginError/></p>
 
-<bind tag="postAction">api/login</bind>
+<bind tag="postAction">login</bind>
 <bind tag="submitText">Login</bind>
 <apply template="userform"/>
 

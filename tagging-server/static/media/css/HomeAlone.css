@@ -237,5 +237,8 @@ video {
 }
 
 .selected {
-    box-shadow: 0px 0px 14px hsla(122,34%,42%,1);
+    box-shadow: 0px 0px 5px hsla(100,50%,2%,1);
+    border-style: solid;
+    border-color: white;
+    border-width: 3px;
 }

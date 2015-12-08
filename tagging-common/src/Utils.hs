@@ -7,10 +7,10 @@ module Utils
   , keyToIntegral
   , intToKey
   , integralToKey
-#ifndef __GHCJS__
-  , ghConfig
   , ghCodeGen
-#endif
+-- #ifndef __GHCJS__
+--   , ghConfig
+-- #endif
   ) where
 
 ------------------------------------------------------------------------------
@@ -18,9 +18,9 @@ import           Data.Pool
 import           Database.Groundhog
 import           Database.Groundhog.Core
 import           Database.Groundhog.Generic
+import           Database.Groundhog.TH
 #ifndef __GHCJS__
 import           Database.Groundhog.Postgresql
-import           Database.Groundhog.TH
 #else
 import           GHC.Int
 #endif
@@ -38,10 +38,6 @@ import qualified Data.UUID as U
 pg :: proxy Postgresql
 pg = undefined
 
-
-ghConfig :: CodegenConfig
-ghConfig = defaultCodegenConfig
-    { namingStyle = lowerCaseSuffixNamingStyle }
 
 
 #else
@@ -107,3 +103,8 @@ instance PrimitivePersistField U.UUID where
 
 ghCodeGen :: CodegenConfig
 ghCodeGen = defaultCodegenConfig { namingStyle = lowerCaseSuffixNamingStyle }
+
+ghConfig :: CodegenConfig
+ghConfig = defaultCodegenConfig
+    { namingStyle = lowerCaseSuffixNamingStyle }
+

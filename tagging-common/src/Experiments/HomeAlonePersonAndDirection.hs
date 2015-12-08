@@ -23,6 +23,7 @@ clipSet = StimulusSequence "HomeAloneClips"
                            A.Null
                            "Invididual shots from Home Alone 2"
                            "/static/clips/HomeAlone2"
+                           SampleIncrement
   where clips :: [StimSeqItem]
         clips = undefined
 

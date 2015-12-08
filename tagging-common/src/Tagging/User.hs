@@ -76,11 +76,11 @@ mkPersist ghCodeGen [groundhog|
   - entity: APIKey
   - entity: TaggingUser
     keys:
-      - name: TuId
+      - name: tuid
     constructors:
       - name: TaggingUser
         uniques:
-          - name: TuId
+          - name: tuid
             fields: [tuId]
   |]
 

@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP             #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 {-
@@ -22,11 +21,7 @@ import           Snap.Core
 import           System.IO
 import           Server.Site
 
-#ifdef DEVELOPMENT
-import           Snap.Loader.Dynamic
-#else
 import           Snap.Loader.Static
-#endif
 
 
 ------------------------------------------------------------------------------
