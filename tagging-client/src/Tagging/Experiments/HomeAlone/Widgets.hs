@@ -120,7 +120,6 @@ movieWidget pEvent = do
                "src"  =: (T.unpack ssBaseUrl <> "/" <> T.unpack fn)
             <> "type" =: nameToMime (T.unpack fn)
 
-  dynText =<< mapDyn (show :: Int -> String) =<< count pEvent
   widgetHold (text "waiting")
                 (ffor pEvent $ \p ->
                   elAttr "video" ("controls" =: "controls") $
@@ -256,12 +255,12 @@ clipPropsWidget characterNames selName resetEvents = mdo
       holdDyn Nothing (_dropdown_change headDropdown)
 
      dynTalking <- el "tr" $ do
-      el "td" $ text "Talking"
+      el "td" $ text "Interacting"
       talkingDropdown <- el "td" $
         dropdown Nothing
           (constDyn $ Map.fromList [ (Nothing, "")
-                                   , (Just True,"Talking")
-                                   , (Just False, "Quiet")]
+                                   , (Just True,"Yes")
+                                   , (Just False, "No")]
           ) (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
 
       holdDyn Nothing (_dropdown_change talkingDropdown)
@@ -275,7 +274,7 @@ clipPropsWidget characterNames selName resetEvents = mdo
       holdDyn Nothing (_dropdown_change painDropdown)
 
      dynMentalizing <- el "tr" $ do
-      el "td" $ text "Physical Pain"
+      el "td" $ text "Mentalizing"
       mentalizingDropdown <- el "td" $
         dropdown Nothing
           (constDyn $ Map.fromList [(Nothing,""),(Just False,"No"),(Just True,"Yes")])
