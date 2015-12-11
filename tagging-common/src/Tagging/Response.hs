@@ -33,8 +33,6 @@ import Utils
 data StimulusResponse = StimulusResponse
   { srUser          :: Int64 -- TaggingUser Key
   -- ^ Tagging User
-  , srStim          :: PositionInfo
-  -- ^ Stimulus in the sequence
   , srSequence      :: G.DefaultKey StimulusSequence
   , srIndex         :: Int64
   , srDeliveredTime :: UTCTime
@@ -79,7 +77,6 @@ sampleResponse :: StimulusResponse
 sampleResponse =
   StimulusResponse
   1
-  (PositionInfo (intToKey 1) 1)
   (intToKey 1)
   1
   (UTCTime (fromGregorian 2015 08 21) 0)

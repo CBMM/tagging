@@ -17,6 +17,12 @@ main = mainWidget $ do
   el "br" $ return ()
 
   el "hr" $ return ()
+  text "Assignment Table"
+  crudTableWidget (Proxy :: Proxy Assignment) (constDyn (const True))
+  el "br" $ return ()
+
+
+  el "hr" $ return ()
   text "StimulusSequence Table"
   crudTableWidget (Proxy :: Proxy StimulusSequence) (constDyn (const True))
   el "br" $ return ()

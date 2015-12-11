@@ -114,18 +114,6 @@ G.mkPersist ghCodeGen [G.groundhog|
 |]
 
 
-
-data PositionInfo = PositionInfo {
-    _piStimulusSequence :: G.DefaultKey StimulusSequence
-  , _piStimSeqIndex     :: Int
-  } deriving (Generic)
-
-deriving instance Eq PositionInfo
-deriving instance Show PositionInfo
---deriving instance Generic PositionInfo
-
-makeLenses ''PositionInfo
-
 instance ToJSON U.UUID where
   toJSON u = A.object ["uuid" .= U.toWords u]
 
@@ -138,41 +126,8 @@ instance FromJSON U.UUID where
   parseJSON _ = mzero
 
 
-instance ToJSON PositionInfo where
-  toJSON = A.genericToJSON A.defaultOptions
-             { A.fieldLabelModifier = drop 3 . map toLower }
-
-instance FromJSON PositionInfo where
-  parseJSON = A.genericParseJSON A.defaultOptions
-                { A.fieldLabelModifier = drop 3 . map toLower }
-
-
-
-instance G.PersistField PositionInfo where
-  persistName _ = "PositionInfo"
-  toPersistValues = G.primToPersistValue
-  fromPersistValues = G.primFromPersistValue
-  dbType _ _ = G.DbTypePrimitive G.DbBlob False Nothing Nothing
-
--- instance PGS.FromRow StimSeqItem where
---   fromRow = StimSeqItem <$> PGS.field <*> PGS.field <*> PGS.field
-
--- instance PGS.ToRow StimSeqItem where
---   toRow (StimSeqItem v s i) = [PGS.toField v, PGS.toField s, PGS.toField i]
-
--- TODO this seems very unsafe!
-instance G.PrimitivePersistField PositionInfo where
-  toPrimitivePersistValue p a = G.toPrimitivePersistValue p $ A.encode a
-  fromPrimitivePersistValue p x = fromMaybe (error "decode error")
-                                  $ A.decode
-                                  $ G.fromPrimitivePersistValue p x
-
-instance G.NeverNull PositionInfo where
-
-
 data StimulusRequest = StimulusRequest
   { sreqUser        :: Int64         -- AuthUser key
-  , sreqStimSeqItem :: PositionInfo  -- TODO drop
   , sreqSequence    :: G.DefaultKey StimulusSequence
   , sreqIndex       :: Int64
   , sreqTime        :: UTCTime
@@ -202,12 +157,6 @@ instance G.PrimitivePersistField A.Value where
   toPrimitivePersistValue p v   = G.toPrimitivePersistValue p . T.toStrict . T.decodeUtf8 $ A.encode v
   fromPrimitivePersistValue p s = fromMaybe A.Null
                                   (A.decode . T.encodeUtf8 . T.fromStrict $ G.fromPrimitivePersistValue p s)
-
-
--- instance G.PurePersistField A.Value where
---   toPurePersistValues p v = G.toPurePersistValues p $ A.encode v
---   fromPurePersistValues p s = undefined
---                               -- (A.decode $ G.fromPurePersistValues p s)
 
 
 
@@ -240,8 +189,5 @@ instance ToSample StimulusRequest where
   toSamples _ = singleSample sampleRequest
 
 sampleRequest :: StimulusRequest
-sampleRequest = StimulusRequest 1 (PositionInfo (intToKey 1) 1)
+sampleRequest = StimulusRequest 1
                 (intToKey 1) 1 (UTCTime (fromGregorian 2015 1 1) 0)
-
-instance ToSample PositionInfo where
-  toSamples _ = singleSample (PositionInfo (intToKey 2) 2)

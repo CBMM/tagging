@@ -37,6 +37,7 @@ import Utils
 ------------------------------------------------------------------------------
 type ResourcesAPI =
        "tagginguser"      :> CrudAPI TaggingUser
+  :<|> "assignment"       :> CrudAPI Assignment
   :<|> "stimulussequence" :> CrudAPI StimulusSequence
   :<|> "stimseqitem"      :> CrudAPI StimSeqItem
   :<|> "stimulusresponse" :> CrudAPI StimulusResponse
@@ -44,7 +45,7 @@ type ResourcesAPI =
 
 resourceServer :: Server ResourcesAPI AppHandler
 resourceServer = crudServer Proxy :<|> crudServer Proxy :<|> crudServer Proxy
-            :<|> crudServer Proxy :<|> crudServer Proxy
+            :<|> crudServer Proxy :<|> crudServer Proxy :<|> crudServer Proxy
 
 instance HasKey TaggingUser where
   intToKey _ = TaggingUserKey . PersistInt64
@@ -53,6 +54,16 @@ instance HasKey TaggingUser where
   autoToInt Proxy (TaggingUserKey (PersistInt64 i)) = i
 
 instance Crud TaggingUser where
+
+instance HasKey Assignment where
+  intToKey _ = AssignmentKey . PersistInt64
+  intToAuto _ = AssignmentKey . PersistInt64
+  keyToInt (AssignmentKey (PersistInt64 i)) = i
+  autoToInt Proxy (AssignmentKey (PersistInt64 i)) = i
+
+instance Crud Assignment where
+
+
 
 instance HasKey StimulusSequence where
   intToKey _ = StimulusSequenceKey . PersistInt64
@@ -88,8 +99,7 @@ instance HasKey StimulusRequest where
 instance Crud StimulusRequest
 
 migrateResourcesIO :: (MonadIO m, PersistBackend m) => m ()
-migrateResourcesIO = do
- runMigration $ do
+migrateResourcesIO = runMigration $ do
   migrate (undefined :: TaggingUser)
   migrate (undefined :: StimulusSequence)
   migrate (undefined :: StimSeqItem)
@@ -98,24 +108,24 @@ migrateResourcesIO = do
   migrate (undefined :: APIKey)
   migrate (undefined :: Assignment)
 
- selectAll >>= mapM_ (\(ku,u) -> case tuCurrentStimulus u of
-                         Nothing                 -> return ()
-                         Just (PositionInfo k i) -> do
-                           -- Add an assignment
-                           insert (Assignment ku k i)
-                           -- Drop (deprecated) posInfo
-                           replace ku (u {tuCurrentStimulus = Nothing})
-                      )
- --selectAll >>= mapM_ (\(kReq,req :: StimulusRequest) -> liftIO (print req))
+ -- selectAll >>= mapM_ (\(ku,u) -> case tuCurrentStimulus u of
+ --                         Nothing                 -> return ()
+ --                         Just (PositionInfo k i) -> do
+ --                           -- Add an assignment
+ --                           insert (Assignment ku k i)
+ --                           -- Drop (deprecated) posInfo
+ --                           replace ku (u {tuCurrentStimulus = Nothing})
+ --                      )
+ -- --selectAll >>= mapM_ (\(kReq,req :: StimulusRequest) -> liftIO (print req))
 
- selectAll >>= mapM_ (\(kReq,req) ->
-                        let (PositionInfo k i) = sreqStimSeqItem req
-                        in  replace kReq (req { sreqSequence = (Utils.intToKey 4)
-                                              , sreqIndex = fromIntegral i}))
- selectAll >>= mapM_ (\(kResp,resp) ->
-                        let (PositionInfo k i) = srStim resp
-                        in  replace kResp (resp { srSequence = (Utils.intToKey 4)
-                                                , srIndex = fromIntegral i}))
+ -- selectAll >>= mapM_ (\(kReq,req) ->
+ --                        let (PositionInfo k i) = sreqStimSeqItem req
+ --                        in  replace kReq (req { sreqSequence = (Utils.intToKey 4)
+ --                                              , sreqIndex = fromIntegral i}))
+ -- selectAll >>= mapM_ (\(kResp,resp) ->
+ --                        let (PositionInfo k i) = srStim resp
+ --                        in  replace kResp (resp { srSequence = (Utils.intToKey 4)
+ --                                                , srIndex = fromIntegral i}))
 
 
 
@@ -124,7 +134,6 @@ migrateHandler :: Handler App App ()
 migrateHandler = do
   assertRole [Admin]
   runGH migrateResourcesIO
---  backfillAssignments
 
 
 -----------------------------------------------------------------------------

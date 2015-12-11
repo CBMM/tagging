@@ -45,21 +45,21 @@ import qualified Utils as Utils
 
 
 ------------------------------------------------------------------------------
-type SubjectAPI = "currentstim"     :> Get '[JSON] StimSeqItem
-             :<|> "currentsequence" :> Get '[JSON] StimulusSequence
-             :<|> "posinfo"         :> Get '[JSON] PositionInfo
-             :<|> "fullposinfo"     :> Get '[JSON] (Maybe
-                                       (Assignment,
-                                        StimulusSequence,
-                                        StimSeqItem))
-             :<|> "response"        :> QueryFlag "advance" :> ReqBody '[JSON] ResponsePayload
-                                    :> Post '[JSON] ()
+type SubjectAPI = "currentstim"       :> Get '[JSON] StimSeqItem
+             :<|> "currentsequence"   :> Get '[JSON] StimulusSequence
+             :<|> "currentassignment" :> Get '[JSON] Assignment
+             :<|> "fullposinfo"       :> Get '[JSON] (Maybe
+                                         (Assignment,
+                                          StimulusSequence,
+                                          StimSeqItem))
+             :<|> "response"          :> QueryFlag "advance" :> ReqBody '[JSON] ResponsePayload
+                                      :> Post '[JSON] ()
 
 ------------------------------------------------------------------------------
 subjectServer :: Server SubjectAPI AppHandler
 subjectServer = handleCurrentStimSeqItem
            :<|> handleCurrentStimulusSequence
-           :<|> handleCurrentPositionInfo
+           :<|> handleCurrentAssignment
            :<|> handleFullPosInfo
            :<|> handleSubmitResponse
 
@@ -111,7 +111,6 @@ handleSubmitResponse advanceStim t =
     l <- lift $ runGH $ count (SsiStimulusSequenceField ==. s)
     when advanceStim $ lift . runGH $ do
       insert (StimulusResponse (tuId u) -- TODO drop old posinfos
-                               (PositionInfo (Utils.intToKey (4)) (1))
                                s
                                (fromIntegral i)
               (sreqTime thisReq) tNow "sometype" (rpJson t))
@@ -131,17 +130,6 @@ handleSubmitResponse advanceStim t =
 
 
 ------------------------------------------------------------------------------
-getCurrentPositionInfo :: AppHandler (Maybe PositionInfo)
-getCurrentPositionInfo = exceptT Server.Utils.err300 return $ do
-  u   <- getCurrentTaggingUser
-  return (tuCurrentStimulus u)
-
-handleCurrentPositionInfo :: AppHandler PositionInfo
-handleCurrentPositionInfo =
-  maybeT (Server.Utils.err300 "No stmilusus sequence assigned") return
-  $ MaybeT getCurrentPositionInfo
-
-------------------------------------------------------------------------------
 getCurrentAssignment :: AppHandler (Maybe Assignment)
 getCurrentAssignment = runMaybeT $ do
   u   <- hushT getCurrentTaggingUser
@@ -157,11 +145,9 @@ handleCurrentAssignment =
 
 getCurrentStimSeqItem :: AppHandler (Maybe StimSeqItem)
 getCurrentStimSeqItem = do
-  oldres <- getCurrentPositionInfo
   res <- getCurrentAssignment
   case res of
     Nothing -> error "NoPosInfo" -- TODO
-    -- Just pInfo@(PositionInfo key i) -> do
     Just (Assignment _ key i) -> do
       u <- exceptT (const $ error "Bad lookup") return getCurrentTaggingUser
       p <-  maybeT (Server.Utils.err300 "No user assignment") return $
@@ -174,7 +160,6 @@ getCurrentStimSeqItem = do
         [] -> return Nothing
         [ssi] -> do
           runGH $ insert (StimulusRequest (tuId u)
-                                          (PositionInfo (Utils.intToKey 1) 1)
                                           (aSequence p)
                                           (fromIntegral $ aIndex p)
                                           t)
@@ -188,7 +173,6 @@ handleCurrentStimSeqItem =
 
 getCurrentStimulusSequence :: AppHandler (Maybe StimulusSequence)
 getCurrentStimulusSequence = do
-  oldres <- getCurrentPositionInfo
   res    <- getCurrentAssignment
   case res of
     Nothing -> error "NoUser" -- TODO

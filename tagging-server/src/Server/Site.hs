@@ -158,7 +158,7 @@ handleNewUser =
 
       n    <- lift $ runGH $ GH.countAll (undefined :: TaggingUser)
       let roles = if n == 0 then [Admin,Subject] else [Subject]
-      _ <- lift $ runGH $ GH.insert (TaggingUser (uid :: Int64) Nothing Nothing Nothing roles)
+      _ <- lift $ runGH $ GH.insert (TaggingUser (uid :: Int64) Nothing Nothing roles)
       return ()
 
 

@@ -64,8 +64,6 @@ data TaggingUser = TaggingUser
     -- ^ Optional student ID number
   , tuRealName  :: Maybe T.Text
     -- ^ Optional student full name
-  , tuCurrentStimulus :: Maybe PositionInfo
-    -- ^ Current stimulus assignment (`Nothing` for unassigned)
   , tuRoles     :: [Role]
     -- ^ List of user Roles
   } deriving  (Eq, Show, Generic)
@@ -153,7 +151,7 @@ instance ToSample TaggingUser where
     TaggingUser 1
     (Just "922763745")
     (Just "Greg Hale")
-    Nothing [Admin, Researcher, Subject]
+    [Admin, Researcher, Subject]
 
 instance ToSample Assignment where
   toSamples _ = singleSample $

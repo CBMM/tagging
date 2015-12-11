@@ -126,7 +126,7 @@ sessionServer = -- apiLogin
         lift $ runGH $ do
           n <- countAll (undefined :: TaggingUser)
           let newRoles = if n == 0 then [Admin] else [Subject]
-          insert (TaggingUser (uId :: Int64) Nothing Nothing Nothing newRoles)
+          insert (TaggingUser (uId :: Int64) Nothing Nothing newRoles)
         return ()
 
     apiCurrentUser =

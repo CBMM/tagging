@@ -25,10 +25,10 @@ import Utils
 
 ------------------------------------------------------------------------------
 -- TODO Deprecate
-assignUserSeqStart :: Int64 -> Int -> Handler App App ()
-assignUserSeqStart userID seqID = do
-  assertRole [Admin, Researcher]
-  runGH $
-    update
-    [TuCurrentStimulusField =. Just (PositionInfo (intToKey seqID) 0 )]
-    (TuIdField ==. (fromIntegral userID :: Int64))
+-- assignUserSeqStart :: Int64 -> Int -> Handler App App ()
+-- assignUserSeqStart userID seqID = do
+--   assertRole [Admin, Researcher]
+--   runGH $
+--     update
+--     [TuCurrentStimulusField =. Just (PositionInfo (intToKey seqID) 0 )]
+--     (TuIdField ==. (fromIntegral userID :: Int64))
