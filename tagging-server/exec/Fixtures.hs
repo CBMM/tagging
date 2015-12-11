@@ -52,7 +52,7 @@ main = do
 
 admin0 :: TaggingUser
 admin0 =
-  TaggingUser 1 Nothing (Just "Admin")
+  TaggingUser 1 (Just "Admin")
   Nothing [Admin]
 
 ------------------------------------------------------------------------------
