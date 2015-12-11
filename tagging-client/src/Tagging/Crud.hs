@@ -165,7 +165,7 @@ instance Crud TaggingUser where
             |])
 
 instance Crud Assignment where
-  resourceName _ = "assignments"
+  resourceName _ = "assignment"
   resourceHeaders _ = ["Tagging Id","Sequence","Index"]
   resourceWidget dynVal dynB = do
     pb <- getPostBuild
