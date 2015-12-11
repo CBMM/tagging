@@ -24,6 +24,7 @@ import Server.Application
 import Utils
 
 ------------------------------------------------------------------------------
+-- TODO Deprecate
 assignUserSeqStart :: Int64 -> Int -> Handler App App ()
 assignUserSeqStart userID seqID = do
   assertRole [Admin, Researcher]

@@ -109,12 +109,12 @@ choiceBankSingleChoice n dynStatus = do
 -----------------------------------------------------------------------------
 -- | Show movie clip
 movieWidget :: MonadWidget t m
-            => Event t (PositionInfo, StimulusSequence, StimSeqItem)
+            => Event t (Assignment, StimulusSequence, StimSeqItem)
             -- ^ Location within stimulus sequence
             -> m ()
 movieWidget pEvent = do
 
-  let movieSrcs (pInfo, StimulusSequence{..}, StimSeqItem{..}) =
+  let movieSrcs (_, StimulusSequence{..}, StimSeqItem{..}) =
         case ssiStimulus of
           A.Array fileNames -> ffor fileNames $ \(A.String fn) ->
                "src"  =: (T.unpack ssBaseUrl <> "/" <> T.unpack fn)

@@ -19,6 +19,7 @@ import Data.Time
 import Data.Typeable
 import qualified Data.Text as T
 import qualified Data.Vector as V
+import qualified Database.Groundhog    as G
 import qualified Database.Groundhog.TH as G
 import GHC.Generics
 import GHC.Int
@@ -34,6 +35,8 @@ data StimulusResponse = StimulusResponse
   -- ^ Tagging User
   , srStim          :: PositionInfo
   -- ^ Stimulus in the sequence
+  , srSequence      :: G.DefaultKey StimulusSequence
+  , srIndex         :: Int64
   , srDeliveredTime :: UTCTime
   -- ^ Trial start time (in server's timezone)
   , srRespondedTime :: UTCTime
@@ -77,6 +80,8 @@ sampleResponse =
   StimulusResponse
   1
   (PositionInfo (intToKey 1) 1)
+  (intToKey 1)
+  1
   (UTCTime (fromGregorian 2015 08 21) 0)
   (UTCTime (fromGregorian 2015 08 21) 1)
   "SimplePicturePreference (todo fix)"

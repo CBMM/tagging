@@ -172,7 +172,9 @@ instance G.NeverNull PositionInfo where
 
 data StimulusRequest = StimulusRequest
   { sreqUser        :: Int64         -- AuthUser key
-  , sreqStimSeqItem :: PositionInfo
+  , sreqStimSeqItem :: PositionInfo  -- TODO drop
+  , sreqSequence    :: G.DefaultKey StimulusSequence
+  , sreqIndex       :: Int64
   , sreqTime        :: UTCTime
   } deriving (Eq, Show, Generic)
 type ResponseType = T.Text
@@ -239,7 +241,7 @@ instance ToSample StimulusRequest where
 
 sampleRequest :: StimulusRequest
 sampleRequest = StimulusRequest 1 (PositionInfo (intToKey 1) 1)
-                (UTCTime (fromGregorian 2015 1 1) 0)
+                (intToKey 1) 1 (UTCTime (fromGregorian 2015 1 1) 0)
 
 instance ToSample PositionInfo where
   toSamples _ = singleSample (PositionInfo (intToKey 2) 2)

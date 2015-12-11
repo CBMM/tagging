@@ -41,6 +41,7 @@ import           Server.Crud
 import           Server.Database
 import           Server.Resources
 import           Server.Utils
+import qualified Utils as Utils
 
 
 ------------------------------------------------------------------------------
@@ -48,7 +49,7 @@ type SubjectAPI = "currentstim"     :> Get '[JSON] StimSeqItem
              :<|> "currentsequence" :> Get '[JSON] StimulusSequence
              :<|> "posinfo"         :> Get '[JSON] PositionInfo
              :<|> "fullposinfo"     :> Get '[JSON] (Maybe
-                                       (PositionInfo,
+                                       (Assignment,
                                         StimulusSequence,
                                         StimSeqItem))
              :<|> "response"        :> QueryFlag "advance" :> ReqBody '[JSON] ResponsePayload
@@ -83,42 +84,50 @@ subjectServer = handleCurrentStimSeqItem
 
 ------------------------------------------------------------------------------
 -- | Submit a response. Submission will update the user's current-stimulus
---   field to @Just@ `the next sequence stimulus` if there is one, or to
+--   field to @Just@ `the next sequence stimulus` if there is one, or tno
 --   @Nothing@ if the sequence is done
 --handleSubmitResponse :: StimulusResponse -> Handler App App ()
 handleSubmitResponse :: Bool -> ResponsePayload -> Handler App App ()
 handleSubmitResponse advanceStim t =
   exceptT Server.Utils.err300 (const $ return ()) $ do
 
-    u        <- getCurrentTaggingUser
-    pos      <- noteT "No assigned stimulus" $ hoistMaybe (tuCurrentStimulus u)
-    let i = _piStimSeqIndex pos
+    u                 <- getCurrentTaggingUser
+    asgn <- noteT "No assignment" $ MaybeT getCurrentAssignment
+    let (Assignment aU s i) = asgn
+    let s'' = s :: DefaultKey StimulusSequence
+    let i' = fromIntegral (i :: Int) :: Int64
 
     thisReq  <- noteT "No request record by user for stimulus"
                 $ MaybeT $ fmap listToMaybe $ runGH
                 $ select $ (SreqUserField ==. tuId u
-                           &&. SreqStimSeqItemField ==. pos)
+                           &&. SreqSequenceField ==. s
+                           &&. SreqIndexField    ==. i')
                            `orderBy` [Asc SreqTimeField]
     tNow     <- lift $ liftIO getCurrentTime
 
     stim     <- noteT "Bad stim lookup from response" $ MaybeT $ runGH
-                $ get (_piStimulusSequence pos)
-                -- $ get (intToKey (Proxy :: Proxy StimulusSequence)
-                --                 (_piStimulusSequence pos))
+                $ get s
 
-    -- TODO: How to query the array length in groundhog?
-    -- TODO This is definitely a (runtime) name error
-    l <- lift $ runGH $ count (SsiStimulusSequenceField ==. _piStimulusSequence pos)
-    -- [Only l] <- lift $ with db $
-    --        query
-    --        "SELECT array_length(\"StimSeqItems\") FROM \"StimulusSequence\" WHERE id = ?"
-    --        (Only (_piStimulusSequence pos))
+    l <- lift $ runGH $ count (SsiStimulusSequenceField ==. s)
     when advanceStim $ lift . runGH $ do
-      insert (StimulusResponse (tuId u) pos
+      insert (StimulusResponse (tuId u) -- TODO drop old posinfos
+                               (PositionInfo (Utils.intToKey (4)) (1))
+                               s
+                               (fromIntegral i)
               (sreqTime thisReq) tNow "sometype" (rpJson t))
-      let p' | i == l - 1 = Nothing
-             | otherwise    = Just $ pos & over piStimSeqIndex succ
-      update [TuCurrentStimulusField =. p'] (TuIdField ==. tuId u)
+      let x = tuId u :: Int64
+      if i == l - 1
+        then do
+          let u'' = tuId u :: Int64
+          deleteBy (Utils.integralToKey (tuId u) :: DefaultKey Assignment)
+          return ()
+        else do
+          let k'  = Utils.integralToKey (tuId u) :: DefaultKey TaggingUser
+              k'' = Utils.integralToKey (tuId u) :: DefaultKey Assignment
+              a'  = Assignment k' s (succ i)
+          update [AIndexField =. succ i]
+            (AUserField ==. k'
+             &&. ASequenceField ==. s)
 
 
 ------------------------------------------------------------------------------
@@ -132,20 +141,43 @@ handleCurrentPositionInfo =
   maybeT (Server.Utils.err300 "No stmilusus sequence assigned") return
   $ MaybeT getCurrentPositionInfo
 
+------------------------------------------------------------------------------
+getCurrentAssignment :: AppHandler (Maybe Assignment)
+getCurrentAssignment = runMaybeT $ do
+  u   <- hushT getCurrentTaggingUser
+  let uKey = Utils.integralToKey (tuId u) :: DefaultKey TaggingUser
+  MaybeT $ fmap listToMaybe $ runGH $ select (uKey ==. AUserField)
+  -- MaybeT $ runGH $ get (Utils.integralToKey (tuId u))
+
+handleCurrentAssignment :: AppHandler Assignment
+handleCurrentAssignment =
+  maybeT (Server.Utils.err300 "No stmilusus sequence assigned") return
+  $ MaybeT getCurrentAssignment
+
+
 getCurrentStimSeqItem :: AppHandler (Maybe StimSeqItem)
 getCurrentStimSeqItem = do
-  res <- getCurrentPositionInfo
+  oldres <- getCurrentPositionInfo
+  res <- getCurrentAssignment
   case res of
     Nothing -> error "NoPosInfo" -- TODO
-    Just pInfo@(PositionInfo key i) -> do
-      u :: TaggingUser <- exceptT (const $ error "Bad lookup") return getCurrentTaggingUser
+    -- Just pInfo@(PositionInfo key i) -> do
+    Just (Assignment _ key i) -> do
+      u <- exceptT (const $ error "Bad lookup") return getCurrentTaggingUser
+      p <-  maybeT (Server.Utils.err300 "No user assignment") return $
+              MaybeT $ runGH (get (Utils.intToKey $ fromIntegral $ tuId u))
       t <- liftIO getCurrentTime
       modifyResponse $ Snap.Core.addHeader "Cache-Control" "no-cache"
-      ssi <- runGH $ select $ (SsiStimulusSequenceField ==. key &&. SsiIndexField ==. i)
+      ssi <- runGH $ select (SsiStimulusSequenceField ==. key &&.
+                             SsiIndexField ==. i)
       case ssi of
         [] -> return Nothing
         [ssi] -> do
-          runGH $ insert (StimulusRequest (tuId u) pInfo t)
+          runGH $ insert (StimulusRequest (tuId u)
+                                          (PositionInfo (Utils.intToKey 1) 1)
+                                          (aSequence p)
+                                          (fromIntegral $ aIndex p)
+                                          t)
           return $ Just ssi
 
 
@@ -156,10 +188,11 @@ handleCurrentStimSeqItem =
 
 getCurrentStimulusSequence :: AppHandler (Maybe StimulusSequence)
 getCurrentStimulusSequence = do
-  res <- getCurrentPositionInfo
+  oldres <- getCurrentPositionInfo
+  res    <- getCurrentAssignment
   case res of
     Nothing -> error "NoUser" -- TODO
-    Just pInfo@(PositionInfo key _) -> do
+    Just (Assignment _ key i) -> do
       ssi <- runGH $ get key
       return ssi
 
@@ -169,8 +202,8 @@ handleCurrentStimulusSequence =
   (MaybeT getCurrentStimulusSequence)
 
 handleFullPosInfo
-  :: AppHandler (Maybe (PositionInfo, StimulusSequence, StimSeqItem))
+  :: AppHandler (Maybe (Assignment, StimulusSequence, StimSeqItem))
 handleFullPosInfo =
-  maybeT (return Nothing) (return . Just) $ (,,) <$> MaybeT getCurrentPositionInfo
+  maybeT (return Nothing) (return . Just) $ (,,) <$> MaybeT getCurrentAssignment
                                                  <*> MaybeT getCurrentStimulusSequence
                                                  <*> MaybeT getCurrentStimSeqItem

@@ -84,16 +84,6 @@ contentWidget = elClass "div" "content" $ mdo
                                         (ResponsePayload (A.toJSON (PerClip cp))))
   clipXhr <- performRequestAsync clipResponses
 
-
-  -- text "currentSetSel: "
-  -- display currentSetSel
-  -- el "br" $ return ()
-  -- text "currentSingleSel: "
-  -- display currentSingleSel
-  -- el "br" $ return ()
-  -- text "CurrentProps: "
-  -- display clipProps
-
   return ()
 
 
@@ -105,7 +95,7 @@ foldAux :: (CharacterName, Maybe Bool)  -- ^Toggled name; Toggle | Force Ins | F
 foldAux (charName, maybeDirection) (singleSel, selSet) =
 
   let direction = case maybeDirection of
-        Nothing    -> not (charName `elem` selSet)
+        Nothing    -> charName `notElem` selSet
         Just True  -> True
         Just False -> False
 

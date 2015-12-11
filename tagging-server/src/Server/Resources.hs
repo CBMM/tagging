@@ -31,6 +31,7 @@ import Server.Application
 import Server.Utils
 import Server.Crud
 import Server.Database
+import Utils
 
 
 ------------------------------------------------------------------------------
@@ -87,57 +88,45 @@ instance HasKey StimulusRequest where
 instance Crud StimulusRequest
 
 migrateResourcesIO :: (MonadIO m, PersistBackend m) => m ()
-migrateResourcesIO = runMigration $ do
+migrateResourcesIO = do
+ runMigration $ do
   migrate (undefined :: TaggingUser)
   migrate (undefined :: StimulusSequence)
   migrate (undefined :: StimSeqItem)
   migrate (undefined :: StimulusRequest)
   migrate (undefined :: StimulusResponse)
+  migrate (undefined :: APIKey)
+  migrate (undefined :: Assignment)
+
+ selectAll >>= mapM_ (\(ku,u) -> case tuCurrentStimulus u of
+                         Nothing                 -> return ()
+                         Just (PositionInfo k i) -> do
+                           -- Add an assignment
+                           insert (Assignment ku k i)
+                           -- Drop (deprecated) posInfo
+                           replace ku (u {tuCurrentStimulus = Nothing})
+                      )
+ --selectAll >>= mapM_ (\(kReq,req :: StimulusRequest) -> liftIO (print req))
+
+ selectAll >>= mapM_ (\(kReq,req) ->
+                        let (PositionInfo k i) = sreqStimSeqItem req
+                        in  replace kReq (req { sreqSequence = (Utils.intToKey 4)
+                                              , sreqIndex = fromIntegral i}))
+ selectAll >>= mapM_ (\(kResp,resp) ->
+                        let (PositionInfo k i) = srStim resp
+                        in  replace kResp (resp { srSequence = (Utils.intToKey 4)
+                                                , srIndex = fromIntegral i}))
+
+
+
 
 migrateHandler :: Handler App App ()
 migrateHandler = do
   assertRole [Admin]
-  runGH $ migrateResourcesIO
-{-
-  runGH $ runMigration $ do
-    migrate (undefined :: TaggingUser)
-    migrate (undefined :: StimulusSequence)
-    migrate (undefined :: StimSeqItem)
-    migrate (undefined :: StimulusResponse)
--}
+  runGH migrateResourcesIO
+--  backfillAssignments
 
 
 -----------------------------------------------------------------------------
 getAllUsers :: Handler App App [(AutoKey TaggingUser, TaggingUser)]
 getAllUsers = runGH selectAll
-
--- ------------------------------------------------------------------------------
--- addStimulusSequence
---   :: (MonadIO b, PersistBackend b)
---   => Key StimulusSequence BackendSpecific
---   -> StimulusSequence
---   -> [StimSeqItem]
---   -> b (AutoKey StimulusSequence)
--- addStimulusSequence seqKey seq [] = insert seq
--- addStimulusSequence seqKey seq (x:xs) = do
---   liftIO $ print "About to insert first item:"
---   liftIO $ print x
---   itemInt0 <- insert (x   :: StimSeqItem)
---   let itemKey0 = keyToInt itemInt0
---   liftIO $ print "About to replace"
---   replace seqKey (seq {ssFirstItem = Just itemKey0} :: StimulusSequence)
---   liftIO $ print "About to enter Go loop"
---   go itemInt0 xs
---   liftIO $ print "About to return"
---   return seqKey
---   where go parentKey []     = do
---           --liftIO $ print "go loop terminal case"
---           return ()
---         go parentKey (x:xs) = do
---           liftIO $ putStrLn ("Inserting " ++ show x)
---           k  <- insert x
---           v0 <- get parentKey
---           maybe (error "Database insertion error")
---             (\v0' -> replace parentKey (v0' {ssiNextItem = Just (keyToInt k)}))
---             v0
---           go k xs

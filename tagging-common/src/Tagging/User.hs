@@ -7,6 +7,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 
 module Tagging.User where
@@ -14,15 +15,20 @@ module Tagging.User where
 import           Control.Error
 import           Control.Monad (mzero)
 import qualified Data.Aeson as A
+import qualified Data.Aeson.Types as A
 import           Data.Aeson ((.:),(.=))
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Base64 as Base64
+import           Data.Char (toLower)
 import qualified Data.Text.Encoding as T
 import qualified Data.Text as T
 import           Data.Time
 import qualified Data.UUID as UUID
+import qualified Data.Vector as V
 import Database.Groundhog
+import Database.Groundhog.Core
+import Database.Groundhog.Instances
 import Database.Groundhog.TH
 import GHC.Generics
 import GHC.Int
@@ -31,20 +37,6 @@ import Servant.Docs
 
 import Tagging.Stimulus
 import Utils
-
--- | A user in the Tagging system
-data TaggingUser = TaggingUser
-  { tuId :: Int64
-    -- ^ ID matching AuthUser id
-  , tuStudentID :: Maybe T.Text
-    -- ^ Optional student ID number
-  , tuRealName  :: Maybe T.Text
-    -- ^ Optional student full name
-  , tuCurrentStimulus :: Maybe PositionInfo
-    -- ^ Current stimulus assignment (`Nothing` for unassigned)
-  , tuRoles     :: [Role]
-    -- ^ List of user Roles
-  } deriving  (Eq, Show, Generic)
 
 instance A.FromJSON TaggingUser where
 instance A.ToJSON TaggingUser where
@@ -60,9 +52,59 @@ data Role =
     --   to stim sets
   deriving (Eq, Show, Read, Generic)
 
-
 instance A.FromJSON Role where
 instance A.ToJSON   Role where
+
+
+-- | A user in the Tagging system
+data TaggingUser = TaggingUser
+  { tuId :: Int64
+    -- ^ ID matching AuthUser id
+  , tuStudentID :: Maybe T.Text
+    -- ^ Optional student ID number
+  , tuRealName  :: Maybe T.Text
+    -- ^ Optional student full name
+  , tuCurrentStimulus :: Maybe PositionInfo
+    -- ^ Current stimulus assignment (`Nothing` for unassigned)
+  , tuRoles     :: [Role]
+    -- ^ List of user Roles
+  } deriving  (Eq, Show, Generic)
+
+
+data Assignment = Assignment
+  { aUser     :: DefaultKey TaggingUser
+  , aSequence :: DefaultKey StimulusSequence
+  , aIndex    :: Int
+  } deriving (Generic)
+
+deriving instance Show Assignment
+instance A.ToJSON Assignment where
+  toJSON (Assignment u k i) = A.object
+    [ "user" .= keyToInt u
+    , "sequence" .= keyToInt k
+    , "index"    .= i
+    ]
+
+instance A.FromJSON Assignment where
+  parseJSON (A.Object o) = Assignment
+    <$> fmap intToKey (o .: "user")
+    <*> fmap intToKey (o .: "sequence")
+    <*> o .: "index"
+  parseJSON _ = mzero
+
+
+mkPersist ghCodeGen [groundhog|
+  - entity: Assignment
+    keys:
+      - name: auser
+    constructors:
+      - name: Assignment
+        uniques:
+          - name: auser
+            fields: [aUser]
+
+|]
+
 
 data APIKey = APIKey
   { kKey     :: UUID.UUID
@@ -112,3 +154,7 @@ instance ToSample TaggingUser where
     (Just "922763745")
     (Just "Greg Hale")
     Nothing [Admin, Researcher, Subject]
+
+instance ToSample Assignment where
+  toSamples _ = singleSample $
+    Assignment (intToKey 1) (intToKey 10) 1
