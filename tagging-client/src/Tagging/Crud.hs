@@ -28,7 +28,8 @@ import Data.Proxy
 import qualified Data.Text as T
 import Data.Traversable
 import qualified Data.UUID as U
-import           Database.Groundhog.Core (PersistValue(PersistInt64))
+import Database.Groundhog
+import           Database.Groundhog.Core -- (Key, PersistValue(PersistInt64))
 import GHC.Int
 import Reflex.Dom
 import Reflex.Dom.Xhr
@@ -38,7 +39,10 @@ import Tagging.User
 import Tagging.Stimulus
 import Tagging.Response
 import Utils
+import qualified Utils
 
+
+------------------------------------------------------------------------------
 class (A.FromJSON v, A.ToJSON v) => Crud v where
 
   resourceName :: Proxy v -> String
@@ -79,7 +83,6 @@ class (A.FromJSON v, A.ToJSON v) => Crud v where
                 XhrRequest "DELETE"
                 ("api/" <> resourceName p <> "/" <> show k) def
     in  fmap (() <$) $ performRequestAsync req
-
 
 
 -----------------------------------------------------------------------------
@@ -142,28 +145,40 @@ crudRowWidget p k dynVal = do
                       ]
 
 
+tuKey :: Key TaggingUser BackendSpecific -> Int64
+tuKey  (TaggingUserKey      (PersistInt64 k)) = k
+
+ssKey :: Key StimulusSequence BackendSpecific -> Int64
+ssKey  (StimulusSequenceKey (PersistInt64 k)) = k
+
+ssiKey :: Key StimSeqItem BackendSpecific -> Int64
+ssiKey (StimSeqItemKey      (PersistInt64 k)) = k
+
+
+------------------------------------------------------------------------------
 instance Crud TaggingUser where
   resourceName _ = "tagginguser"
-  resourceHeaders _ = ["Tagging Id","Student IdTest","Name","Roles"]
+  resourceHeaders _ = ["Tagging Id","Student Id","Name","Roles"]
   resourceWidget dynVal dynB = do
     pb <- getPostBuild
     let pbV = tag (current dynVal) pb
     attrs <- forDyn dynB $ \b ->
       if b then mempty else (s "disabled" =: s "disabled")
-    f1 <- validatingCrudPieceField pbV (show . tuId) attrs (readEither "No id parse")
+    f1 <- crudPieceField pbV (show . tuId)                     attrs
     f2 <- crudPieceField pbV (maybe "" T.unpack . tuStudentID) attrs
-    f3 <- crudPieceField pbV (maybe "" T.unpack . tuRealName) attrs
-    f4 <- crudPieceField pbV (show . tuRoles) attrs
+    f3 <- crudPieceField pbV (maybe "" T.unpack . tuRealName)  attrs
+    f4 <- crudPieceField pbV (show . tuRoles)                  attrs
     $(qDyn [| TaggingUser
-              <$> $(unqDyn [|f1|])
+              <$> readEither "No id parse" $(unqDyn [|f1|])
               <*> pure (let f2' = $(unqDyn [|f2|])
                         in  if null f2' then Nothing else Just (T.pack f2'))
               <*> pure (let f3' = $(unqDyn [|f3|])
                         in  if null f3' then Nothing else Just (T.pack f3'))
-              -- <*> parsePosString $(unqDyn [|f4|])
               <*> readEither "No Roles parse" $(unqDyn [|f4|])
             |])
 
+
+------------------------------------------------------------------------------
 instance Crud Assignment where
   resourceName _ = "assignment"
   resourceHeaders _ = ["Tagging Id","Sequence","Index"]
@@ -172,13 +187,19 @@ instance Crud Assignment where
     let pbV = tag (current dynVal) pb
     attrs <- forDyn dynB $ \b ->
       if b then mempty else (s "disabled" =: s "disabled")
-    f1 <- crudPieceField pbV (show . aUser)     attrs
-    f2 <- crudPieceField pbV (show . aSequence) attrs
-    f3 <- crudPieceField pbV (show . aIndex)    attrs
+    f1 <- crudPieceField pbV
+          (show . tuKey . aUser)
+          attrs
+    f2 <- crudPieceField pbV
+          (show . ssKey . aSequence)
+          attrs
+    f3 <- crudPieceField pbV (show . aIndex) attrs
     $(qDyn [| Assignment
-              <$> readEither "No user id parse" $(unqDyn [|f1|])
-              <*> readEither "No sequence id parse" $(unqDyn [|f2|])
-              <*> readEither "No index parse" $(unqDyn [|f3|])
+              <$> fmap Utils.intToKey (readEither "No user id parse"
+                                       $(unqDyn [|f1|]))
+              <*> fmap Utils.intToKey (readEither "No sequence id parse"
+                                       $(unqDyn [|f2|]))
+              <*> readEither "No index parse"       $(unqDyn [|f3|])
             |])
 
 
@@ -187,9 +208,11 @@ safeTail :: [a] -> Maybe [a]
 safeTail []     = Nothing
 safeTail (x:xs) = Just xs
 
+
 readEither :: Read a => String -> String -> Either String a
 readEither n a = note n (readMay a)
 
+------------------------------------------------------------------------------
 instance Crud StimulusSequence where
   resourceName _ = "stimulussequence"
   resourceHeaders _ = ["Name","UUID","Metadata","Description"
@@ -207,7 +230,8 @@ instance Crud StimulusSequence where
     f6 <- crudPieceField pbV (show      . ssSampling) attrs
     $(qDyn [| StimulusSequence
               <$> pure (T.pack $(unqDyn [|f1|]))
-              <*> note "No UUID parse" (U.fromText (T.pack $(unqDyn [|f2|])))
+              <*> note "No UUID parse"
+                  (U.fromText (T.pack $(unqDyn [|f2|])))
               <*> note "No metadata parse (should be valid JSON)"
                   ((A.decode . BL.pack) $(unqDyn [|f3|]))
               <*> pure (T.pack $(unqDyn [|f4|]))
@@ -215,23 +239,27 @@ instance Crud StimulusSequence where
               <*> readEither "No sampling parse" $(unqDyn[|f6|])
             |])
 
+------------------------------------------------------------------------------
 instance Crud StimSeqItem where
   resourceName _ = "stimseqitem"
-  resourceHeaders _ = ["Parent Sequence","Stimulus Resource","Next Item", "List Index", "Response Type"]
+  resourceHeaders _ = ["Parent Sequence","Stimulus Resource","Next Item"
+                      ,"List Index", "Response Type"]
   resourceWidget dynVal dynB = do
     pb <- getPostBuild
     let pbV = tag (current dynVal) pb
     attrs <- forDyn dynB $ \b ->
       if b then mempty else (s "disabled" =: s "disabled")
     f1 <- crudPieceField pbV (show . ssiStimulus) attrs
-    f2 <- crudPieceField pbV (show . ssiStimulusSequence) attrs
+    f2 <- crudPieceField pbV (show . ssKey . ssiStimulusSequence) attrs
     f3 <- crudPieceField pbV (show . ssiIndex) attrs
     $(qDyn [| StimSeqItem
-              <$> readEither "No stimulus parse (should be JSON)" $(unqDyn [|f1|])
-              <*> readEither "No parend id parse" $(unqDyn [|f2|])
-              <*> readEither "No sequence index parse" $(unqDyn [|f3|])
+              <$> readEither
+                  "No stimulus parse (should be JSON)" $(unqDyn [|f1|])
+              <*> fmap Utils.intToKey (readEither
+                  "No parend id parse" $(unqDyn [|f2|]))
+              <*> readEither
+                  "No sequence index parse" $(unqDyn [|f3|])
             |])
-
 
 instance Crud StimulusRequest where
   resourceName _ = "stimulusrequest"
@@ -242,15 +270,16 @@ instance Crud StimulusRequest where
     attrs <- forDyn dynB $ \b ->
       if b then mempty else (s "disabled" =: s "disabled")
     f1 <- crudPieceField pbV (show . sreqUser) attrs
-    f2 <- crudPieceField pbV (show . sreqSequence) attrs
+    f2 <- crudPieceField pbV (show . ssKey . sreqSequence) attrs
     f3 <- crudPieceField pbV (show . sreqIndex) attrs
     f4 <- crudPieceField pbV (show . sreqTime) attrs
     $(qDyn [| StimulusRequest
               <$> readEither "No user id parse" $(unqDyn [|f1|])
-              <*> readEither "No sequence key parse" $(unqDyn [|f2|])
+              <*> fmap Utils.intToKey (readEither "No sequence key parse" $(unqDyn [|f2|]))
               <*> readEither "No index parse" $(unqDyn [|f3|])
               <*> readEither "No parse for timestamp" $(unqDyn [|f4|])
             |])
+
 
 instance Crud StimulusResponse where
   resourceName _ = "stimulusresponse"
@@ -262,7 +291,7 @@ instance Crud StimulusResponse where
     attrs <- forDyn dynB $ \b ->
       if b then mempty else (s "disabled" =: s "disabled")
     f1 <- crudPieceField pbV (show . srUser) attrs
-    f2 <- crudPieceField pbV (show . srSequence) attrs
+    f2 <- crudPieceField pbV (show . ssKey . srSequence) attrs
     f3 <- crudPieceField pbV (show . srIndex) attrs
     f4 <- crudPieceField pbV (show . srDeliveredTime) attrs
     f5 <- crudPieceField pbV (show . srRespondedTime) attrs
@@ -270,7 +299,7 @@ instance Crud StimulusResponse where
     f7 <- crudPieceField pbV (show . srResponseData) attrs
     $(qDyn [| StimulusResponse
               <$> readEither "No user id parse" $(unqDyn [|f1|])
-              <*> readEither "No sequence parse" $(unqDyn [|f2|])
+              <*> fmap Utils.intToKey (readEither "No sequence parse" $(unqDyn [|f2|]))
               <*> readEither "No index parse" $(unqDyn [|f3|])
               <*> readEither "No delivery timestamp parse" $(unqDyn [|f4|])
               <*> readEither "No receipt timestamp parse" $(unqDyn [|f5|])
@@ -311,7 +340,7 @@ validatingCrudPieceField pbV proj attrs validate = el "td" $ mdo
     Right _ -> mempty
   fullAttrs <- combineDyn (<>) attrs extraAttrs
   return parseRes
-  
+
 
 s :: String -> String
 s = id
