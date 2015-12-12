@@ -26,7 +26,7 @@ library
                     , Server.Application
                     , Server.Crud
                     , Server.Database
-                    , Server.Experimenter
+                    , Server.Researcher
                     , Server.Resources
                     , Server.Session
                     , Server.Utils
@@ -43,6 +43,7 @@ library
                     , groundhog-th
                     , groundhog-postgresql
                     , heist
+                    , http-types
                     , lens >= 4.11 && < 4.14
                     , map-syntax >= 0.2 && < 0.3
                     , MonadCatchIO-transformers
@@ -81,6 +82,7 @@ executable tagging-server
                      , groundhog-th
                      , groundhog-postgresql
                      , heist
+                     , http-types
                      , lens >= 4.11 && < 4.14
                      , map-syntax >= 0.2 && < 0.3
                      , MonadCatchIO-transformers

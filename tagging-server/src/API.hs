@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module API where
 
@@ -12,6 +13,7 @@ import           Database.Groundhog
 import           GHC.Int
 import           Servant
 import           Servant.Server
+import           Servant.Docs
 import           Tagging.User
 import           Tagging.Stimulus
 import           Tagging.Response
@@ -26,14 +28,24 @@ type TaggingAPI =
   SessionAPI
   :<|> SubjectAPI
   :<|> ResourcesAPI
+  :<|> ResearcherAPI
 --   :<|> "docs" :> Raw AppHandler (AppHandler ())
 --   :<|> "clients" :> ClientLibs
 
 ------------------------------------------------------------------------------
-type ResearcherAPI = "assignStart" :> Capture "id" Int :> Put '[JSON] ()
+type ResearcherAPI = "assignsequence" :> Capture "userid"   Int64
+                                      :> Capture "sequence" Int64
+                                      :> Put '[JSON] ()
 
-                :<|> "loadSequence" :> ReqBody '[JSON] StimulusSequence
-                                    :> Post '[JSON] ()
+                :<|> "loadSequence" :> ReqBody '[JSON] (StimulusSequence,
+                                                        [StimSeqItem])
+                                    :> Post '[JSON] Int64
+
+                :<|> "subjectdata"  :> Capture "userid"     Int64
+                                    :> Capture "sequence" Int64
+                                    :> Get '[JSON] (Headers
+                                                    '[Header "Content-Disposition" String]
+                                                    [StimulusResponse])
 
 
 ------------------------------------------------------------------------------
@@ -50,3 +62,9 @@ type ClientLibs = "matlab"     :> Raw AppHandler (AppHandler ())
 ------------------------------------------------------------------------------
 apiProxy :: Proxy TaggingAPI
 apiProxy = Proxy
+
+instance ToCapture (Capture "sequence" Int64) where
+  toCapture _ = DocCapture "sequence" "Key for the Stimulus Sequence"
+
+instance ToCapture (Capture "userid" Int64) where
+  toCapture _ = DocCapture "sequence" "Numeric key for the user"

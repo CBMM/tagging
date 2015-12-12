@@ -73,5 +73,9 @@ instance ToParam (QueryFlag "advance") where
               ("Set this flag to advance when submitted " ++
               "stim response should advance the trial index")
               Normal
+
+
+instance ToSample Char where
+  toSamples _ = singleSample 'c'
 -- instance HasDocs (Raw a b) where
 --   docsFor _ _ = mempty

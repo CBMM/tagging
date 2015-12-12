@@ -57,7 +57,7 @@ import           API
 import           APIDocs
 import           Server.Application
 import           Server.Crud
-import           Server.Experimenter
+import           Server.Researcher
 import           Server.Resources
 import           Server.Session
 import           Server.Subject
@@ -65,6 +65,7 @@ import           Server.Subject
 apiServer :: Server TaggingAPI AppHandler
 apiServer = sessionServer :<|> subjectServer
             :<|> resourceServer -- :<|> docsServer
+            :<|> researcherServer
 
 
 apiApplication :: Application AppHandler

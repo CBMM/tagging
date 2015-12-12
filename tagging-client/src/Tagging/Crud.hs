@@ -47,9 +47,9 @@ class (A.FromJSON v, A.ToJSON v) => Crud v where
 
   resourceName :: Proxy v -> String
 
-  resourceWidget  :: MonadWidget t m  
-                  => (Dynamic t v) 
-                  -> (Dynamic t Bool) 
+  resourceWidget  :: MonadWidget t m
+                  => (Dynamic t v)
+                  -> (Dynamic t Bool)
                   -> m (Dynamic t (Either String v))
 
   resourceHeaders :: Proxy v -> [String]
