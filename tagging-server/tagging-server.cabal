@@ -40,7 +40,7 @@ library
                     , errors >= 2.0 && < 2.1
                     , filepath
                     , groundhog
-                    , groundhog-th
+                    , groundhog-th >= 0.7.1.0 && < 0.8
                     , groundhog-postgresql
                     , heist
                     , http-types
