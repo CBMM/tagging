@@ -12,36 +12,38 @@
 
 module Tagging.Experiments.HomeAlone.Widgets where
 
+------------------------------------------------------------------------------
 import           Control.Applicative
 import           Control.Error
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Foldable
 import           Data.Functor
-import qualified Data.List as L
-import qualified Data.Map as Map
+import qualified Data.List                  as L
+import qualified Data.Map                   as Map
 import           Data.Monoid
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import qualified Data.Text.Lazy.Encoding as TL
+import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as T
+import qualified Data.Text.Lazy.Encoding    as TL
 import           Data.Time
-import qualified Data.ByteString.Char8 as B8
+import qualified Data.ByteString.Char8      as B8
 import qualified Data.ByteString.Lazy.Char8 as BSL
-import qualified Data.Aeson as A
+import qualified Data.Aeson                 as A
 import           Data.Default
 import           GHC.Int
+------------------------------------------------------------------------------
 import           Reflex
 import           Reflex.Dom
 import           Reflex.Dom.Contrib.Widgets.ButtonGroup
 import           Reflex.Dom.Contrib.Widgets.Common
 import           Reflex.Dom.Time
 import           Reflex.Dom.Xhr
-
+------------------------------------------------------------------------------
 import           Tagging.Response
 import           Tagging.Stimulus
 import           Tagging.User
 import           Experiments.HomeAlonePersonAndDirection
-
+------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------
 -- | Widget collecting all of the selectable characters. Uses the List
@@ -239,59 +241,77 @@ clipPropsWidget characterNames selName resetEvents = mdo
 
   nameDyn <- holdDyn Nothing selName
 
+  let bgroup lbl choices = el "tr" $ do
+        el "td" $ text lbl
+        wid <- el "td" $
+          bootstrapButtonGroup choices
+          def { _widgetConfig_setValue   = Nothing <$ resetEvents
+              , _widgetConfig_attributes = "class" =: "btn-group-xs"
+              }
+        holdDyn Nothing (_hwidget_change wid)
+
   fmap Map.fromList $ forM characterNames $ \c -> do
 
     singleCharacterProps <- forDyn nameDyn $ \selName ->
       bool ("style" =: "display:none;") mempty (Just c == selName)
 
     elDynAttr "div" singleCharacterProps $ el "table" $ do
-     -- dynHeadDir <- el "tr" $ do
-     --  el "td" $ text "Head Direction"
-     --  headDropdown <- el "td" $
+
+     dynHeadDir <- bgroup "Head"
+                   (constDyn [(HDLeft, "Left")   ,(HDFront, "Front")
+                             ,(HDRight, "Right") ,(HDBack,  "Back")
+                             ,(HDBody, "Body") ,(HDOffscreen, "Offscreen")]
+                   )
+
+     -- dynHeadDir :: Dynamic t (Maybe HeadInfo) <- el "tr" $ do
+     --   el "td" $ text "Head Direction"
+     --   wid <- el "td" $ bootstrapButtonGroup
+     --             (constDyn [(HDLeft, "Left")
+     --                       ,(HDFront, "Front")
+     --                       ,(HDRight, "Right")
+     --                       ,(HDBack,  "Back")
+     --                       ,(HDBody, "Body")
+     --                       ,(HDOffscreen, "Offscreen")])
+     --             def { _widgetConfig_setValue = Nothing <$ resetEvents
+     --                 , _widgetConfig_attributes = "class" =: "btn-group-xs"
+     --                 }
+     --   holdDyn Nothing (_hwidget_change wid)
+
+     dynTalking <- bgroup "Talking"
+                   (constDyn [(False,"No") ,(True,"Yes")])
+
+     -- dynTalking <- el "tr" $ do
+     --  el "td" $ text "Interacting"
+     --  talkingDropdown <- el "td" $
      --    dropdown Nothing
-     --      (constDyn $ Map.fromList $
-     --        (Nothing, "") : map (\hd -> (Just hd, drop 2  (show hd) ))
-     --                        [HDLeft .. HDOffscreen]
+     --      (constDyn $ Map.fromList [ (Nothing, "")
+     --                               , (Just True,"Yes")
+     --                               , (Just False, "No")]
      --      ) (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
-     --  holdDyn Nothing (_dropdown_change headDropdown)
 
-     dynHeadDir :: Dynamic t (Maybe HeadInfo) <- el "tr" $ do
-       el "td" $ text "Head Direction"
-       wid <- el "td" $ bootstrapButtonGroup
-                 (constDyn [(HDLeft, "Left")
-                           ,(HDFront, "Front")
-                           ,(HDRight, "Right")
-                           ,(HDBack,  "Back")
-                           ,(HDBody, "Body")
-                           ,(HDOffscreen, "Offscreen")]) def
-       holdDyn Nothing (_hwidget_change wid)
+     --  holdDyn Nothing (_dropdown_change talkingDropdown)
+     dynPain <- bgroup "In Pain"
+                   (constDyn [(False,"No") ,(True,"Yes")])
 
-     dynTalking <- el "tr" $ do
-      el "td" $ text "Interacting"
-      talkingDropdown <- el "td" $
-        dropdown Nothing
-          (constDyn $ Map.fromList [ (Nothing, "")
-                                   , (Just True,"Yes")
-                                   , (Just False, "No")]
-          ) (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
+     dynMentalizing <- bgroup "Mentalizing"
+                       (constDyn [(False,"No") ,(True,"Yes")])
 
-      holdDyn Nothing (_dropdown_change talkingDropdown)
 
-     dynPain <- el "tr" $ do
-      el "td" $ text "Physical Pain"
-      painDropdown <- el "td" $
-        dropdown Nothing
-          (constDyn $ Map.fromList [(Nothing,""),(Just False,"No"),(Just True,"Yes")])
-          (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
-      holdDyn Nothing (_dropdown_change painDropdown)
+     -- dynPain <- el "tr" $ do
+     --  el "td" $ text "Physical Pain"
+     --  painDropdown <- el "td" $
+     --    dropdown Nothing
+     --      (constDyn $ Map.fromList [(Nothing,""),(Just False,"No"),(Just True,"Yes")])
+     --      (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
+     --  holdDyn Nothing (_dropdown_change painDropdown)
 
-     dynMentalizing <- el "tr" $ do
-      el "td" $ text "Mentalizing"
-      mentalizingDropdown <- el "td" $
-        dropdown Nothing
-          (constDyn $ Map.fromList [(Nothing,""),(Just False,"No"),(Just True,"Yes")])
-          (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
-      holdDyn Nothing (_dropdown_change mentalizingDropdown)
+     -- dynMentalizing <- el "tr" $ do
+     --  el "td" $ text "Mentalizing"
+     --  mentalizingDropdown <- el "td" $
+     --    dropdown Nothing
+     --      (constDyn $ Map.fromList [(Nothing,""),(Just False,"No"),(Just True,"Yes")])
+     --      (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
+     --  holdDyn Nothing (_dropdown_change mentalizingDropdown)
 
 
      clipProps <- $(qDyn [| ClipProperties c
