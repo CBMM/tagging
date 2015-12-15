@@ -32,6 +32,8 @@ import           Data.Default
 import           GHC.Int
 import           Reflex
 import           Reflex.Dom
+import           Reflex.Dom.Contrib.Widgets.ButtonGroup
+import           Reflex.Dom.Contrib.Widgets.Common
 import           Reflex.Dom.Time
 import           Reflex.Dom.Xhr
 
@@ -243,16 +245,26 @@ clipPropsWidget characterNames selName resetEvents = mdo
       bool ("style" =: "display:none;") mempty (Just c == selName)
 
     elDynAttr "div" singleCharacterProps $ el "table" $ do
-     dynHeadDir <- el "tr" $ do
-      el "td" $ text "Head Direction"
-      headDropdown <- el "td" $
-        dropdown Nothing
-          (constDyn $ Map.fromList $
-            (Nothing, "") : map (\hd -> (Just hd, drop 2  (show hd) ))
-                            [HDLeft .. HDOffscreen]
-          ) (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
+     -- dynHeadDir <- el "tr" $ do
+     --  el "td" $ text "Head Direction"
+     --  headDropdown <- el "td" $
+     --    dropdown Nothing
+     --      (constDyn $ Map.fromList $
+     --        (Nothing, "") : map (\hd -> (Just hd, drop 2  (show hd) ))
+     --                        [HDLeft .. HDOffscreen]
+     --      ) (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
+     --  holdDyn Nothing (_dropdown_change headDropdown)
 
-      holdDyn Nothing (_dropdown_change headDropdown)
+     dynHeadDir :: Dynamic t (Maybe HeadInfo) <- el "tr" $ do
+       el "td" $ text "Head Direction"
+       wid <- el "td" $ bootstrapButtonGroup
+                 (constDyn [(HDLeft, "Left")
+                           ,(HDFront, "Front")
+                           ,(HDRight, "Right")
+                           ,(HDBack,  "Back")
+                           ,(HDBody, "Body")
+                           ,(HDOffscreen, "Offscreen")]) def
+       holdDyn Nothing (_hwidget_change wid)
 
      dynTalking <- el "tr" $ do
       el "td" $ text "Interacting"
@@ -283,7 +295,7 @@ clipPropsWidget characterNames selName resetEvents = mdo
 
 
      clipProps <- $(qDyn [| ClipProperties c
-                            <$>      $(unqDyn [| dynHeadDir    |])
+                            <$>      $(unqDyn [| dynHeadDir |])
                             <*>      $(unqDyn [| dynTalking    |])
                             <*> pure $(unqDyn [| dynPain       |])
                             <*> pure $(unqDyn [| dynMentalizing|])

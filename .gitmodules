@@ -25,3 +25,6 @@
 [submodule "deps/reflex-dom"]
 	path = deps/reflex-dom
 	url = http://github.com/imalsogreg/reflex-dom
+[submodule "deps/reflex-dom-contrib"]
+	path = deps/reflex-dom-contrib
+	url = http://github.com/imalsogreg/reflex-dom-contrib

@@ -29,8 +29,8 @@ library
                      , groundhog
                      , groundhog-th >= 0.7.1 && < 0.8
                      , reflex
---                      , reflex-dom-contrib
-                     , reflex-dom >= 0.2.1
+                     , reflex-dom-contrib >= 0.4 && < 0.5
+                     , reflex-dom >= 0.2
                      , text
                      , time
                      , tagging-common
@@ -58,6 +58,7 @@ executable AdminPanel
                , groundhog
                , reflex
                , reflex-dom
+               , reflex-dom-contrib
                , tagging-common
                , tagging-client
                , text
@@ -73,7 +74,7 @@ executable AdminPanel
 --                      , groundhog
 -- --                     , groundhog-postgresql
 --                      , reflex
---                      , reflex-dom >= 0.2.1 && < 0.3
+--                      , reflex-dom >= 0.2
 --                      , tagging-common
 --                      , tagging-client
 --                      , text
@@ -91,6 +92,7 @@ executable HomeAlone
                      , groundhog
                      , reflex
                      , reflex-dom
+                     , reflex-dom-contrib
                      , tagging-common
                      , tagging-client
                      , text
