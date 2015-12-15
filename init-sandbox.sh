@@ -29,8 +29,6 @@ cabal sandbox add-source deps/servant-snap/
 cabal sandbox add-source deps/servant-matlab/
 
 cabal sandbox add-source deps/yaml-ghcjs/
-cabal sandbox add-source deps/groundhog/groundhog
-cabal sandbox add-source deps/groundhog/groundhog-postgresql
 cabal sandbox add-source deps/groundhog/groundhog-th
 
 cabal sandbox add-source deps/reflex-dom

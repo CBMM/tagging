@@ -41,18 +41,18 @@ instance HasPostgres (Handler b App) where
    getPostgresState = with db get
    setLocalPostgresState s = local (set (db . snapletValue) s)
 
---instance G.HasGroundhogPostgres (Handler b App) where
---  getGroundhogPostgresState = with gdb get
+-- instance G.HasGroundhogPostgres (Handler b App) where
+--   getGroundhogPostgresState = with gdb get
 
 instance G.ConnectionManager (Pool Connection) G.Postgresql where
   withConn f pconn = withResource pconn $ G.withConn f . G.Postgresql
   withConnNoTransaction f pconn =
-    withResource pconn $ G.withConnNoTransaction f . G.Postgresql
+     withResource pconn $ G.withConnNoTransaction f . G.Postgresql
 
 instance G.ConnectionManager App G.Postgresql where
   withConn f app              = G.withConn f (_gh app)
   withConnNoTransaction f app = G.withConnNoTransaction
-                                f (_gh app)
+                                 f (_gh app)
 
 runGH :: G.ConnectionManager b conn
       => G.DbPersist conn (NoLoggingT IO) a
