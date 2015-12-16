@@ -22,7 +22,7 @@ html, body {
 .right-half {
   padding: 20px;
   display: flex;
-  flex-flow: row nowrap;
+  flex-flow: column nowrap;
 }
 
 .left-child {
@@ -59,7 +59,7 @@ html, body {
 }
 
 .choice-bank-widget{
-  order: 3;
+  order: 1;
   flex: 1;
   /* max-width:400px; 
   min-width:400px; */
@@ -75,7 +75,7 @@ html, body {
 }
 
 .stable-properties-widget{
-  order: 2;
+  order: 1;
   flex: 1;
   /* background-color: #9ff; */ /* cyan? */
   /* min-height: 200px;
@@ -91,6 +91,11 @@ html, body {
     margin: 5px;
     min-height:120px;
 }
+
+.clip-properties-widget {
+   min-width: 325px;
+}
+
 /****************************************
  ************** Choice bank *************
  ****************************************/
@@ -125,7 +130,7 @@ html, body {
 }
 
 .choice-bank-choice img, .selection-choice img {
-  position: absolute
+  position: absolute;
   width: 65px;
   height: 65px;
   color: black;
