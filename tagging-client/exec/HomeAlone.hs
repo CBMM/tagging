@@ -32,10 +32,9 @@ contentWidget = elClass "div" "content" $ mdo
   let fetchEvents = postBuild <> (() <$ clipXhr)
   posEvents <- (getAndDecode ("/api/fullposinfo" <$ fetchEvents))
 
-
   {-  Left Half -}
 
-  (selWidget, clipUps, stableUps) <- elClass "div" "left-half" $ mdo
+  (selWidget, clipUps) <- elClass "div" "left-half" $ mdo
 
     elClass "div" "left-child" $ do
       elClass "div" "movie-widget" (movieWidget (fmapMaybe id posEvents))
@@ -44,23 +43,24 @@ contentWidget = elClass "div" "content" $ mdo
       elClass "div" "selections-widget" $
         selectionsWidget currentSetSel currentSingleSel okToSend
 
-    (clipUps, stableUps) <- elClass "div" "left-child properties" $ do
-        clUps <- elClass "div" "clip-properties-widget" $
-          clipPropsWidget choices (updated currentSingleSel)
-            (swSends selWidget)
-        stUps <- elClass "div" "stable-properties-widget" $
-                   (stablePropsWidget choices (updated currentSingleSel))
-        return (clUps, stUps)
+    clipUps <- elClass "div" "left-child properties" $ do
+                 elClass "div" "clip-properties-widget" $
+                   clipPropsWidget choices (updated currentSingleSel)
+                   (swSends selWidget)
 
-    return (selWidget, clipUps, stableUps)
+    return (selWidget, clipUps)
 
   {-  Right Half -}
 
-  togs <- elClass "div" "right-half" $ mdo
+  (togs, stableUps) <- elClass "div" "right-half" $ mdo
 
     togs <- elClass "div" "righc-child choice-bank-widget"
               (choiceBankWidget choices (constDyn []))
-    return togs
+
+    stUps <- elClass "div" "stable-properties-widget" $
+               (stablePropsWidget choices (updated currentSingleSel))
+
+    return (togs,stUps)
 
 
   {- Logic -}

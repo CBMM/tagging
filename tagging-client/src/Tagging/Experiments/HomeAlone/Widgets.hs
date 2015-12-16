@@ -150,6 +150,21 @@ stablePropsWidget characterNames selName =
 
   nameDyn <- holdDyn Nothing selName
 
+  let bgroup :: (MonadWidget t m, Eq a, Show a)
+             => String 
+             -> Dynamic t [(a,String)]
+             -> m (Dynamic t (Maybe a))
+      bgroup lbl choices = el "tr" $ do
+        el "td" $ text lbl
+        wid <- el "td" $
+          bootstrapButtonGroup choices
+          WidgetConfig { _widgetConfig_setValue     = never
+                       , _widgetConfig_attributes   = constDyn ("class" =: "btn-group btn-group-xs")
+                       , _widgetConfig_initialValue = Nothing
+                       }
+        holdDyn Nothing (_hwidget_change wid)
+
+
   stableProps <- fmap Map.fromList $ forM characterNames $ \c -> do
 
     singleCharacterProps <- forDyn nameDyn $ \selName ->
@@ -158,40 +173,16 @@ stablePropsWidget characterNames selName =
     elDynAttr "div" singleCharacterProps $
      el "table" $ do
 
-      dynGend <- el "tr" $ do
-       el "td" $ text "Gender"
-       el "td" $
-        elClass "div" "stable-props-gender" $
-           _dropdown_value <$> dropdown Nothing
-            (constDyn $ Map.fromList
-              [ (Nothing,"")
-              , (Just MaleGender,"Male")
-              , (Just FemaleGender,"Female")
-              , (Just OtherGender,"Other")
-              ]) (DropdownConfig never (constDyn mempty))
+      dynGend <- bgroup "Gender" (constDyn [(FemaleGender,"Female")
+                                           ,(MaleGender,"Male")
+                                           ,(OtherGender,"Other")])
 
-      dynFeel <- el "tr" $ do
-       el "td" $ text "Type"
-       el "td" $
-        elClass "div" "stable-props-feeling" $
-          _dropdown_value <$> dropdown Nothing
-            (constDyn $ Map.fromList
-              [ (Nothing,"")
-              , (Just GoodGuy,"Goodguy")
-              , (Just NeutralGuy,"Neutral")
-              , (Just BadGuy,"Badguy")
-              ]) (DropdownConfig never (constDyn mempty))
+      dynFeel <- bgroup "Type" (constDyn [(GoodGuy,"Goodguy")
+                                           ,(BadGuy,"Badguy")])
 
-      dynFam <- el "tr" $ do
-       el "td" $ text "Famous"
-       el "td" $
-        elClass "div" "stable-props-famous" $
-          _dropdown_value <$> dropdown Nothing
-            (constDyn $ Map.fromList
-              [ (Nothing,"")
-              , (Just True,"Famous")
-              , (Just False,"Not Famous")
-              ]) (DropdownConfig never (constDyn mempty))
+      dynFam <- bgroup "Famous" (constDyn [(False,"No")
+                                          ,(True,"True")])
+
 
       stableProps <- $(qDyn [| StableProperties c
                                ($(unqDyn [| dynGend |]))
@@ -241,13 +232,18 @@ clipPropsWidget characterNames selName resetEvents = mdo
 
   nameDyn <- holdDyn Nothing selName
 
-  let bgroup lbl choices = el "tr" $ do
+  let bgroup :: (MonadWidget t m, Eq a, Show a)
+             => String 
+             -> Dynamic t [(a,String)]
+             -> m (Dynamic t (Maybe a))
+      bgroup lbl choices = el "tr" $ do
         el "td" $ text lbl
         wid <- el "td" $
           bootstrapButtonGroup choices
-          def { _widgetConfig_setValue   = Nothing <$ resetEvents
-              , _widgetConfig_attributes = "class" =: "btn-group-xs"
-              }
+          WidgetConfig { _widgetConfig_setValue     = Nothing <$ resetEvents
+                       , _widgetConfig_attributes   = constDyn ("class" =: "btn-group btn-group-xs")
+                       , _widgetConfig_initialValue = Nothing
+                       }
         holdDyn Nothing (_hwidget_change wid)
 
   fmap Map.fromList $ forM characterNames $ \c -> do
@@ -260,7 +256,7 @@ clipPropsWidget characterNames selName resetEvents = mdo
      dynHeadDir <- bgroup "Head"
                    (constDyn [(HDLeft, "Left")   ,(HDFront, "Front")
                              ,(HDRight, "Right") ,(HDBack,  "Back")
-                             ,(HDBody, "Body") ,(HDOffscreen, "Offscreen")]
+                             ,(HDBody, "Body") ,(HDOffscreen, "Hidden")]
                    )
 
      -- dynHeadDir :: Dynamic t (Maybe HeadInfo) <- el "tr" $ do
