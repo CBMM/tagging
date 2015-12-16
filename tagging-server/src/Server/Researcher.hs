@@ -87,7 +87,7 @@ subjectData :: Int64
                 [StimulusResponse])
 subjectData userId seqId = do
   assertRole [Admin, Researcher]
-  let sKey        = intToKey (fromIntegral seqId)  :: DefaultKey StimulusSequence
+  let sKey = intToKey (fromIntegral seqId)  :: DefaultKey StimulusSequence
       disposition = B8.concat
                     [ "attachment; filename=\"taggingdata-"
                     , B8.pack (show (userId :: Int64))
