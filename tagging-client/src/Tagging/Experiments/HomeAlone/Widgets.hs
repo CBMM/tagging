@@ -273,7 +273,7 @@ clipPropsWidget characterNames selName resetEvents = mdo
      --                 }
      --   holdDyn Nothing (_hwidget_change wid)
 
-     dynTalking <- bgroup "Talking"
+     dynTalking <- bgroup "Interacting"
                    (constDyn [(False,"No") ,(True,"Yes")])
 
      -- dynTalking <- el "tr" $ do
