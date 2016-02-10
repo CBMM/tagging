@@ -23,12 +23,14 @@ cabal sandbox add-source deps/servant-snap/deps/servant/servant-js
 cabal sandbox add-source deps/servant-snap/deps/servant/servant-lucid
 cabal sandbox add-source deps/servant-snap/deps/servant/servant-mock
 cabal sandbox add-source deps/servant-snap/deps/servant/servant-server
+cabal sandbox add-source deps/hspec-snap
 
 cabal sandbox add-source deps/servant-snap/
 
 cabal sandbox add-source deps/servant-matlab/
 
 cabal sandbox add-source deps/yaml-ghcjs/
+cabal sandbox add-source deps/groundhog/groundhog
 cabal sandbox add-source deps/groundhog/groundhog-th
 
 cabal sandbox add-source deps/reflex-dom

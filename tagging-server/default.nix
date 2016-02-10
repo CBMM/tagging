@@ -9,12 +9,16 @@
 , stdenv, string-qq, tagging-common, text, time, transformers
 , unordered-containers, uuid, wreq
 }:
+
+
 mkDerivation {
   pname = "tagging-server";
   version = "0.1.0.0";
   src = ./.;
   isLibrary = true;
   isExecutable = true;
+
+
   libraryHaskellDepends = [
     aeson base bytestring configurator containers errors filepath
     groundhog groundhog-postgresql groundhog-th heist http-types lens

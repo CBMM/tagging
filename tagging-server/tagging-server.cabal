@@ -39,7 +39,7 @@ library
                     , configurator
                     , errors >= 2.0 && < 2.1
                     , filepath
-                    , groundhog >= 0.7 && < 0.7.0.3
+                    , groundhog >= 0.7 && < 0.7.0.4
                     , groundhog-th >= 0.7.1.0 && < 0.8
                     , groundhog-postgresql
                     , heist
