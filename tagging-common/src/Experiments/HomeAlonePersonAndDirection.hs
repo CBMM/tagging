@@ -2,9 +2,11 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Experiments.HomeAlonePersonAndDirection where
 
+import Control.Applicative
 import Control.Error
 import Control.Monad (mzero)
 import qualified Data.Aeson as A
@@ -12,7 +14,7 @@ import Data.Aeson.Types
 import Data.Char
 import qualified Data.Text as T
 import qualified Data.UUID as U
--- import qualified Database.Groundhog.Postgresql.Array as G
+import qualified Data.Vector as V
 import GHC.Generics
 import Tagging.Stimulus
 
@@ -27,11 +29,6 @@ clipSet = StimulusSequence "HomeAloneClips"
   where clips :: [StimSeqItem]
         clips = undefined
 
--- clips :: [StimulusResource]
--- clips = map (\n -> StimulusResource (T.pack (show n))
---                     ("clip" <> T.pack (show n) <> ".mp4")
---          "video/mp4") [0..10]
-
 
 data HomeAloneExperiment
 
@@ -43,7 +40,7 @@ instance Experiment HomeAloneExperiment where
 -- | The responses from the user have this type: Either a per-clip
 --   response (one is required per stimulus), or a Sporadic
 --   update to relatively stable character properties
-data HomeAloneResponse = PerClip [ClipProperties]
+data HomeAloneResponse = PerClip ([ClipProperties],Int)
                        -- ^ Every clip needs a list of Character data,
                        --   Who is in the clip, are they talking?
                        | Sporadic StableProperties
@@ -54,15 +51,39 @@ data HomeAloneResponse = PerClip [ClipProperties]
                        --   subject and their relation to the movie
                      deriving (Eq, Show, Generic)
 
-instance ToJSON   HomeAloneResponse where
-instance FromJSON HomeAloneResponse where
+instance ToJSON HomeAloneResponse
+
+-- instance ToJSON   HomeAloneResponse where
+--   toJSON (PerClip (ppl, nUnknown)) =
+--     A.object ["PerClip" .= (ppl,nUnknown)]
+--   toJSON (Sporadic sProps) =
+--     A.object ["Sporadic" .= toJSON sProps]
+--   toJSON (Survey v) =
+--     A.object ["Survey" .= v]
+
+instance FromJSON HomeAloneResponse
+
+-- instance FromJSON HomeAloneResponse where
+--   parseJSON (A.Object o) =
+--     parsePerClip o
+--     <|> fmap Sporadic (o .: "Sporadic")
+--     <|> fmap Survey   (o .: "Survey")
+--     where parsePerClip (A.Object o') = do
+--             v <- o' .: "PerClip"
+--             
+--             
+--             [charClipProps, A.Number n] ->
+--              (,) <$> parseJSON charClipProps <$> pure (realToFrac n)
+--            [charClipProps] ->
+--              (,) <$> parseJSON charClipProps <$> pure 0
+--             _ -> mzero
 
 
 
 data ClipProperties = ClipProperties
   { _cpCharacterName :: CharacterName
   , _cpHeadDir       :: HeadInfo
-  , _cpInteracting   :: Bool
+  , _cpInteracting   :: Interacting
   , _cpPain          :: Maybe Bool
   , _cpMentalizing   :: Maybe Bool
   } deriving (Eq, Ord, Show, Generic)
@@ -94,6 +115,10 @@ instance FromJSON StableProperties where
 data HeadInfo = HDLeft | HDFront | HDRight
               | HDBack | HDBody  | HDOffscreen
   deriving (Eq, Ord, Enum, Show, Read, Generic)
+
+data Interacting = InteractNone | InteractPos
+                 | InteractNeg | InteractNeut
+  deriving (Eq, Ord, Enum, Show, Read, Generic, ToJSON, FromJSON)
 
 data GoodBadGuy = BadGuy | NeutralGuy | GoodGuy
   deriving (Eq, Ord, Enum, Show, Read, Generic)

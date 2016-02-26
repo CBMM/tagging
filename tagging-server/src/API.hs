@@ -46,6 +46,9 @@ type ResearcherAPI = "assignsequence" :> Capture "userid"   Int64
                                     :> Get '[JSON] (Headers
                                                     '[Header "Content-Disposition" String]
                                                     [StimulusResponse])
+                :<|> "sequence" :> Capture "sequence" Int64
+                                :> Get '[JSON] (StimulusSequence,
+                                                [StimSeqItem])
 
 
 ------------------------------------------------------------------------------
@@ -55,8 +58,8 @@ type AdminAPI = "assignRole" :> QueryParam "id"     Int
                              :> Put '[JSON] ()
 
 
-type ClientLibs = "matlab"     :> Raw AppHandler (AppHandler ())
-             :<|> "javascript" :> Raw AppHandler (AppHandler ())
+type ClientLibs = "matlab"     :> Raw
+             :<|> "javascript" :> Raw
 
 
 ------------------------------------------------------------------------------

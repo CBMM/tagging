@@ -21,7 +21,7 @@ import Database.Groundhog.Core
 import GHC.Int
 import Snap.Core
 import Snap.Snaplet
-import Servant        hiding (err300)
+import Servant        hiding (err300, GET, POST, PUT, DELETE)
 import Servant.Server hiding (err300)
 
 import Server.Application

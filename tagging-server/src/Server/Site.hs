@@ -33,7 +33,7 @@ import qualified Database.Groundhog.Postgresql as GH
 import           GHC.Generics
 import           GHC.Int
 import qualified Heist.Interpreted as I
-import           Servant
+import           Servant hiding (GET, POST, PUT, DELETE)
 import           Servant.Docs
 import           Servant.Server
 import           Servant.Server.Internal.SnapShims
@@ -201,7 +201,7 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     return $ App h s a d g
 
 
-docsServer :: ServerT (Raw AppHandler (AppHandler ())) AppHandler
+docsServer :: ServerT Raw AppHandler
 docsServer = writeBS . BS.pack . markdown $ docsWithIntros [docsIntro] apiProxy
 
 

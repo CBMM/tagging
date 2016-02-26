@@ -1,5 +1,3 @@
-#!/bin/bash
-
 KEY=$1
 URL=$2
 

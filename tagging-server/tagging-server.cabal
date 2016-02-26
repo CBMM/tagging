@@ -171,3 +171,4 @@ executable makeClients
                   , servant-matlab
                   , servant-js
                   , tagging-server
+                  , text

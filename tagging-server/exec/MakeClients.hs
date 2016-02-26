@@ -3,6 +3,7 @@ module Main where
 
 import           Data.Foldable            (for_)
 import           Data.Proxy
+import           Data.Text
 import qualified System.Directory         as Dir
 import           System.Environment       (getArgs)
 import           System.FilePath          ((</>))
@@ -15,13 +16,13 @@ import API
 
 
 ------------------------------------------------------------------------------
-matlabLibrary :: [(String,String)]
-matlabLibrary =
-  Matlab.matlabForAPI
-  (Proxy :: Proxy TaggingAPI)
-  Matlab.matlabFunctions
+matlabLibrary :: [(Text,Text)]
+matlabLibrary = []
+--  Matlab.matlabForAPI
+--  (Proxy :: Proxy TaggingAPI)
+--  Matlab.matlabFunctions
 
-jsLibrary :: String
+jsLibrary :: Text
 jsLibrary =
   JS.jsForAPI (Proxy :: Proxy TaggingAPI)
   JS.vanillaJS
@@ -32,6 +33,6 @@ main =
     [d] -> do
       let matlabDir = d </> "tagging-matlab"
       Dir.createDirectoryIfMissing True (d </> "tagging-matlab")
-      for_ matlabLibrary $ \(fn,f) -> writeFile (matlabDir </> fn) f
-      writeFile (d </> "tagging.js") jsLibrary
+      for_ matlabLibrary $ \(fn,f) -> writeFile (matlabDir </> unpack fn) (unpack f)
+      writeFile (d </> "tagging.js") (unpack jsLibrary)
     _ -> putStrLn "Call with one argument: directory to build all clients"

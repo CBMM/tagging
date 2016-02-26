@@ -7,6 +7,7 @@ import Tagging.User
 import Tagging.Stimulus
 import Tagging.Response
 import Tagging.Crud
+import Reflex.Dom.Contrib.Widgets.ButtonGroup
 
 main = mainWidget $ do
   el "hr" $ return ()

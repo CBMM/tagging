@@ -35,7 +35,8 @@ import Utils
 
 
 researcherServer :: ServerT ResearcherAPI AppHandler
-researcherServer = assignUserSeqStart :<|> loadSequence :<|> subjectData
+researcherServer = assignUserSeqStart :<|> loadSequence
+              :<|> subjectData        :<|> getSequence
 
 
 ------------------------------------------------------------------------------
@@ -78,6 +79,18 @@ loadSequence (stimSeq, ssItems) = do
     forM_ ssItems $ \ssItem -> insert ssItem {ssiStimulusSequence = seqKey}
     return (fromIntegral $ Utils.keyToInt seqKey)
 
+getSequence :: Int64 -> AppHandler (StimulusSequence, [StimSeqItem])
+getSequence seqID = do
+  assertRole [Admin, Researcher]
+  let ssKey = integralToKey seqID :: DefaultKey StimulusSequence
+  ss :: Maybe StimulusSequence <- runGH $ get ssKey
+  case ss of
+    Nothing   -> Server.Utils.err300 "Unknown stimusul sequence"
+    Just sseq -> do
+      items <- runGH $
+        select $ (SsiStimulusSequenceField ==. ssKey)
+                 `orderBy` [Asc SsiIndexField]
+      return (sseq, items)
 
 ------------------------------------------------------------------------------
 subjectData :: Int64

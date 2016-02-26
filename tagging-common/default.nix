@@ -1,7 +1,7 @@
 { mkDerivation, aeson, base, base64-bytestring, bytestring, deepseq
 , errors, filepath, groundhog, groundhog-postgresql, groundhog-th
 , lens, monad-logger, resource-pool, servant, servant-docs, stdenv
-, text, time, transformers, uuid, vector
+, text, time, transformers, uuid, vector, compilername ? "ghcjs"
 }:
 mkDerivation {
   pname = "tagging-common";
@@ -10,9 +10,9 @@ mkDerivation {
   src = ./.;
   libraryHaskellDepends = [
     aeson base base64-bytestring bytestring deepseq errors filepath
-    groundhog groundhog-postgresql groundhog-th lens monad-logger
+    groundhog groundhog-th lens monad-logger
     resource-pool servant servant-docs text time transformers uuid
     vector
-  ];
+  ] ++ (if compilername == "ghc" then [ groundhog-postgresql ] else [ ]);
   license = stdenv.lib.licenses.bsd3;
 }

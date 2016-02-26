@@ -60,7 +60,7 @@ let
       , groundhog-postgresql, http-types, lens
       , map-syntax, monad-logger, MonadCatchIO-transformers, mtl
       , optparse-applicative, postgresql-simple, resource-pool, s3-signer
-      , SHA, snap-loader-dynamic
+      , SHA
       , stdenv, string-qq
       , text, time, transformers, unordered-containers, uuid, wreq
       }:

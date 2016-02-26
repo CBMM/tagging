@@ -34,12 +34,12 @@ contentWidget = elClass "div" "content" $ mdo
 
   {-  Left Half -}
 
-  (selWidget, clipUps) <- elClass "div" "left-half" $ mdo
+  (selWidget, clipUps, nOthers) <- elClass "div" "left-half" $ mdo
 
     elClass "div" "left-child" $ do
       elClass "div" "movie-widget" (movieWidget (fmapMaybe id posEvents))
 
-    selWidget <- elClass "div" "left-child" $ do
+    (selWidget, nOthers) <- elClass "div" "left-child" $ do
       elClass "div" "selections-widget" $
         selectionsWidget currentSetSel currentSingleSel okToSend
 
@@ -48,7 +48,7 @@ contentWidget = elClass "div" "content" $ mdo
                    clipPropsWidget choices (updated currentSingleSel)
                    (swSends selWidget)
 
-    return (selWidget, clipUps)
+    return (selWidget, clipUps, nOthers)
 
   {-  Right Half -}
 
@@ -66,22 +66,25 @@ contentWidget = elClass "div" "content" $ mdo
   {- Logic -}
 
   sel <- foldDyn foldAux (Nothing, [])
-         (traceEventWith show $ leftmost [fmap (, Nothing) togs -- TODO right?
+         (leftmost [fmap (, Nothing) togs -- TODO right?
                    ,fmap (, Just True)  (swAdditions selWidget)
-                   ,fmap (, Just False) (swDeletions selWidget)])
+                   ,fmap (, Just False) (swDeletions selWidget) ])
 
-  currentSingleSel :: Dynamic t (Maybe CharacterName) <- mapDyn fst sel
-  currentSetSel    :: Dynamic t [CharacterName]       <- mapDyn snd sel
+  currentSingleSel :: Dynamic t (Maybe CharacterName) <- holdDyn Nothing (leftmost [(fmap fst $ updated sel)
+                                                                                   ,Nothing <$ clipXhr])
+  currentSetSel    :: Dynamic t [CharacterName]       <- holdDyn [] (leftmost [fmap snd (updated sel)
+                                                                              ,[] <$ clipXhr])
 
   clipProps <- sampleClipProperties clipUps currentSetSel
   okToSend  <- combineDyn (\cp selSet -> length cp == length selSet)
                clipProps currentSetSel
+  charsAndOthers <- combineDyn (,) clipProps nOthers
   let clipResponses =
-        ffor (gate (current okToSend) (tag (current clipProps) (swSends selWidget))) $
-        \cp -> XhrRequest "POST" "/api/response?advance" $
-               XhrRequestConfig ("Content-Type" =: "application/json")
-               Nothing Nothing Nothing (Just . BSL.unpack $ A.encode
-                                        (ResponsePayload (A.toJSON (PerClip cp))))
+        ffor (gate (current okToSend) (tag (current charsAndOthers) (swSends selWidget))) $
+          \(cp,n) -> XhrRequest "POST" "/api/response?advance" $
+                       XhrRequestConfig ("Content-Type" =: "application/json")
+                       Nothing Nothing Nothing (Just . BSL.unpack $ A.encode
+                                               (ResponsePayload (A.toJSON (PerClip (cp,n)))))
   clipXhr <- performRequestAsync clipResponses
 
   return ()

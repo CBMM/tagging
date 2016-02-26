@@ -233,7 +233,7 @@ clipPropsWidget characterNames selName resetEvents = mdo
   nameDyn <- holdDyn Nothing selName
 
   let bgroup :: (MonadWidget t m, Eq a, Show a)
-             => String 
+             => String
              -> Dynamic t [(a,String)]
              -> m (Dynamic t (Maybe a))
       bgroup lbl choices = el "tr" $ do
@@ -246,14 +246,12 @@ clipPropsWidget characterNames selName resetEvents = mdo
                        }
         holdDyn Nothing (_hwidget_change wid)
 
-  fmap Map.fromList $ forM characterNames $ \c -> do
-
+  chars <- fmap Map.fromList $ forM characterNames $ \c -> do
     singleCharacterProps <- forDyn nameDyn $ \selName ->
       bool ("style" =: "display:none;") mempty (Just c == selName)
-
     elDynAttr "div" singleCharacterProps $ el "table" $ do
-
      dynHeadDir <- bgroup "Head"
+<<<<<<< HEAD
                    (constDyn [(HDLeft, "Left")   ,(HDFront, "Front")
                              ,(HDRight, "Right") ,(HDBack,  "Back")
                              ,(HDBody, "Body") ,(HDOffscreen, "Hidden")]
@@ -286,39 +284,30 @@ clipPropsWidget characterNames selName resetEvents = mdo
      --      ) (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
 
      --  holdDyn Nothing (_dropdown_change talkingDropdown)
+=======
+                   (constDyn [(HDLeft,  "Left")  ,(HDFront,     "Front")
+                             ,(HDRight, "Right") ,(HDBack,      "Back")
+                             ,(HDBody,  "Body")  ,(HDOffscreen, "Hidden")])
+     dynInteracting <- bgroup "Interacting"
+                   (constDyn [(InteractNone, "No")
+                             ,(InteractPos,  "Positive")
+                             ,(InteractNeg,  "Negative")
+                             ,(InteractNeut, "Neutral")])
+>>>>>>> unknowncharacters
      dynPain <- bgroup "In Pain"
-                   (constDyn [(False,"No") ,(True,"Yes")])
-
+                   (constDyn [(False, "No"), (True, "Yes")])
      dynMentalizing <- bgroup "Mentalizing"
-                       (constDyn [(False,"No") ,(True,"Yes")])
-
-
-     -- dynPain <- el "tr" $ do
-     --  el "td" $ text "Physical Pain"
-     --  painDropdown <- el "td" $
-     --    dropdown Nothing
-     --      (constDyn $ Map.fromList [(Nothing,""),(Just False,"No"),(Just True,"Yes")])
-     --      (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
-     --  holdDyn Nothing (_dropdown_change painDropdown)
-
-     -- dynMentalizing <- el "tr" $ do
-     --  el "td" $ text "Mentalizing"
-     --  mentalizingDropdown <- el "td" $
-     --    dropdown Nothing
-     --      (constDyn $ Map.fromList [(Nothing,""),(Just False,"No"),(Just True,"Yes")])
-     --      (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
-     --  holdDyn Nothing (_dropdown_change mentalizingDropdown)
-
-
+                       (constDyn [(False, "No"), (True, "Yes")])
      clipProps <- $(qDyn [| ClipProperties c
-                            <$>      $(unqDyn [| dynHeadDir |])
-                            <*>      $(unqDyn [| dynTalking    |])
-                            <*> pure $(unqDyn [| dynPain       |])
-                            <*> pure $(unqDyn [| dynMentalizing|])
+                            <$>      $(unqDyn [| dynHeadDir     |])
+                            <*>      $(unqDyn [| dynInteracting |])
+                            <*> pure $(unqDyn [| dynPain        |])
+                            <*> pure $(unqDyn [| dynMentalizing |])
                          |])
+     return (c, clipProps)
 
-     return (c,clipProps)
 
+  return (chars)
 
 
 data SelectionWidget t = SelectionWidget
@@ -338,7 +327,7 @@ selectionsWidget :: MonadWidget t m
                  -> Dynamic t (Maybe CharacterName)
                  -> Dynamic t Bool
                     -- ^ Flag for whether send button should be enabled
-                 -> m (SelectionWidget t)
+                 -> m (SelectionWidget t, Dynamic t Int)
 selectionsWidget selChars selChar okToSend =
  elClass "div" "selections-container" $ do
 
@@ -375,9 +364,17 @@ selectionsWidget selChars selChar okToSend =
     (e,_) <- elDynAttr' "button" sendAttrs $ text "Send"
     return (domEvent Click e)
 
-  return $ SelectionWidget (fmap fst (ffilter snd clks))
-                           (fmap fst (ffilter (not . snd) clks))
-                           sendClicks
+  nOtherChars <- elAttr "div" ("class" =: "others-and-send") $ do
+    text "Others"
+    dropdown 0
+      (constDyn $ Map.fromList [((0::Int),"0"),(1,"1"),(2,"2"),(3,"3+")]) 
+      (DropdownConfig (0 <$ sendClicks) 
+                      (constDyn $ "class" =: "n-characters"))
+
+  return $ (SelectionWidget (fmap fst (ffilter snd clks))
+                            (fmap fst (ffilter (not . snd) clks))
+                            sendClicks,
+            value nOtherChars)
 
 
 -----------------------------------------------------------------------------
@@ -423,8 +420,8 @@ searchText query source = do
 -- Listing of names and paths to their pics (hard-coded for now. TODO serve)
 choices :: [CharacterName]
 choices= ["Kevin McC" ,"Tracy McC" ,"Sondra McC" ,"Rod McC" ,"Rob McC"
-         ,"Buzz McC" ,"Peter McC" ,"Other" ,"Other (Major)" ,"Other (Minor)"
-         ,"Not Sure" ,"Mrs. Stone" ,"Mr. Hector" ,"Mr. Duncan"
+         ,"Buzz McC" ,"Peter McC"
+         ,"Mrs. Stone" ,"Mr. Hector" ,"Mr. Duncan"
          ,"Megan McC" ,"Marv Merch" ,"Linnie McC" ,"Leslie McC" ,"Kate McC"
          ,"Jeff McC" ,"Harry Lyme" ,"Fuller McC" ,"Frank McC" ,"Cedric"
          ,"Brooke McC" ,"Bird Lady"
