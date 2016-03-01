@@ -31,7 +31,7 @@ library
                      , deepseq
                      , errors
                      , filepath
-                     , groundhog >= 0.7 && < 0.7.0.3
+                     , groundhog >= 0.7 && < 0.7.0.4
                      , groundhog-th
                      , lens
                      , monad-logger
