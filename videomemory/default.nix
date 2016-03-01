@@ -1,5 +1,5 @@
 { mkDerivation, aeson, base, bytestring, containers, ghcjs-dom
-, reflex, reflex-dom, stdenv, tagging-common, text
+, lens, lens-aeson, reflex, reflex-dom, stdenv, tagging-common, text
 , unordered-containers, vector
 }:
 mkDerivation {
@@ -9,7 +9,8 @@ mkDerivation {
   isLibrary = false;
   isExecutable = true;
   executableHaskellDepends = [
-    aeson base bytestring containers ghcjs-dom reflex reflex-dom
+    aeson base bytestring containers ghcjs-dom 
+    lens lens-aeson reflex reflex-dom
     tagging-common text unordered-containers vector
   ];
   license = stdenv.lib.licenses.bsd3;

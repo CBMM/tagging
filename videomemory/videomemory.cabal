@@ -24,6 +24,7 @@ executable videomemory
                        bytestring, 
                        containers, 
                        ghcjs-dom, 
+                       lens-aeson,
                        reflex, 
                        reflex-dom, 
                        tagging-common, 

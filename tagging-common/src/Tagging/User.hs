@@ -26,12 +26,12 @@ import qualified Data.Text as T
 import           Data.Time
 import qualified Data.UUID as UUID
 import qualified Data.Vector as V
-import Database.Groundhog
-import Database.Groundhog.Core
-import Database.Groundhog.Instances
-import Database.Groundhog.TH
-import GHC.Generics
-import GHC.Int
+import           Database.Groundhog
+import           Database.Groundhog.Core
+import           Database.Groundhog.Instances
+import           Database.Groundhog.TH
+import           GHC.Generics
+import           GHC.Int
 
 import Servant.Docs
 
@@ -74,6 +74,8 @@ data Assignment = Assignment
   , aSequence :: DefaultKey StimulusSequence
   , aIndex    :: Int
   } deriving (Generic)
+
+deriving instance Eq Assignment
 
 deriving instance Show Assignment
 instance A.ToJSON Assignment where
