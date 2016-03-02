@@ -135,7 +135,7 @@ getCurrentAssignment = runMaybeT $ do
   u   <- hushT getCurrentTaggingUser
   let uKey = Utils.integralToKey (tuId u) :: DefaultKey TaggingUser
   MaybeT $ fmap listToMaybe $ runGH $ select (uKey ==. AUserField)
-  -- MaybeT $ runGH $ get (Utils.integralToKey (tuId u))
+
 
 handleCurrentAssignment :: AppHandler Assignment
 handleCurrentAssignment =
@@ -147,11 +147,12 @@ getCurrentStimSeqItem :: AppHandler (Maybe StimSeqItem)
 getCurrentStimSeqItem = do
   res <- getCurrentAssignment
   case res of
-    Nothing -> error "NoPosInfo" -- TODO
+    Nothing -> error "No PosInfo" -- TODO
     Just (Assignment _ key i) -> do
       u <- exceptT (const $ error "Bad lookup") return getCurrentTaggingUser
-      p <-  maybeT (Server.Utils.err300 "No user assignment") return $
-              MaybeT $ runGH (get (Utils.intToKey $ fromIntegral $ tuId u))
+      -- TOOD p assignment is a bug. select on tuId, not get (get uses assignment primary key, not userid)
+      -- p <-  maybeT (Server.Utils.err300 "No user assignment") return $
+      --         MaybeT $ runGH (get (Utils.intToKey $ fromIntegral $ tuId u))
       t <- liftIO getCurrentTime
       modifyResponse $ Snap.Core.addHeader "Cache-Control" "no-cache"
       ssi <- runGH $ select (SsiStimulusSequenceField ==. key &&.
@@ -160,7 +161,7 @@ getCurrentStimSeqItem = do
         [] -> return Nothing
         [ssi] -> do
           runGH $ insert (StimulusRequest (tuId u)
-                                          (aSequence p)
+                                          (aSequence key)
                                           (fromIntegral $ aIndex p)
                                           t)
           return $ Just ssi

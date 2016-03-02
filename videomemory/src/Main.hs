@@ -8,7 +8,6 @@ module Main where
 import Control.Monad (mzero)
 import Data.Aeson
 import qualified Data.Aeson as A
-import Data.Aeson.Lens
 import Data.Bool
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.Foldable
@@ -28,29 +27,27 @@ mimeOf fn = case extension fn of
   "mp4" -> "video/mp4"
   where extension = reverse . takeWhile (/= '.') . reverse
 
-data StimResponse = Resp { _respHaveSeen :: Bool }
+data StimResponse = StimResponse
+  { _respRemember :: Bool }
   deriving (Eq, Ord, Show, Generic)
 
-type Response = Bool -- Remember the video clip, or not
+instance ToJSON StimResponse
+instance FromJSON StimResponse
 
 run :: forall t m.MonadWidget t m => m ()
 run = mdo
   pb <- getPostBuild
 
-  let stimRequestTriggers = leftmost [() <$ pb, () <$ submitSuccess]
+  let stimRequestTriggers = leftmost [pb, () <$ submitSuccess]
   posTry <- getAndDecode ("/api/fullposinfo" <$ stimRequestTriggers)
 
   let pos :: Event t (Assignment, StimulusSequence, StimSeqItem) = fmapMaybe id posTry
   errorText (text "Failed to load position")
             (True <$ ffilter (== Nothing) posTry)
-  -- vidWidget <- holdDyn (text "Waiting for video..." >> return never)
-  --                      (fmap videoQuestion pos)
-  -- responses <- elClass "div" "interaction" $
-  --   dyn vidWidget
-  responses :: Dynamic t (Event t Response) <- elClass "div" "interaction" $
+  responses :: Dynamic t (Event t StimResponse) <- elClass "div" "interaction" $
     widgetHold (text "Waiting..." >> return never) (fmap videoQuestion pos)
   submitSuccess <- performRequestAsync
-    (ffor (switchPromptlyDyn responses) $ \r ->
+    (ffor (switchPromptlyDyn responses) $ \(r :: StimResponse) ->
       XhrRequest "POST" "/api/response?advance" $
       XhrRequestConfig ("Content-Type" =: "application/json")
       Nothing Nothing Nothing (Just . BSL.unpack $ A.encode
@@ -61,7 +58,7 @@ run = mdo
 
 videoQuestion :: forall t m.MonadWidget t m
               => (Assignment, StimulusSequence, StimSeqItem)
-              -> m (Event t Response)
+              -> m (Event t StimResponse)
 videoQuestion (asgn, stimseq, ssi) = do
   elClass "div" "videoandquestion" $ do
     vid <- elAttr' "video" ("height"   =: "320"
@@ -79,7 +76,7 @@ videoQuestion (asgn, stimseq, ssi) = do
        ns <- fmap (False <$) (button "No")
        return $ leftmost [ys,ns]
     remembered <- holdDyn Nothing $ fmap Just rememb
-    return $ fmapMaybe id (updated remembered)
+    return $ fmap StimResponse $ fmapMaybe id (updated remembered)
 
 welcome :: MonadWidget t m => m (Event t ())
 welcome = elClass "div" "welcome" $ do
