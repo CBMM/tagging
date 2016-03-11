@@ -67,6 +67,7 @@ library
                     , transformers
                     , uuid
                     , unordered-containers >= 0.2 && < 0.3
+                    , vector
 
 executable tagging-server
   main-is:             Server.hs

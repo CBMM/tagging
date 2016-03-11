@@ -108,6 +108,7 @@ subjectData userId seqId = do
                     , B8.pack (show (seqId :: Int64))
                     , ".json\""
                     ]
-  res <- runGH $ select (SrUserField         ==. userId
-                  &&. SrSequenceField ==. sKey)
+  res <- runGH $ select $ (SrUserField         ==. userId
+                          &&. SrSequenceField ==. sKey)
+                          `orderBy` [Asc SrIndexField]
   return $ H.addHeader (B8.unpack disposition) res
