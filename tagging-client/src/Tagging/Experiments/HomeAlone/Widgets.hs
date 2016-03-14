@@ -251,40 +251,6 @@ clipPropsWidget characterNames selName resetEvents = mdo
       bool ("style" =: "display:none;") mempty (Just c == selName)
     elDynAttr "div" singleCharacterProps $ el "table" $ do
      dynHeadDir <- bgroup "Head"
-<<<<<<< HEAD
-                   (constDyn [(HDLeft, "Left")   ,(HDFront, "Front")
-                             ,(HDRight, "Right") ,(HDBack,  "Back")
-                             ,(HDBody, "Body") ,(HDOffscreen, "Hidden")]
-                   )
-
-     -- dynHeadDir :: Dynamic t (Maybe HeadInfo) <- el "tr" $ do
-     --   el "td" $ text "Head Direction"
-     --   wid <- el "td" $ bootstrapButtonGroup
-     --             (constDyn [(HDLeft, "Left")
-     --                       ,(HDFront, "Front")
-     --                       ,(HDRight, "Right")
-     --                       ,(HDBack,  "Back")
-     --                       ,(HDBody, "Body")
-     --                       ,(HDOffscreen, "Offscreen")])
-     --             def { _widgetConfig_setValue = Nothing <$ resetEvents
-     --                 , _widgetConfig_attributes = "class" =: "btn-group-xs"
-     --                 }
-     --   holdDyn Nothing (_hwidget_change wid)
-
-     dynTalking <- bgroup "Interacting"
-                   (constDyn [(False,"No") ,(True,"Yes")])
-
-     -- dynTalking <- el "tr" $ do
-     --  el "td" $ text "Interacting"
-     --  talkingDropdown <- el "td" $
-     --    dropdown Nothing
-     --      (constDyn $ Map.fromList [ (Nothing, "")
-     --                               , (Just True,"Yes")
-     --                               , (Just False, "No")]
-     --      ) (DropdownConfig (Nothing <$ resetEvents) (constDyn mempty))
-
-     --  holdDyn Nothing (_dropdown_change talkingDropdown)
-=======
                    (constDyn [(HDLeft,  "Left")  ,(HDFront,     "Front")
                              ,(HDRight, "Right") ,(HDBack,      "Back")
                              ,(HDBody,  "Body")  ,(HDOffscreen, "Hidden")])
@@ -293,7 +259,6 @@ clipPropsWidget characterNames selName resetEvents = mdo
                              ,(InteractPos,  "Positive")
                              ,(InteractNeg,  "Negative")
                              ,(InteractNeut, "Neutral")])
->>>>>>> unknowncharacters
      dynPain <- bgroup "In Pain"
                    (constDyn [(False, "No"), (True, "Yes")])
      dynMentalizing <- bgroup "Mentalizing"
@@ -424,7 +389,7 @@ choices= ["Kevin McC" ,"Tracy McC" ,"Sondra McC" ,"Rod McC" ,"Rob McC"
          ,"Mrs. Stone" ,"Mr. Hector" ,"Mr. Duncan"
          ,"Megan McC" ,"Marv Merch" ,"Linnie McC" ,"Leslie McC" ,"Kate McC"
          ,"Jeff McC" ,"Harry Lyme" ,"Fuller McC" ,"Frank McC" ,"Cedric"
-         ,"Brooke McC" ,"Bird Lady"
+         ,"Brooke McC" ,"Bird Lady", "Other"
          ]
 
 choicesMap :: Map.Map String String
