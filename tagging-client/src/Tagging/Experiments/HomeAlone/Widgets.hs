@@ -424,7 +424,7 @@ choices= ["Kevin McC" ,"Tracy McC" ,"Sondra McC" ,"Rod McC" ,"Rob McC"
          ,"Mrs. Stone" ,"Mr. Hector" ,"Mr. Duncan"
          ,"Megan McC" ,"Marv Merch" ,"Linnie McC" ,"Leslie McC" ,"Kate McC"
          ,"Jeff McC" ,"Harry Lyme" ,"Fuller McC" ,"Frank McC" ,"Cedric"
-         ,"Brooke McC" ,"Bird Lady"
+         ,"Brooke McC" ,"Bird Lady", "Other"
          ]
 
 choicesMap :: Map.Map String String
