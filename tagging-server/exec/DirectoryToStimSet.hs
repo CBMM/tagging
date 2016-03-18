@@ -71,7 +71,8 @@ main = do
       key <- require cfg "researcherkey"
       let s3Opts = W.defaults & W.auth ?~ W.awsAuth W.AWSv4 kId key
       (stimSeq :: StimulusSequence, ssItems) <- readStimSeq (uoSeqFile uOpts)
-      _ <- traverse (uploadOne uOpts s3Opts stimSeq) (ssItems :: [([FilePath],StimSeqItem)])
+      _ <- traverse (uploadOne uOpts s3Opts stimSeq)
+           (drop (uoSkipN uOpts) ssItems :: [([FilePath],StimSeqItem)])
       return ()
 
 
@@ -124,9 +125,9 @@ getStimSeqItem SetupOpts{..} stimSeq (ind, fileGroup) =
                            ind
 
 
--- TODO: Unused. Use or delete
-data SortBy = Name | Created | Modified
-  deriving (Eq, Show, Read, Enum, Bounded)
+-- -- TODO: Unused. Use or delete
+-- data SortBy = Name | Created | Modified
+--   deriving (Eq, Show, Read, Enum, Bounded)
 
 vidExtensions :: [FilePath]
 vidExtensions = [".mp4",".ogv"]
@@ -150,7 +151,7 @@ data Opts = SOpts SetupOpts | DOpts DbOpts | UOpts UploadOpts
 
 data SetupOpts = SetupOpts
   { soPath    :: !String
-  , soSortBy  :: !SortBy
+  -- , soSortBy  :: !SortBy
   , soUrlBase :: !String
   , soTitle   :: !String
   , soDescr   :: !String
@@ -170,6 +171,7 @@ data UploadOpts = UploadOpts
   , uoBaseDir :: FilePath
   , uoConfig  :: FilePath
   , uoBucket  :: FilePath
+  , uoSkipN   :: Int
   } deriving (Show)
 
 
@@ -191,7 +193,7 @@ uploadOne UploadOpts{..} wreqOpts sSeq (paths, ssItem) = do
       print    r
     when (r ^. W.responseStatus . W.statusCode == 200) $
       putStrLn $ "Success on index " <> show (ssiIndex ssItem)
-    threadDelay 200000 -- Wait half a second to to be bombarding the server
+    threadDelay 200000 -- Wait a bit to not be bombarding the server
   return True
 
 
@@ -217,8 +219,8 @@ setupOpts :: Parser Opts
 setupOpts = fmap SOpts $ SetupOpts
   <$> (option str (long "path" <> short 'p'
                    <> help "Path to data directory") <|> pure ".")
-  <*> (option auto (long "sort" <> short 's'
-                   <> help ("Sort by [" ++ sr ++ "]")) <|> pure Name)
+  -- <*> (option auto (long "sort" <> short 's'
+  --                  <> help ("Sort by [" ++ sr ++ "]")) <|> pure Name)
   <*> option str (long "url" <> short 'u' <> help "Base url")
   <*> option str (long "title" <> short 't' <> help "Title")
   <*> option str (long "description" <> short 'd' <> help "Description")
@@ -226,7 +228,7 @@ setupOpts = fmap SOpts $ SetupOpts
        <|> pure SampleIncrement)
   <*> (option str (long "output" <> short 'o' <> help "Output json file")
        <|> pure "./out.json")
-  where sr = intercalate "|" (map show [minBound..(maxBound :: SortBy)])
+  -- where sr = intercalate "|" (map show [minBound..(maxBound :: SortBy)])
 
 
 dbOpts :: Parser Opts
@@ -246,6 +248,8 @@ uploadOpts = fmap UOpts $ UploadOpts
                   <> help "Snaplet config file with AWS keys")
   <*> option str (long "bucket" <> short 'b'
                   <> help "S3 bucket name")
+  <*> (option auto (long "nskip" <> short 'k'
+                    <> help "Skip n stimuli before uploading (for mid-upload crash recovery)") <|> pure 0)
 
 
 fullOpts :: ParserInfo Opts
