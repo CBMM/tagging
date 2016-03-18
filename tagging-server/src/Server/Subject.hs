@@ -161,8 +161,8 @@ getCurrentStimSeqItem = do
         [] -> return Nothing
         [ssi] -> do
           runGH $ insert (StimulusRequest (tuId u)
-                                          (aSequence key)
-                                          (fromIntegral $ aIndex p)
+                                          (key)
+                                          (fromIntegral i)
                                           t)
           return $ Just ssi
 

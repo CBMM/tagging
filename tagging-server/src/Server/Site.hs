@@ -86,22 +86,13 @@ routes = [ ("login",    with auth handleLoginSubmit)
          , ("api", applicationToSnap apiApplication)
          , ("migrateResources", migrateHandler)
          , ("api/docs", docsServer)
-         , ("subjectdata/:seqid/:userid", handleSubjectData)
+         -- , ("subjectdata/:seqid/:userid", handleSubjectData)
          -- , ("library/matlab", matlabLibrary)
          -- , ("library/javascript", javascriptLibrary)
          , ("", Snap.Util.FileServe.serveDirectory "static")
 
          , ("/", with auth $ handleLogin Nothing)
          ]
-
-handleSubjectData :: AppHandler ()
-handleSubjectData = exceptT Server.Utils.err300 (\_ -> return ()) $ do
-  lift $ assertRole [Admin, Researcher]
-  seqId  :: Int <- readParam "seqid"
-  userId :: Int <- readParam "userid"
-  -- vals   <- select (SrUserField ==. intToKey userId &&.
-  --                  SrPositionInfo)
-  undefined
 
 
 ------------------------------------------------------------------------------

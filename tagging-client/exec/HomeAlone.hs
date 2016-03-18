@@ -66,9 +66,10 @@ contentWidget = elClass "div" "content" $ mdo
   {- Logic -}
 
   sel <- foldDyn foldAux (Nothing, [])
-         (leftmost [fmap (, Nothing) togs -- TODO right?
-                   ,fmap (, Just True)  (swAdditions selWidget)
-                   ,fmap (, Just False) (swDeletions selWidget) ])
+         (leftmost [ fmap ToggleSelect      togs
+                   , fmap InsertAndSelect   (swAdditions selWidget)
+                   , fmap DeleteAndDeselect (swDeletions selWidget)
+                   , ClearAllSelected <$ clipXhr])
 
   currentSingleSel :: Dynamic t (Maybe CharacterName) <- holdDyn Nothing (leftmost [(fmap fst $ updated sel)
                                                                                    ,Nothing <$ clipXhr])
@@ -90,32 +91,23 @@ contentWidget = elClass "div" "content" $ mdo
   return ()
 
 
+data SelectionUpdate
+  = InsertAndSelect   CharacterName
+  | DeleteAndDeselect CharacterName
+  | ToggleSelect      CharacterName
+  | ClearAllSelected
+
 -- | Update the current point selection and selection set
 --   according to toogling clicks on character names
-foldAux :: (CharacterName, Maybe Bool)  -- ^Toggled name; Toggle | Force Ins | Force Del
-        -> (Maybe CharacterName ,[CharacterName]) -- ^Old point selection & set selection
-        -> (Maybe CharacterName, [CharacterName]) -- ^New point selection & set selection
-foldAux (charName, maybeDirection) (singleSel, selSet) =
-
-  let direction = case maybeDirection of
-        Nothing    -> charName `notElem` selSet
-        Just True  -> True
-        Just False -> False
-
-      newCharacterSelection
-          -- If inserting, single selection is the insertion
-        | direction                                   = Just charName
-          -- If deleting and name matches, delete selection
-        | not direction && singleSel == Just charName = Nothing
-          -- No other cases require a change
-        | otherwise                                   = singleSel
-
-      newSetSelection
-        | direction = List.union [charName] selSet
-        | otherwise = List.delete charName selSet
-
-  in  (newCharacterSelection, newSetSelection)
-
+foldAux :: SelectionUpdate
+        -> (Maybe CharacterName, [CharacterName])
+        -> (Maybe CharacterName, [CharacterName])
+foldAux (InsertAndSelect   nm) (_, oldSet) = (Just nm, List.union [nm] oldSet)
+foldAux (DeleteAndDeselect nm) (_, oldSet) = (Nothing, List.delete nm oldSet)
+foldAux ClearAllSelected       _           = (Nothing, [])
+foldAux (ToggleSelect      nm) (s, oldSet)
+  | s == Just nm = (Nothing, List.delete nm   oldSet)
+  | otherwise    = (Just nm, List.union  [nm] oldSet)
 
 
 -- | Sample the clip properties of all characters, at the curretly-selected

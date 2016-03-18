@@ -20,32 +20,33 @@ let
     ${if !nixpkgs.stdenv.isDarwin then "LC_ALL" else null} = "en_US.UTF-8";
   };
 
-  snap-loader-dynamic = myrun ../deps/servant-snap/deps/snap-loader-dynamic;
-  snap           = myrun ../deps/servant-snap/deps/snap;
-  snap-core      = myrun ../deps/servant-snap/deps/snap/deps/snap-core;
-  snap-server      = myrun ../deps/servant-snap/deps/snap/deps/snap-server;
-  io-streams = myrun ../deps/servant-snap/deps/snap/deps/snap-io-streams;
-  io-streams-haproxy      = myrun ../deps/servant-snap/deps/snap/deps/io-streams-haproxy;
-  heist      = myrun ../deps/servant-snap/deps/snap/deps/snap-heist;
-  xmlhtml      = myrun ../deps/servant-snap/deps/snap/deps/snap-xmlhtml;
-  snap-loader-static  = myrun ../deps/servant-snap/deps/snap-loader-static;
+  snap-loader-dynamic       = myrun ../deps/servant-snap/deps/snap-loader-dynamic;
+  snap                      = myrun ../deps/servant-snap/deps/snap;
+  snap-core                 = myrun ../deps/servant-snap/deps/snap/deps/snap-core;
+  snap-server               = myrun ../deps/servant-snap/deps/snap/deps/snap-server;
+  io-streams                = myrun ../deps/servant-snap/deps/snap/deps/io-streams;
+  io-streams-haproxy        = myrun ../deps/servant-snap/deps/snap/deps/io-streams-haproxy;
+  heist                     = myrun ../deps/servant-snap/deps/snap/deps/heist;
+  xmlhtml                   = myrun ../deps/servant-snap/deps/snap/deps/xmlhtml;
+  snap-loader-static        = myrun ../deps/servant-snap/deps/snap-loader-static;
   snaplet-postgresql-simple = myrun ../deps/snaplet-postgresql-simple;
   
-  servant-snap = myrun ../deps/servant-snap;
-  servant = myrun ../deps/servant-snap/deps/servant;
-  servant-lucid = myrun ../deps/servant-snap/deps/servant/servant-lucid;
-  servant-blaze = myrun ../deps/servant-snap/deps/servant/servant-blaze;
-  servant-server = myrun ../deps/servant-snap/deps/servant/servant-server;
-  servant-client = myrun ../deps/servant-snap/deps/servant/servant-client;
-  servant-docs = myrun ../deps/servant-snap/deps/servant/servant-docs;
-  servant-foreign = myrun ../deps/servant-snap/deps/servant/servant-foreign;
-  servant-js = myrun ../deps/servant-snap/deps/servant/servant-js;
+  servant-snap              = myrun ../deps/servant-snap;
+  servant                   = myrun ../deps/servant-snap/deps/servant;
+  servant-lucid             = myrun ../deps/servant-snap/deps/servant/servant-lucid;
+  servant-blaze             = myrun ../deps/servant-snap/deps/servant/servant-blaze;
+  servant-server            = myrun ../deps/servant-snap/deps/servant/servant-server;
+  servant-client            = myrun ../deps/servant-snap/deps/servant/servant-client;
+  servant-docs              = myrun ../deps/servant-snap/deps/servant/servant-docs;
+  servant-foreign           = myrun ../deps/servant-snap/deps/servant/servant-foreign;
+  servant-js                = myrun ../deps/servant-snap/deps/servant/servant-js;
 
-  servant-matlab = myrun ../deps/servant-matlab;
-  groundhog-th   = myrun ../deps/groundhog/groundhog-th;
-  tagging-common = myrun ../tagging-common;
-  #tagging-common = import ../tagging-common/default.nix { compilername = "ghc"; };
-  #tagging-common = import ../tagging-common/default.nix { 
+  servant-matlab            = myrun ../deps/servant-matlab;
+  groundhog-th              = myrun ../deps/groundhog/groundhog-th;
+  tagging-common            = myrun ../tagging-common;
+
+  #tagging-common           = import ../tagging-common/default.nix { compilername = "ghc"; };
+  #tagging-common           = import ../tagging-common/default.nix { 
   # compilername = "ghc"; 
   # mkDerivation = pkgs.stdenv.mkDerivation;
   # inherit (pkgs) aeson base base64-bytestring bytestring deepseq;
@@ -57,11 +58,11 @@ let
 
   f = { mkDerivation, aeson, base, bytestring, clock, configurator
       , containers, directory, errors, filepath, groundhog
-      , groundhog-postgresql, http-types, lens
+      , groundhog-postgresql, groundhog-th, http-types, lens
       , map-syntax, monad-logger, MonadCatchIO-transformers, mtl
-      , optparse-applicative, postgresql-simple, resource-pool, s3-signer
-      , SHA, snap-loader-dynamic
-      , stdenv, string-qq
+      , optparse-applicative, postgresql-simple, resource-pool, s3-signer, servant-matlab
+      , SHA, snap-loader-dynamic, snaplet-postgresql-simple
+      , stdenv, string-qq, tagging-common
       , text, time, transformers, unordered-containers, uuid, wreq
       }:
       with snap-loader-dynamic;
@@ -77,7 +78,7 @@ let
           map-syntax monad-logger MonadCatchIO-transformers mtl
           postgresql-simple resource-pool servant servant-docs servant-snap
           SHA snap snap-core snap-loader-dynamic snap-loader-static
-          snap-server s  naplet-postgresql-simple tagging-common text time
+          snap-server snaplet-postgresql-simple tagging-common text time
           transformers unordered-containers uuid
         ];
         executableHaskellDepends = [

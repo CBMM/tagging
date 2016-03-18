@@ -9,6 +9,7 @@
     <link rel="stylesheet" type="text/css" href="/media/css/screen.css"/>
     <link rel="stylesheet" type="text/css" href="/media/css/libs/bootstrap.min.css"/>
     <!-- <link rel="stylesheet" type="text/css" href="/media/css/libs/bootstrap-theme.min.css"/> -->
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet' type='text/css'/>
   </head>
   <body>
     <div id="content">

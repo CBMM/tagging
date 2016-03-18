@@ -1,0 +1,65 @@
+body, html {
+  background-color: hsla(0,0%,50%,1);
+  position: relative;
+  height: 100%;
+  margin: 0px;
+  padding: 0px;
+}
+
+.question {
+  display: flex;
+  justify-content: space-around;
+}
+
+p {
+  font-family: 'Open Sans', sans-serif;
+  font-size:12pt;
+}
+
+.question div {
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+.question div p {
+  text-align: right;
+}
+
+.question div img {
+  height: 200px;
+  min-height: 200px;
+  width: 200px;
+  min-width: 200px;
+  box-shadow: 0px 5px 10px rgba(0,0,0,0.25);
+}
+
+.question .drawing-area {
+}
+
+.question div canvas{
+   height: 200px;
+   min-height: 200px;
+   width: 200px;
+   min-width:200px;
+   box-shadow: 0px 5px 10px rgba(0,0,0,0.25); 
+}
+
+.interaction {
+  padding: 30px;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(255,255,255,0.5);
+  box-shadow: 0px 30px 30px hsla(158,51%,22%,0.25);
+}
+
+button {
+  width: 50%;
+  margin-top: 30px;
+   box-shadow: 0px 5px 10px rgba(0,0,0,0.1); 
+}
