@@ -158,3 +158,14 @@ instance ToSample TaggingUser where
 instance ToSample Assignment where
   toSamples _ = singleSample $
     Assignment (intToKey 1) (intToKey 10) 1
+
+data Progress = Progress
+  { _progressNResponses :: Int
+  , _progressNTotal     :: Int
+  } deriving (Eq, Ord, Generic)
+
+instance A.ToJSON Progress
+instance A.FromJSON Progress
+
+instance ToSample Progress where
+  toSamples _ = singleSample $ Progress 100 1

@@ -18,6 +18,7 @@ import           Control.Monad.Logger       (NoLoggingT)
 import qualified Data.ByteString.Char8      as B8
 import qualified Data.List as L
 import           Data.Proxy
+import qualified Data.Set as S
 import qualified Data.Text as T
 import           Data.Time
 import           Database.Groundhog
@@ -25,6 +26,8 @@ import           Database.Groundhog.Postgresql
 import           Database.Groundhog.Postgresql.Array
 import           GHC.Generics
 import           GHC.Int
+import           System.Random
+------------------------------------------------------------------------------
 import           Servant
 import           Servant.Docs
 import           Servant.Server
@@ -32,7 +35,7 @@ import           Snap.Core
 import           Snap.Snaplet
 import           Snap.Snaplet.PostgresqlSimple
 import qualified Data.Aeson as A
-
+------------------------------------------------------------------------------
 import           Tagging.Stimulus
 import           Tagging.Response
 import           Tagging.User
@@ -52,6 +55,7 @@ type SubjectAPI = "currentstim"       :> Get '[JSON] StimSeqItem
                                          (Assignment,
                                           StimulusSequence,
                                           StimSeqItem))
+             :<|> "progress"          :> Get '[JSON] Progress
              :<|> "response"          :> QueryFlag "advance" :> ReqBody '[JSON] ResponsePayload
                                       :> Post '[JSON] ()
 
@@ -61,6 +65,7 @@ subjectServer = handleCurrentStimSeqItem
            :<|> handleCurrentStimulusSequence
            :<|> handleCurrentAssignment
            :<|> handleFullPosInfo
+           :<|> handleProgress
            :<|> handleSubmitResponse
 
 -- ------------------------------------------------------------------------------
@@ -103,30 +108,48 @@ handleSubmitResponse advanceStim t =
                            &&. SreqSequenceField ==. s
                            &&. SreqIndexField    ==. i')
                            `orderBy` [Asc SreqTimeField]
+    thisSeq  <- noteT "No such stimulus sequence" $ MaybeT $ runGH $ get s
     tNow     <- lift $ liftIO getCurrentTime
 
     stim     <- noteT "Bad stim lookup from response" $ MaybeT $ runGH
                 $ get s
 
     l <- lift $ runGH $ count (SsiStimulusSequenceField ==. s)
-    when advanceStim $ lift . runGH $ do
+    lift . runGH $ do
       insert (StimulusResponse (tuId u) -- TODO drop old posinfos
-                               s
-                               (fromIntegral i)
-              (sreqTime thisReq) tNow "sometype" (rpJson t))
-      let x = tuId u :: Int64
-      if i == l - 1
-        then do
-          let u'' = tuId u :: Int64
-          deleteBy (Utils.integralToKey (tuId u) :: DefaultKey Assignment)
-          return ()
-        else do
-          let k'  = Utils.integralToKey (tuId u) :: DefaultKey TaggingUser
-              k'' = Utils.integralToKey (tuId u) :: DefaultKey Assignment
-              a'  = Assignment k' s (succ i)
-          update [AIndexField =. succ i]
-            (AUserField ==. k'
-             &&. ASequenceField ==. s)
+                                 s
+                                 (fromIntegral i)
+                (sreqTime thisReq) tNow "sometype" (rpJson t))
+
+      when advanceStim $ case ssSampling thisSeq of
+        SampleIncrement -> do
+          let x = tuId u :: Int64
+          if i == l - 1
+            then do
+              let u'' = tuId u :: Int64
+              deleteBy (Utils.integralToKey (tuId u) :: DefaultKey Assignment)
+              return ()
+            else do
+              let k'  = Utils.integralToKey (tuId u) :: DefaultKey TaggingUser
+                  k'' = Utils.integralToKey (tuId u) :: DefaultKey Assignment
+                  a'  = Assignment k' s (succ i)
+              update [AIndexField =. succ i]
+                (AUserField ==. k'
+                 &&. ASequenceField ==. s)
+        SampleRandomNoReplacement -> do
+          resps <- fmap (S.fromList . fmap srIndex) $
+                   select (SrSequenceField ==. s'' &&.
+                           SrUserField ==. tuId u)
+          allInds <- (\n -> S.fromList $ take n [0..]) <$> count (SsiStimulusSequenceField ==. s'')
+          let remainingInds = S.difference allInds resps
+          if S.null remainingInds
+          then deleteBy (Utils.integralToKey (tuId u) :: DefaultKey Assignment)
+          else do
+            i <- liftIO $ randomRIO (0,S.size remainingInds)
+            let newAssignmentInd = S.toList remainingInds !! i
+            update [AIndexField =. (fromIntegral newAssignmentInd :: Int)]
+                   (AUserField ==. (Utils.integralToKey (tuId u) :: DefaultKey TaggingUser)
+                    &&. ASequenceField ==. s)
 
 
 ------------------------------------------------------------------------------
@@ -143,6 +166,18 @@ handleCurrentAssignment =
   $ MaybeT getCurrentAssignment
 
 
+handleProgress :: AppHandler Progress
+handleProgress = do
+  asgn <- getCurrentAssignment
+  case asgn of
+    Nothing -> Server.Utils.err300 "No assignment"
+    Just (Assignment u sID sIndex) -> do
+      nSequenceStims <- runGH $ count (SsiStimulusSequenceField ==. sID)
+      userResps     <- runGH $ count (SrUserField ==. (keyToInt u) &&.
+                              SrSequenceField ==. sID)
+      return $ Progress userResps nSequenceStims
+
+
 getCurrentStimSeqItem :: AppHandler (Maybe StimSeqItem)
 getCurrentStimSeqItem = do
   res <- getCurrentAssignment
@@ -150,9 +185,6 @@ getCurrentStimSeqItem = do
     Nothing -> error "No PosInfo" -- TODO
     Just (Assignment _ key i) -> do
       u <- exceptT (const $ error "Bad lookup") return getCurrentTaggingUser
-      -- TOOD p assignment is a bug. select on tuId, not get (get uses assignment primary key, not userid)
-      -- p <-  maybeT (Server.Utils.err300 "No user assignment") return $
-      --         MaybeT $ runGH (get (Utils.intToKey $ fromIntegral $ tuId u))
       t <- liftIO getCurrentTime
       modifyResponse $ Snap.Core.addHeader "Cache-Control" "no-cache"
       ssi <- runGH $ select (SsiStimulusSequenceField ==. key &&.

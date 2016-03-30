@@ -2,6 +2,10 @@
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE GADTs         #-}
+{-# LANGUAGE LambdaCase         #-}
 
 module Main where
 
@@ -42,7 +46,8 @@ data Survey = Survey
   { _sName                :: String
   , _sHasSeenTestEpisode  :: Bool
   , _sHasSeenMoreEpisodes :: Bool
-  , _sVideoTest           :: (String,String)
+  , _sVideoTestWritten    :: String
+  , _sVideoTestSpoken     :: String
   } deriving (Eq, Show, Generic)
 
 instance ToJSON   Survey
@@ -60,8 +65,10 @@ instance FromJSON Response
 
 ------------------------------------------------------------------------------
 run :: forall t m.MonadWidget t m => m ()
-run = mdo
+run = elClass "div" "content" $ mdo
   pb <- getPostBuild
+
+  modal
 
   let stimRequestTriggers = leftmost [pb, () <$ submitSuccess]
   posTry <- getAndDecode ("/api/fullposinfo" <$ stimRequestTriggers)
@@ -153,46 +160,97 @@ radioMultichoice :: (MonadWidget t m, Eq a, Ord a, Show a)
                  -> (Maybe a -> Either String a)
                  -> Event t ()
                  -> m (Dynamic t (Either String a))
-radioMultichoice label idattr choices validate eval = mdo
-  grpAttr <- holdDyn True (tag (fmap isRight $ current r) eval) >>= \isOk ->
-    forDyn isOk (\b -> "class" =:
-                       bool "radio-group invalid" "radio-group valid" b)
-  r <- elDynAttr "div" grpAttr $ mdo
-    elAttr "label" ("for" =: idattr) (text label)
-    rMaybe <- value <$> radioGroup
-         (constDyn idattr)
-         (constDyn choices)
-         (def & widgetConfig_attributes .~ constDyn ("id" =: idattr))
-    mapDyn validate rMaybe
-  return r
+radioMultichoice label idattr choices validate eval =
+  elClass "div" "input-group" $ mdo
+    grpAttr <- holdDyn True (tag (fmap isRight $ current r) eval) >>= \isOk ->
+      forDyn isOk (\b -> "class" =:
+                         bool "radio-group invalid" "radio-group valid" b)
+    r <- elDynAttr "div" grpAttr $ mdo
+      elAttr "label" ("for" =: idattr) (text label)
+      rMaybe <- value <$> radioGroup
+           (constDyn idattr)
+           (constDyn choices)
+           (def & widgetConfig_attributes .~ constDyn ("id" =: idattr))
+      mapDyn validate rMaybe
+    return r
 
+bootstrapButton :: MonadWidget t m => String -> m (Event t ())
+bootstrapButton glyphShortname = (domEvent Click . fst) <$>
+  elAttr' "span" ("class" =: (prfx <> glyphShortname)) (return ())
+  where prfx = "glyphicon glyphicon-"
+
+modal :: MonadWidget t m => m (Event t Survey)
+modal = do
+  elClass "div" "modal-background" $ survey
 
 ------------------------------------------------------------------------------
 -- | Survey questions, emits a Survey when form is filled out right
 survey :: MonadWidget t m => m (Event t Survey)
-survey = mdo
-  name  <- bootstrapLabeledInput "Name" "user-real-name" validateName sends
-  seen1 <- radioMultichoice
-           "Have you seen 24, Season 5 Episode 1?"
-           "seen1" [(True,"Yes"),(False,"No")] validateSeenEp1 sends
-  seenN <- radioMultichoice
-           "Have you seen any other episodes of 24?"
-           "seenN" [(True,"Yes"),(False,"No")] validateSeenEpN sends
+survey = elClass "form" "survey" $ mdo
+  pb <- getPostBuild
+  el "h1" $ text "Welcome!"
+  surv <- elClass "div" "qs-and-vid" $ do
+
+    surv <- elClass "div" "questions" $ do
+      name  <- bootstrapLabeledInput "Name" "user-real-name" validateName sends
+
+      seen1 <- radioMultichoice
+               "Have you seen 24, Season 5 Episode 1?"
+               "seen1" [(True,"Yes"),(False,"No")] validateSeenEp1 sends
+
+      seenN <- radioMultichoice
+               "Have you seen any other episodes of 24?"
+               "seenN" [(True,"Yes"),(False,"No")] validateSeenEpN sends
+
+      vidVis <- bootstrapLabeledInput
+                "Written word" "written-word" validateWritten sends
+      vidHer <- bootstrapLabeledInput
+                "Spoken word" "spoken-word" validateSpoken sends
+      $(qDyn [| Survey <$> $(unqDyn [|name|]) <*> $(unqDyn [|seen1  |])
+                                              <*> $(unqDyn [|seenN  |])
+                                              <*> $(unqDyn [|vidVis |])
+                                              <*> $(unqDyn [|vidHer |])
+            |])
+
+    elClass "div" "survey-video" $ mdo
+      let vidUrlBase = "https://s3.amazonaws.com/gk24/avtest."
+      v <- videoWidget [(vidUrlBase <> "mp4" , "video/mp4")
+                       ,(vidUrlBase <> "ogg" , "video/ogg")
+                       ,(vidUrlBase <> "webm", "video/webm")
+                  ]
+        (def & videoWidgetConfig_play .~ leftmost [pb, replay])
+      replayAttrs <- holdDyn ("style" =: "display:none")
+                     (mempty <$ v ^. videoWidget_ended)
+      replay <- elDynAttr "div" replayAttrs $ bootstrapButton "repeat"
+      el "p" $ text
+        "To test your video and audio, please tell us what you see and hear."
+
+    return surv
+  return ()
+
+  elClass "div" "error-text" $
+    dynText =<< holdDyn "" (leftmost [lefts survs, "" <$ rights survs])
   sends <- button "Ok"
-  undefined
+
+  let survs = tag (current surv) sends
+  return $ rights survs
+
   where
     validateName "" = Left "Please enter your full name"
     validateName n  = Right n
+
     validateSeenEp1 (Just False) = Left
       "This test is only for subjects who saw 24 Season 5, Episode 1"
     validateSeenEp1 Nothing      = Left
       "Please indicate whether or not you saw Episode 1"
     validateSeenEp1 (Just True)  = Right True
-    validateSeenEpN (Just False)  = Left
+
+    validateSeenEpN (Just True)  = Left
       "This test is for subjects who have only seen 24 Season 5 Episode 1"
     validateSeenEpN Nothing      = Left
       "Please indicate whether or not you saw any other episodes of 24"
-    validateSeenEpN (Just True) = Right True
+    validateSeenEpN (Just False) = Right False
+
     validateVidLook   n
       | map toLower n == "brain" = Right "brain"
       | otherwise                = Left
@@ -201,15 +259,30 @@ survey = mdo
       | map toLower n == "mind" = Right "mind"
       | otherwise               = Left
         "Sorry, that isn't the word spoken in the video"
+    validateWritten n
+      | map toLower n == "hand" = Right "hand"
+      | otherwise = Left
+        "That is not the word written in the video"
+    validateSpoken n
+      | map toLower n == "hello" = Right "hello"
+      | otherwise = Left
+        "That is not the word spoken in the video"
+    rights = fmapMaybe $ \case
+      Right x -> Just x
+      Left _  -> Nothing
+    lefts = fmapMaybe $ \case
+      Left x -> Just x
+      Right _ -> Nothing
 
 
 
 ------------------------------------------------------------------------------
-main' :: IO ()
-main' = mainWidget run
-
 main :: IO ()
-main = mainWidget $ do
+main = mainWidget run
+
+-- This is just a test of VideoWidget
+main' :: IO ()
+main' = mainWidget $ do
   play <- button "play"
   pause <- button "pause"
   muted <- toggle False =<< button "Toggle mute"

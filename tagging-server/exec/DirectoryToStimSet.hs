@@ -104,7 +104,12 @@ mkStimSeq opts@SetupOpts{..} = do
                    . sort
                    $ map takeFileName files :: [[FilePath]]
 
-  u <- U4.nextRandom
+  u <- case soSeqUuid of
+         "" -> U4.nextRandom
+         us -> case U.fromString us of
+           Nothing -> error $ "Failure decoding uuid from string: " ++ us
+           Just uu -> return uu
+
   let stimSeq = StimulusSequence (T.pack soTitle) u
                                  A.Null (T.pack soDescr) (T.pack soUrlBase)
                                  soSample
@@ -130,7 +135,7 @@ getStimSeqItem SetupOpts{..} stimSeq (ind, fileGroup) =
 --   deriving (Eq, Show, Read, Enum, Bounded)
 
 vidExtensions :: [FilePath]
-vidExtensions = [".mp4",".ogv"]
+vidExtensions = [".mp4",".ogv",".ogg",".webm"]
 
 fullDescription :: String
 fullDescription = [s|
@@ -157,6 +162,7 @@ data SetupOpts = SetupOpts
   , soDescr   :: !String
   , soSample  :: !SamplingMethod
   , soOutFile :: !String
+  , soSeqUuid :: !String
 }
 
 
@@ -228,6 +234,8 @@ setupOpts = fmap SOpts $ SetupOpts
        <|> pure SampleIncrement)
   <*> (option str (long "output" <> short 'o' <> help "Output json file")
        <|> pure "./out.json")
+  <*> (option str (long "sequenc-uuid" <> short 'i' <> help "UUID to use for stimulus sequence")
+      <|> pure "")
   -- where sr = intercalate "|" (map show [minBound..(maxBound :: SortBy)])
 
 

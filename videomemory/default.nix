@@ -1,6 +1,6 @@
 { mkDerivation, aeson, base, bytestring, containers, ghcjs-dom
-, lens, lens-aeson, reflex, reflex-dom, stdenv, tagging-common, text
-, unordered-containers, vector
+, lens, lens-aeson, reflex, reflex-dom, reflex-dom-contrib, stdenv
+, tagging-common, text, unordered-containers, vector
 }:
 mkDerivation {
   pname = "videomemory";
@@ -10,7 +10,7 @@ mkDerivation {
   isExecutable = true;
   executableHaskellDepends = [
     aeson base bytestring containers ghcjs-dom 
-    lens lens-aeson reflex reflex-dom
+    lens lens-aeson reflex reflex-dom reflex-dom-contrib
     tagging-common text unordered-containers vector
   ];
   license = stdenv.lib.licenses.bsd3;

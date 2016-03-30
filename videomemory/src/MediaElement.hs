@@ -46,7 +46,7 @@ data VideoWidget t = VideoWidget
   , _videoWidget_playbackRate :: Dynamic t Double
   , _videoWidget_volume :: Dynamic t Double
   , _videoWidget_muted :: Dynamic t Bool
-  , _videoWidget_loadstart :: Event t ()
+  -- , _videoWidget_loadstart :: Event t () -- TODO: This seems not to come from the MediaElement
   , _videoWidget_canplaythrough :: Event t ()
   , _videoWidget_ended :: Event t ()
   }
@@ -78,6 +78,8 @@ videoWidget srcs cfg = do
               wrapDomEvent e (`on` Media.volumeChange) (Media.getMuted e)
   vidVolume <- holdDyn 1 =<<
                wrapDomEvent e (`on` Media.volumeChange) (Media.getVolume e)
+  canPlThr  <- wrapDomEvent e (`on` Media.canPlayThrough) (return ())
+  -- loadStart <- wrapDomEvent e (`on` Media.loadStart) (return ())
   -- Pushers & Setters
   performEvent_ $ Media.load e <$ _videoWidgetConfig_load cfg
   performEvent_ $ Media.play e <$ _videoWidgetConfig_play cfg
@@ -91,6 +93,6 @@ videoWidget srcs cfg = do
   performEvent_ $ Media.setMuted e
                   <$> _videoWidgetConfig_setMuted cfg
 
-
-  return $ VideoWidget vidEl vidSrcs curTime undefined vidVolume vidMuted undefined undefined vidEnded
+  return $ VideoWidget vidEl vidSrcs curTime undefined
+                       vidVolume vidMuted canPlThr vidEnded
 
