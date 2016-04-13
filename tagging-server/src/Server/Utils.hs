@@ -52,6 +52,19 @@ getCurrentTaggingUser = do
       noteT "Zero matches in lookup" $ MaybeT $ fmap listToMaybe $ runGH $
       select (TuIdField ==. (fromIntegral i :: Int64))
 
+------------------------------------------------------------------------------
+getCurrentTaggingUser' :: Handler App (AuthManager App) (Maybe TaggingUser)
+getCurrentTaggingUser' = do
+  modifyResponse $ setHeader "Cache-Control" "no-cache"
+  cu <- fmap userId <$> currentUser
+  case (readMay . T.unpack . unUid) =<< join cu of
+    Nothing         -> return Nothing
+    Just (i :: Int) -> do
+      r <- runGH $ select (TuIdField ==. (fromIntegral i :: Int64))
+      case r of
+        [u] -> return (Just u)
+        []  -> return Nothing
+        _   -> error "Multiple matching users"
 
 ------------------------------------------------------------------------------
 assertRole :: [Role] -> Handler App App ()

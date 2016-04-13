@@ -2,6 +2,15 @@
 
   <ifLoggedIn>
     <p>Hi. You're logged in as <loggedInUser/>.</p>
+
+    <h3>Your assignments:</h3>
+
+    <ul>
+    <assignments>
+      <li><a href="${link}"> <assignmentLabel/> </a> </li> 
+    </assignments>
+    </ul>
+
     <p><a href="api/logout">Logout</a></p>
   </ifLoggedIn>
 

@@ -93,7 +93,10 @@ subjectServer = handleCurrentStimSeqItem
 --   @Nothing@ if the sequence is done
 --handleSubmitResponse :: StimulusResponse -> Handler App App ()
 handleSubmitResponse :: Bool -> ResponsePayload -> Handler App App ()
-handleSubmitResponse advanceStim t =
+handleSubmitResponse advanceStim t = do
+  liftIO $ print "HANDLE SUBMIT"
+  liftIO $ print advanceStim
+  liftIO $ print t
   exceptT Server.Utils.err300 (const $ return ()) $ do
 
     u                 <- getCurrentTaggingUser
@@ -131,12 +134,12 @@ handleSubmitResponse advanceStim t =
               return ()
             else do
               let k'  = Utils.integralToKey (tuId u) :: DefaultKey TaggingUser
-                  k'' = Utils.integralToKey (tuId u) :: DefaultKey Assignment
                   a'  = Assignment k' s (succ i)
               update [AIndexField =. succ i]
                 (AUserField ==. k'
                  &&. ASequenceField ==. s)
         SampleRandomNoReplacement -> do
+          liftIO $ print "ADVANCING"
           resps <- fmap (S.fromList . fmap srIndex) $
                    select (SrSequenceField ==. s'' &&.
                            SrUserField ==. tuId u)

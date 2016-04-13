@@ -248,8 +248,8 @@ dbOpts = fmap DOpts $ DbOpts
 
 uploadOpts :: Parser Opts
 uploadOpts = fmap UOpts $ UploadOpts
-  <$> (option str (long "seqfile" <> short 's'
-                   <> help "Path to data directory") <|> pure ".")
+  <$> option str (long "stimseqconfig" <> short 's'
+                  <> help "Path to stimulus sequence and stimseqitem config file")
   <*> option str (long "base" <> short 'b'
                   <> help "Base path of stimuli")
   <*> option str (long "config" <> short 'c'
