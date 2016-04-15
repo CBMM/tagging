@@ -237,11 +237,13 @@ handleAnswerKey Nothing = error "Must pass 'experiment' parameter"
 handleAnswerKey (Just k) = do
   tu :: TaggingUser <- exceptT (Server.Utils.err300) return getCurrentTaggingUser
   let queryProxy = Proxy :: Proxy Postgresql
+      seqKey = G.toPrimitivePersistValue queryProxy k
+      userKey = G.toPrimitivePersistValue queryProxy (tuId tu)
   runGH (queryRaw False (unlines
          ["WITH resps AS ("
          ,"  SELECT sr_index FROM stimulus_response"
          ,"  WHERE sr_sequence = ? AND sr_user = ?)"
          ,"SELECT * FROM stim_seq_answer"
-         ," WHERE ssa_index IN (SELECT * FROM resps)"])
-         [G.toPrimitivePersistValue queryProxy k, G.toPrimitivePersistValue queryProxy (tuId tu)]
+         ," WHERE ssa_stimulus_sequence = ? AND ssa_index IN (SELECT * FROM resps)"])
+         [seqKey, userKey, seqKey]
         (G.mapAllRows (fmap fst . G.fromPersistValues)))
