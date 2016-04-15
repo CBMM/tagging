@@ -6,9 +6,11 @@
 {-# LANGUAGE RecursiveDo         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TupleSections       #-}
 
 module Main where
 
+import           Control.Applicative        (liftA2)
 import           Control.Lens
 import           Control.Monad              (mzero, zipWithM)
 import           Data.Aeson
@@ -19,7 +21,8 @@ import qualified Data.ByteString.Lazy.Char8 as BSL
 import           Data.Char                  (toLower)
 import           Data.Either
 import           Data.Foldable
-import           Data.Maybe                 (catMaybes)
+import           Data.Maybe                 (catMaybes, fromMaybe)
+import qualified Data.Map                   as Map
 import           Data.Monoid
 import qualified Data.Text                  as T
 import           Data.Traversable           (forM)
@@ -33,6 +36,7 @@ import           Reflex.Dom.Contrib.Widgets.ButtonGroup
 import           Tagging.Response
 import           Tagging.Stimulus
 import           Tagging.User
+import qualified Utils as U
 
 
 ------------------------------------------------------------------------------
@@ -212,27 +216,68 @@ data TaskPhase = TaskPhaseSurvey
 
 ------------------------------------------------------------------------------
 trialSequence :: MonadWidget t m
-              => (TaskPhase -> m (Event t Response))
-              -> Progress
+              => (TaskPhase -> m (Event t (Int, Response)))
+              -> (Assignment, Progress)
               -> m ()
-trialSequence phaseTask (Progress nFinished nTrials) = do
+trialSequence phaseTask (Assignment _ s i, Progress nFinished nTrials) = do
   pb <- getPostBuild
+
   let ts = drop nFinished $
            [TaskPhaseSurvey, TaskPhaseMemoryQuiz]
            ++ map TaskPhaseTrial (enumFromTo 1 nTrials)
            ++ [TaskPhaseDone]
+      answerKeyUrl = "/api/answerkey?experiment=" ++ show (U.keyToInt s)
+
   rec trials    <- zipListWithEvent const
                                     (map phaseTask ts)
                                     (leftmost [() <$ responseAck, pb])
       responses <- switchPromptlyDyn <$> widgetHold (never <$ text "Loading") trials
 
-      responseAck <- performRequestAsync $ ffor responses $ \(r :: Response) ->
+      responseAck <- performRequestAsync $ ffor responses $ \(_, r :: Response) ->
         xhrRequest "POST" "/api/response?advance"
         (def { _xhrRequestConfig_headers  = "Content-Type" =: "application/json"
              , _xhrRequestConfig_sendData =
                Just (BSL.unpack $ A.encode (ResponsePayload (A.toJSON r)))})
 
+
+      -- Track the ongoing response accuracy --
+      responseList <- foldDyn ($) [] (leftmost [ fmap (:) responses
+                                               , const [] <$ listClear])
+
+      -- On every 10th submission
+      answerKeys <- (fmap . fmap) (fromMaybe []) $
+                    getAndDecode (answerKeyUrl <$ ffilter ((>= 10) . length)
+                    (traceEvent "ResponseList" $ updated responseList))
+      let thisScore = attachWith checkAnswers (current responseList) answerKeys
+      totalScore <- foldDyn (\(x',y') (x,y) -> (x + x', y + y')) (0 :: Int,0 :: Int) thisScore
+      let listClear = () <$ updated totalScore
+      warningAttrs <- forDyn totalScore $ \(nCorrect,nTotal) -> "class" =: "performance-warning" <>
+        if   fromIntegral nCorrect / (fromIntegral nTotal + 0.01) < (1.0 :: Double)  -- TODO: Use real threshold
+        then mempty
+        else "style" =: "display:none"
+      warning <- elDynAttr "div" warningAttrs $ do
+        el "div" $ do
+          text "nCorrect: "
+          display =<< mapDyn fst totalScore
+        el "div" $ do
+          text "nTotal: "
+          display =<< mapDyn snd totalScore
+
   return ()
+
+checkAnswers :: [(Int, Response)] -> [StimSeqAnswer] -> (Int,Int)
+checkAnswers resps answers =
+  let ansKey = Map.fromList $ ffor answers
+                            $ \(StimSeqAnswer ans s i) -> (i,ans)
+      rs     = Map.fromList $ catMaybes $ ffor resps $ \case
+        (i, RClip b) -> Just (i,RClip b)
+        _            -> Nothing
+      ansIntersect = Map.intersectionWith (\x y -> A.fromJSON x == A.Success y) ansKey rs
+      nCorrect = Map.size $ Map.filter id ansIntersect
+      nTotal   = Map.size ansIntersect
+  in (nCorrect, nTotal)
+
+
 
 pleaseLogin :: MonadWidget t m => m ()
 pleaseLogin = do
@@ -244,72 +289,33 @@ pleaseLogin = do
 run :: forall t m.MonadWidget t m => m ()
 run = elClass "div" "content" $ mdo
   pb <- getPostBuild
-  progress <- getAndDecode ("/api/progress" <$ pb)
+  asgn     <- holdDyn Nothing =<< getAndDecode ("/api/currentassignment" <$ pb)
+  progress <- holdDyn Nothing =<< getAndDecode ("/api/progress"          <$ pb)
+  p        <- combineDyn (liftA2 (,)) asgn progress
 
-  widgetHold (return ()) (fmap (maybe pleaseLogin (trialSequence makeTrial)) progress)
+  widgetHold (return ()) (fmap (maybe pleaseLogin (trialSequence makeTrial)) (updated p))
   return ()
 
-makeTrial :: MonadWidget t m => TaskPhase -> m (Event t Response)
-makeTrial TaskPhaseSurvey     = text "survey" >> (fmap . fmap) RSurvey modal -- TODO Rename this
-makeTrial TaskPhaseMemoryQuiz = text "quiz"   >> (fmap . fmap) RQuiz   memoryQuiz
+makeTrial :: MonadWidget t m => TaskPhase -> m (Event t (Int, Response))
+makeTrial TaskPhaseSurvey     = (fmap . fmap) ((0,) . RSurvey) modal
+makeTrial TaskPhaseMemoryQuiz = (fmap . fmap) ((0,) . RQuiz  ) memoryQuiz
 makeTrial (TaskPhaseTrial n)  = mdo
   pb <- getPostBuild
   pos <- fmapMaybe id <$> getAndDecode ("/api/fullposinfo" <$ pb)
+  let ind = ffor pos $ \(Assignment _ _ ind, _, _) -> ind
   responses <- elClass "div" "interaction" $
     widgetHold (text "Waiting ..." >> return never) (fmap videoQuestion pos)
-  return $ (switchPromptlyDyn responses)
-
-
-
--- ------------------------------------------------------------------------------
--- run' :: forall t m.MonadWidget t m => m ()
--- run' = elClass "div" "content" $ mdo
---   pb <- getPostBuild
-
---   progress :: Event t Progress <- fmapMaybe id <$> getAndDecode ("/api/progress" <$ pb)
-
---   -- Show the modal survey until the server acks receipt of survey data
---   survEntry    <- switchPromptlyDyn <$> widgetHold modal (return never <$ survReceived)
-
---   -- memQuiz <- fmap switchPromptlyDyn $ widgetHold (return never) (undefined)
-
---   survReceived <- performRequestAsync $ ffor survEntry $ \(s :: Survey) ->
---     xhrRequest "POST" "/api/response"
---     (def { _xhrRequestConfig_sendData =
---            Just (BSL.unpack $ A.encode (ResponsePayload (A.toJSON (RSurvey s))))}) -- TODO finish
-
---   -- quizReceived <- performRequestAsync $ ffor memQuiz $ \(m :: MemoryQuiz) ->
---   --   xhrRequest "POST" "/api/response"
---   --   (def { _xhrRequestConfig_sendData =
---   --          Just (BSL.unpack $ A.encode (ResponsePayload (A.toJSON (RQuiz m))))})
-
---   let stimRequestTriggers = leftmost [pb, () <$ submitSuccess]
---   posTry <- getAndDecode ("/api/fullposinfo" <$ stimRequestTriggers)
-
---   let pos :: Event t (Assignment, StimulusSequence, StimSeqItem) = fmapMaybe id posTry
-
---   errorText (text "Failed to load position")
---             (True <$ ffilter (== Nothing) posTry)
-
---   responses :: Dynamic t (Event t Response) <- elClass "div" "interaction" $
---     widgetHold (text "Waiting..." >> return never) (fmap videoQuestion pos)
-
---   submitSuccess <- performRequestAsync
---     (ffor (switchPromptlyDyn responses) $ \(r :: Response) ->
---       XhrRequest "POST" "/api/response?advance" $
---       XhrRequestConfig ("Content-Type" =: "application/json")
---       Nothing Nothing Nothing (Just . BSL.unpack $ A.encode
---                                (ResponsePayload (A.toJSON r))))
-
---   return ()
+  return $ switchPromptlyDyn responses
 
 
 ------------------------------------------------------------------------------
 videoQuestion :: forall t m.MonadWidget t m
               => (Assignment, StimulusSequence, StimSeqItem)
-              -> m (Event t Response)
-videoQuestion (asgn, stimseq, ssi) = do
+              -> m (Event t (Int,Response))
+videoQuestion (Assignment _ _ i, stimseq, ssi) = do
   elClass "div" "videoandquestion" $ mdo
+    pb <- getPostBuild
+    pbDelay <- delay 4 pb
 
     let srcs = case ssiStimulus ssi of
                  A.Array fileNames -> catMaybes $
@@ -324,26 +330,24 @@ videoQuestion (asgn, stimseq, ssi) = do
                 ,_videoWidgetConfig_attributes = vidAttrs
                 })
 
-    btnsVis <- holdDyn False (True <$ _videoWidget_ended vid)
+    display (_videoWidget_paused vid)
+
+    let showIfBroken = gate (current $ _videoWidget_paused vid) pbDelay
+
+    -- Show buttons either when video ends, of after N (pbDelay) seconds
+    -- if video is not playing (to allow click-through in case of broken video)
+    btnsVis <- holdDyn False (leftmost [True <$ showIfBroken
+                                       ,True <$ _videoWidget_ended vid])
     vidAttrs  <- forDyn btnsVis $ bool mempty ("style" =: "opacity:0")
     btnsAttrs <- forDyn btnsVis $ (("class" =: "yesno") <>) . bool ("style" =: "opacity:0.25" <> "disabled" =: "true") mempty
-    -- vid <- elAttr' "video" ("height"   =: "640"
-    --                      <> "width"    =: "480"
-    --                      <> "controls" =: "false") $ do
-      -- case ssiStimulus ssi of
-      --   (A.Array fileNames) -> do
-      --     forM fileNames $ \(A.String fn) -> do
-      --         elAttr "source" ("src" =: (T.unpack (ssBaseUrl stimseq) <> "/" <> T.unpack fn)
-      --                    <> "type" =: mimeOf (T.unpack fn)) fin
-      --     text "Sorry, this browser does not support our videos"
-      --   _ -> text "Stimulus decoding error"
+
     rememb <- elDynAttr "div" btnsAttrs $ do
        text "Have you seen this clip?"
        ys <- fmap (True  <$) (button "Yes")
        ns <- fmap (False <$) (button "No")
        return $ leftmost [ys,ns]
     remembered <- holdDyn Nothing $ fmap Just rememb
-    return $ fmap (RClip . ClipResponse) $ fmapMaybe id (updated remembered)
+    return $ fmap ((i,) . RClip . ClipResponse) $ fmapMaybe id (updated remembered)
 
 
 ------------------------------------------------------------------------------
@@ -410,6 +414,7 @@ bootstrapButton glyphShortname = (domEvent Click . fst) <$>
   elAttr' "span" ("class" =: (prfx <> glyphShortname)) (return ())
   where prfx = "glyphicon glyphicon-"
 
+-- TODO: Rename this
 modal :: MonadWidget t m => m (Event t Survey)
 modal = do
   elClass "div" "modal-background" $ survey
@@ -514,28 +519,8 @@ bootstrapLink =
   <> "href" =: "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
 
 ------------------------------------------------------------------------------
-main' :: IO ()
-main' = mainWidget run
-
--- This is just a test of VideoWidget
 main :: IO ()
-main = mainWidget $ do
-  play <- button "play"
-  pause <- button "pause"
-  reset <- button "reset"
-  muted <- toggle False =<< button "Toggle mute"
-  el "br" (return ())
-  w <- videoWidget [("file:///home/greghale/Downloads/test4.mp4","video/mp4")]
-       (def & videoWidgetConfig_play .~ play
-            & videoWidgetConfig_pause .~ pause
-            & videoWidgetConfig_setMuted .~ updated muted
-            & videoWidgetConfig_setCurrentTime .~ (0 <$ reset))
-  el "br" (return ())
-  -- display =<< count (w ^. videoWidget_ended)
-  text "test"
-  -- display (w ^. videoWidget_currentTime)
-
-  return ()
+main = mainWidget run
 
 
 ------------------------------------------------------------------------------

@@ -8,6 +8,7 @@
 module MediaElement where
 
 import Control.Lens
+import Control.Monad.IO.Class (liftIO)
 import Data.Default
 import Data.Foldable
 import Data.Traversable
@@ -44,6 +45,7 @@ data VideoWidget t = VideoWidget
   { _videoWidget_videoEl :: El t
   , _videoWidget_sourceEls :: [El t]
   , _videoWidget_currentTime :: Dynamic t Double
+  , _videoWidget_paused :: Dynamic t Bool
   , _videoWidget_playbackRate :: Dynamic t Double
   , _videoWidget_volume :: Dynamic t Double
   , _videoWidget_muted :: Dynamic t Bool
@@ -73,10 +75,13 @@ videoWidget srcs cfg = do
   -- Property getters
   -- TODO: What are the correct initial values?
 
+  timeUpdates <- wrapDomEvent e (`on` Media.timeUpdate)
+                                (Media.getCurrentTime e)
+
 #ifdef ghcjs_HOST_OS
-  curTime <- holdDyn 0 =<<
-             wrapDomEvent e (`on` Media.timeUpdate) (Media.getCurrentTime e)
-  curTime <- undefined
+  curTime <- holdDyn 0 timeUpdates
+  isPaused <- fmap nubDyn $ holdDyn True =<<
+              performEvent (liftIO (Media.getPaused e) <$ timeUpdates)
   vidEnded <- wrapDomEvent e (`on` Media.ended) (return ())
   vidMuted <- holdDyn False =<<
               wrapDomEvent e (`on` Media.volumeChange) (Media.getMuted e)
@@ -100,13 +105,14 @@ videoWidget srcs cfg = do
                   <$> _videoWidgetConfig_setMuted cfg
 
 #ifdef ghcjs_HOST_OS
-  return $ VideoWidget vidEl vidSrcs curTime undefined
+  return $ VideoWidget vidEl vidSrcs curTime isPaused undefined
                        vidVolume vidMuted canPlThr vidEnded
 #else
   return $ VideoWidget
     { _videoWidget_videoEl = vidEl
     , _videoWidget_sourceEls = vidSrcs
     , _videoWidget_currentTime = error "_videoWidget_currentTime: can only be used with GHCJS"
+    , _videoWidget_paused = error "_videoWidget_paused: can only be used with GHCJS"
     , _videoWidget_playbackRate = error "_videoWidget_playbackRate: can only be used with GHCJS"
     , _videoWidget_volume = error "_videoWidget_volume: can only be used with GHCJS"
     , _videoWidget_muted = error "_videoWidget_error: can only be used with GHCJS"
@@ -114,4 +120,3 @@ videoWidget srcs cfg = do
     , _videoWidget_ended = error "_videoWidget_ended: can only be used with GHCJS"
     }
 #endif
-

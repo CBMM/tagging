@@ -31,6 +31,7 @@ executable videomemory
                        reflex-dom-contrib,
                        tagging-common, 
                        text, 
+                       transformers,
                        unordered-containers,
                        vector
   hs-source-dirs:      src
