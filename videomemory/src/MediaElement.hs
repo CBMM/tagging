@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP             #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- Specification:
@@ -71,14 +72,19 @@ videoWidget srcs cfg = do
 
   -- Property getters
   -- TODO: What are the correct initial values?
+
+#ifdef ghcjs_HOST_OS
   curTime <- holdDyn 0 =<<
              wrapDomEvent e (`on` Media.timeUpdate) (Media.getCurrentTime e)
+  curTime <- undefined
   vidEnded <- wrapDomEvent e (`on` Media.ended) (return ())
   vidMuted <- holdDyn False =<<
               wrapDomEvent e (`on` Media.volumeChange) (Media.getMuted e)
   vidVolume <- holdDyn 1 =<<
                wrapDomEvent e (`on` Media.volumeChange) (Media.getVolume e)
   canPlThr  <- wrapDomEvent e (`on` Media.canPlayThrough) (return ())
+#endif
+
   -- loadStart <- wrapDomEvent e (`on` Media.loadStart) (return ())
   -- Pushers & Setters
   performEvent_ $ Media.load e <$ _videoWidgetConfig_load cfg
@@ -93,6 +99,19 @@ videoWidget srcs cfg = do
   performEvent_ $ Media.setMuted e
                   <$> _videoWidgetConfig_setMuted cfg
 
+#ifdef ghcjs_HOST_OS
   return $ VideoWidget vidEl vidSrcs curTime undefined
                        vidVolume vidMuted canPlThr vidEnded
+#else
+  return $ VideoWidget
+    { _videoWidget_videoEl = vidEl
+    , _videoWidget_sourceEls = vidSrcs
+    , _videoWidget_currentTime = error "_videoWidget_currentTime: can only be used with GHCJS"
+    , _videoWidget_playbackRate = error "_videoWidget_playbackRate: can only be used with GHCJS"
+    , _videoWidget_volume = error "_videoWidget_volume: can only be used with GHCJS"
+    , _videoWidget_muted = error "_videoWidget_error: can only be used with GHCJS"
+    , _videoWidget_canplaythrough = error "_videoWidget_canplaythrough: can only be used with GHCJS"
+    , _videoWidget_ended = error "_videoWidget_ended: can only be used with GHCJS"
+    }
+#endif
 

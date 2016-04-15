@@ -506,10 +506,6 @@ survey = elClass "form" "survey" $ mdo
       Right _ -> Nothing
 
 
--- main = mainWidgetWithHead (elAttr "link" bootstrapLink fin) $ do
---   es <- memoryQuiz
---   e <- holdDyn Nothing (fmap Just es)
---   display e
 
 ------------------------------------------------------------------------------
 bootstrapLink =
@@ -518,24 +514,26 @@ bootstrapLink =
   <> "href" =: "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
 
 ------------------------------------------------------------------------------
-main :: IO ()
-main = mainWidget run
+main' :: IO ()
+main' = mainWidget run
 
 -- This is just a test of VideoWidget
-main' :: IO ()
-main' = mainWidget $ do
+main :: IO ()
+main = mainWidget $ do
   play <- button "play"
   pause <- button "pause"
+  reset <- button "reset"
   muted <- toggle False =<< button "Toggle mute"
   el "br" (return ())
   w <- videoWidget [("file:///home/greghale/Downloads/test4.mp4","video/mp4")]
-       (def & (videoWidgetConfig_play .~ play)
-            . (videoWidgetConfig_pause .~ pause)
-            . (videoWidgetConfig_setMuted .~ updated muted))
+       (def & videoWidgetConfig_play .~ play
+            & videoWidgetConfig_pause .~ pause
+            & videoWidgetConfig_setMuted .~ updated muted
+            & videoWidgetConfig_setCurrentTime .~ (0 <$ reset))
   el "br" (return ())
-  display =<< count (w ^. videoWidget_ended)
+  -- display =<< count (w ^. videoWidget_ended)
   text "test"
-  display (w ^. videoWidget_currentTime)
+  -- display (w ^. videoWidget_currentTime)
 
   return ()
 
