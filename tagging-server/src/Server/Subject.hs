@@ -22,6 +22,8 @@ import qualified Data.Set as S
 import qualified Data.Text as T
 import           Data.Time
 import           Database.Groundhog
+import qualified Database.Groundhog.Core    as G
+import qualified Database.Groundhog.Generic as G
 import           Database.Groundhog.Postgresql
 import           Database.Groundhog.Postgresql.Array
 import           GHC.Generics
@@ -58,6 +60,7 @@ type SubjectAPI = "currentstim"       :> Get '[JSON] StimSeqItem
              :<|> "progress"          :> Get '[JSON] Progress
              :<|> "response"          :> QueryFlag "advance" :> ReqBody '[JSON] ResponsePayload
                                       :> Post '[JSON] ()
+             :<|> "answerkey"         :> QueryParam "experiment" Int :> Get '[JSON] [StimSeqAnswer]
 
 ------------------------------------------------------------------------------
 subjectServer :: Server SubjectAPI AppHandler
@@ -67,6 +70,7 @@ subjectServer = handleCurrentStimSeqItem
            :<|> handleFullPosInfo
            :<|> handleProgress
            :<|> handleSubmitResponse
+           :<|> handleAnswerKey
 
 -- ------------------------------------------------------------------------------
 -- -- | Add or revoke roles on a user
@@ -227,3 +231,17 @@ handleFullPosInfo =
   maybeT (return Nothing) (return . Just) $ (,,) <$> MaybeT getCurrentAssignment
                                                  <*> MaybeT getCurrentStimulusSequence
                                                  <*> MaybeT getCurrentStimSeqItem
+
+handleAnswerKey :: Maybe Int -> AppHandler [StimSeqAnswer]
+handleAnswerKey Nothing = error "Must pass 'experiment' parameter"
+handleAnswerKey (Just k) = do
+  tu :: TaggingUser <- exceptT (Server.Utils.err300) return getCurrentTaggingUser
+  let queryProxy = Proxy :: Proxy Postgresql
+  runGH (queryRaw False (unlines
+         ["WITH resps AS ("
+         ,"  SELECT sr_index FROM stimulus_response"
+         ,"  WHERE sr_sequence = ? AND sr_user = ?)"
+         ,"SELECT * FROM stim_seq_answer"
+         ," WHERE ssa_index IN (SELECT * FROM resps)"])
+         [G.toPrimitivePersistValue queryProxy k, G.toPrimitivePersistValue queryProxy (tuId tu)]
+        (G.mapAllRows (fmap fst . G.fromPersistValues)))
