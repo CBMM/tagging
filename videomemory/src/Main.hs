@@ -33,7 +33,7 @@ import           Reflex
 import           Reflex.Dom
 import           Reflex.Dom.Contrib.Widgets.Common
 import           Reflex.Dom.Contrib.Widgets.ButtonGroup
-import           Reflex.Dom.Contrib.Widgets.Modal
+-- import           Reflex.Dom.Contrib.Widgets.Modal
 import           Tagging.Response
 import           Tagging.Stimulus
 import           Tagging.User
@@ -99,7 +99,8 @@ quiz0 = MemoryQuiz "" "" "" True "" "" "" "" "" "" True
 
 ------------------------------------------------------------------------------
 memoryQuiz :: MonadWidget t m => m (Event t MemoryQuiz)
-memoryQuiz = questionSequence qs
+memoryQuiz = divClass "modal-background" $
+             elClass "div" "memory-quiz" $ questionSequence qs
  where
   qs = [memoryQuestion (bootstrapLabeledInput
                         "What was the name of the main character?"
@@ -203,7 +204,7 @@ memoryQuestion :: MonadWidget t m
                   -- ^ Quiz update function
                -> m (Event t (MemoryQuiz -> MemoryQuiz))
 memoryQuestion question fUpdate = mdo
-  r    <- mapDyn hush =<< question next
+  r    <- mapDyn hush =<< elClass "form" "memory-quiz-form" (question next)
   next <- bootstrapButton "chevron-right"
   let quizUpdates = fmapMaybe (fmap fUpdate) (tag (current r) next)
   return quizUpdates
@@ -336,6 +337,7 @@ run = elClass "div" "content" $ mdo
 makeTrial :: MonadWidget t m => TaskPhase -> m (Event t (Int, Response))
 makeTrial TaskPhaseSurvey     = (fmap . fmap) ((0,) . RSurvey) surveyParent
 makeTrial TaskPhaseMemoryQuiz = (fmap . fmap) ((0,) . RQuiz  ) memoryQuiz
+makeTrial TaskPhaseDone       = debrief >> return never
 makeTrial (TaskPhaseTrial n)  = mdo
   pb <- getPostBuild
   pos <- fmapMaybe id <$> getAndDecode ("/api/fullposinfo" <$ pb)
@@ -343,6 +345,20 @@ makeTrial (TaskPhaseTrial n)  = mdo
   responses <- elClass "div" "interaction" $
     widgetHold (text "Waiting ..." >> return never) (fmap videoQuestion pos)
   return $ switchPromptlyDyn responses
+
+debrief :: MonadWidget t m => m ()
+debrief = elClass "div" "modal-background" $ elClass "div" "debrief" $ do
+  el "h2" (text "All done!")
+  el "p" (text $ "Thank you very much for participating in our research "
+              ++ "study. If you would like to know more about the science "
+              ++ "of long-term memory, get in touch with the experimenters. "
+              ++ "Your results will be kept confidential.")
+  elAttr "a" ("href" =: "/") $
+    elAttr "button" ("type"  =: "button" <>
+                     "class" =: "btn btn-default btn-lg") $ do
+      text "Goodbye"
+      elAttr "span" ("class" =: "glyphicon glyphicon-log-out") fin
+
 
 
 ------------------------------------------------------------------------------
@@ -454,47 +470,48 @@ surveyParent = do
 ------------------------------------------------------------------------------
 -- | Survey questions, emits a Survey when form is filled out right
 survey :: MonadWidget t m => m (Event t Survey)
-survey = elClass "form" "survey" $ mdo
-  pb <- getPostBuild
+survey = elClass "div" "survey" $ elClass "div" "survey-content" $ mdo
   el "h1" $ text "Welcome!"
-  surv <- elClass "div" "qs-and-vid" $ do
+  surv <- elClass "div" "survey-form" $ mdo
+   pb <- getPostBuild
+   surv <- elClass "div" "qs-and-vid" $ do
 
-    surv <- elClass "div" "questions" $ do
-      name  <- bootstrapLabeledInput "Name" "user-real-name" validateName sends
+     surv <- elClass "form" "questions" $ do
+       name  <- bootstrapLabeledInput "Name" "user-real-name" validateName sends
 
-      seen1 <- radioMultichoice
-               "Have you seen 24, Season 5 Episode 1?"
-               "seen1" [(True,"Yes"),(False,"No")] validateSeenEp1 sends
+       seen1 <- radioMultichoice
+                "Have you seen 24, Season 5 Episode 1?"
+                "seen1" [(True,"Yes"),(False,"No")] validateSeenEp1 sends
 
-      seenN <- radioMultichoice
-               "Have you seen any other episodes of 24?"
-               "seenN" [(True,"Yes"),(False,"No")] validateSeenEpN sends
+       seenN <- radioMultichoice
+                "Have you seen any other episodes of 24?"
+                "seenN" [(True,"Yes"),(False,"No")] validateSeenEpN sends
 
-      vidVis <- bootstrapLabeledInput
-                "Written word" "written-word" validateWritten sends
-      vidHer <- bootstrapLabeledInput
-                "Spoken word" "spoken-word" validateSpoken sends
-      liftA5 Survey `mapDyn` name `apDyn` seen1 `apDyn` seenN
-                    `apDyn` vidVis `apDyn` vidHer
+       vidVis <- bootstrapLabeledInput
+                 "Written word" "written-word" validateWritten sends
+       vidHer <- bootstrapLabeledInput
+                 "Spoken word" "spoken-word" validateSpoken sends
+       liftA5 Survey `mapDyn` name `apDyn` seen1 `apDyn` seenN
+                     `apDyn` vidVis `apDyn` vidHer
 
-    elClass "div" "survey-video" $ mdo
-      let vidUrlBase = "https://s3.amazonaws.com/gk24/avtest."
-      v <- videoWidget [(vidUrlBase <> "mp4" , "video/mp4")
-                       ,(vidUrlBase <> "ogg" , "video/ogg")
-                       ,(vidUrlBase <> "webm", "video/webm")
-                  ]
-        (def { _videoWidgetConfig_play = leftmost [pb, replay]})
-      replayAttrs <- holdDyn ("style" =: "display:none")
-                     (mempty <$ _videoWidget_ended v)
-      replay <- elDynAttr "div" replayAttrs $ bootstrapButton "repeat"
-      el "p" $ text
-        "To test your video and audio, please tell us what you see and hear."
+     elClass "div" "survey-video" $ mdo
+       let vidUrlBase = "https://s3.amazonaws.com/gk24/avtest."
+       v <- videoWidget [(vidUrlBase <> "mp4" , "video/mp4")
+                        ,(vidUrlBase <> "ogg" , "video/ogg")
+                        ,(vidUrlBase <> "webm", "video/webm")
+                   ]
+         (def { _videoWidgetConfig_play = leftmost [pb, replay]})
+       replayAttrs <- holdDyn ("style" =: "display:none" <> "class" =: "replay-button")
+                      (("class" =: "replay-button") <$ _videoWidget_ended v)
+       replay <- elDynAttr "div" replayAttrs $ bootstrapButton "repeat"
+       el "p" $ text
+         "To test your video and audio, please tell us what you see and hear."
 
-    return surv
-  return ()
+     return surv
 
-  elClass "div" "error-text" $
-    dynText =<< holdDyn "" (leftmost [lefts survs, "" <$ rights survs])
+   elClass "div" "error-text" $
+     dynText =<< holdDyn "" (leftmost [lefts survs, "" <$ rights survs])
+   return surv
   sends <- button "Ok"
 
   let survs = tag (current surv) sends
