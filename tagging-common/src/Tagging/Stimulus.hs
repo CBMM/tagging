@@ -101,7 +101,6 @@ data StimSeqItem = StimSeqItem
   , ssiIndex            :: !Int
   } deriving (Eq, Show, Generic)
 
-
 G.mkPersist ghCodeGen [G.groundhog|
   - entity: StimSeqItem
     keys:
@@ -113,6 +112,25 @@ G.mkPersist ghCodeGen [G.groundhog|
             fields: [ssiStimulusSequence, ssiIndex]
 |]
 
+data StimSeqAnswer = StimSeqAnswer
+  { ssaAnswer           :: A.Value
+  , ssaStimulusSequence :: G.DefaultKey StimulusSequence
+  , ssaIndex            :: !Int
+  } deriving (Eq, Show, Generic)
+
+instance ToJSON StimSeqAnswer
+instance FromJSON StimSeqAnswer
+
+G.mkPersist ghCodeGen [G.groundhog|
+   - entity: StimSeqAnswer
+     keys:
+       - name: SeqAndIndexAnswerConstraint
+     constructors:
+       - name: StimSeqAnswer
+         uniques:
+           - name: SeqAndIndexAnswerConstraint
+             fields: [ssaStimulusSequence, ssaIndex]
+|]
 
 instance ToJSON U.UUID where
   toJSON u = A.object ["uuid" .= U.toWords u]
@@ -153,6 +171,8 @@ instance G.PersistField A.Value where
   fromPersistValues = G.primFromPersistValue
   dbType _ _        = G.DbTypePrimitive G.DbString False Nothing Nothing
 
+instance G.NeverNull A.Value
+
 instance G.PrimitivePersistField A.Value where
   toPrimitivePersistValue p v   = G.toPrimitivePersistValue p . T.toStrict . T.decodeUtf8 $ A.encode v
   fromPrimitivePersistValue p s = fromMaybe A.Null
@@ -191,3 +211,6 @@ instance ToSample StimulusRequest where
 sampleRequest :: StimulusRequest
 sampleRequest = StimulusRequest 1
                 (intToKey 1) 1 (UTCTime (fromGregorian 2015 1 1) 0)
+
+instance ToSample StimSeqAnswer where
+  toSamples _ = singleSample (StimSeqAnswer (toJSON True) (intToKey 1) 10)

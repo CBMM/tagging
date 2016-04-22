@@ -43,7 +43,8 @@ import           Snap.Snaplet.Auth
 import           Snap.Snaplet.Session
 import           Snap.Snaplet.PostgresqlSimple
 import           Snap.Snaplet.Auth.Backends.PostgresqlSimple
-import           Snap.Snaplet.Heist
+-- import           Snap.Snaplet.Heist
+import qualified Snap.Snaplet.Heist as SHeist
 import qualified Snap.Snaplet.Heist.Interpreted as I
 import           Snap.Snaplet.Session.Backends.CookieSession
 import           Snap.Util.FileServe
@@ -91,7 +92,7 @@ routes = [ ("login",    with auth handleLoginSubmit)
          -- , ("library/javascript", javascriptLibrary)
          , ("", Snap.Util.FileServe.serveDirectory "static")
 
-         , ("/", with auth $ handleLogin Nothing)
+         , ("", with auth $ handleLogin Nothing)
          ]
 
 
@@ -140,7 +141,7 @@ handleNewUser :: Handler App App ()
 handleNewUser =
   Snap.Core.method GET runPage <|> Snap.Core.method POST runCreate
   where
-    runPage = render "_new_user"
+    runPage = I.render "_new_user"
     runCreate = exceptT Server.Utils.err300 return $ do
 
       user <- ExceptT $ fmap (first show) $
@@ -160,7 +161,8 @@ app :: SnapletInit App App
 app = makeSnaplet "app" "An snaplet example application." Nothing $ do
 
 
-    h <- nestSnaplet "" heist $ heistInit "templates"
+    h <- nestSnaplet "" heist $ I.heistInit "templates"
+    SHeist.setInterpreted h
 
     d <- nestSnaplet "" db pgsInit
 

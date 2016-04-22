@@ -29,12 +29,13 @@ import Tagging.User
 import Tagging.Stimulus
 import Utils
 
+------------------------------------------------------------------------------
 -- | A particular response to one stimulus in a sequence
 data StimulusResponse = StimulusResponse
   { srUser          :: Int64 -- TaggingUser Key
   -- ^ Tagging User
   , srSequence      :: G.DefaultKey StimulusSequence
-  , srIndex         :: Int64
+  , srIndex         :: Int64 -- TODO want Maybe here, but that's a DB migration. For now, signal 'nothing' with (-1)... really gross
   , srDeliveredTime :: UTCTime
   -- ^ Trial start time (in server's timezone)
   , srRespondedTime :: UTCTime

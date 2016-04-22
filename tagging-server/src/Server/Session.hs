@@ -10,28 +10,39 @@ module Server.Session where
 
 import           Control.Error
 import           Control.Monad (mzero)
+import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Trans.Class (lift)
 import qualified Data.Aeson as A
 import           Data.Aeson ((.:), (.=), (.:?), (.!=))
 import qualified Data.Aeson.Types as A
 import           Data.Char
+import qualified Database.Groundhog as G
 import           Database.Groundhog.Postgresql
-import           GHC.Generics
-import           GHC.Int
+import qualified Data.Map as Map
+import           Data.Map.Syntax
+import           Data.Monoid ((<>), mempty)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import qualified Heist.Interpreted as I
-import           Data.Map.Syntax
+import           GHC.Generics
+import           GHC.Int
 import           Servant
 import           Servant.Docs
 import           Snap.Core       (redirect)
 import           Snap.Snaplet
 import           Snap.Snaplet.Auth
-import           Snap.Snaplet.Heist
+
+
+import qualified Heist.Interpreted as I
+import qualified Snap.Snaplet.Heist.Interpreted as I
+-- import Heist
+-- import Snap.Snaplet.Heist
+-- import Heist.Interpreted
 
 import           Tagging.User
+import           Tagging.Stimulus
 import           Server.Application
 import           Server.Utils
+import qualified Utils as Utils
 
 
 ------------------------------------------------------------------------------
@@ -76,13 +87,41 @@ instance ToSample LoginInfo where
   toSamples _ = singleSample (LoginInfo "greg" "myPassword" True)
 
 ------------------------------------------------------------------------------
+-- Listing of paths to experiments indexed by int. TODO this information
+--   should be in the StimulusSequence table of the tagging db
+experimentPaths :: Map.Map Int (T.Text,T.Text)
+experimentPaths = Map.fromList[(4,("Home Alone 2","/client/HomeAlone"))
+                              ,(5,("Video Memory","/client/videomemory"))
+                              ]
+
+------------------------------------------------------------------------------
 -- | Render login form
 handleLogin :: Maybe T.Text -> Handler App (AuthManager App) ()
-handleLogin authError = heistLocal (I.bindSplices errs) $ render "login"
-  where
+handleLogin authError = do
+ k' <- getCurrentTaggingUser'
+ case k' of
+  Nothing -> I.render "_index"
+  Just k -> do
+   let userKey = Utils.integralToKey (tuId k) :: DefaultKey TaggingUser
+   asgns <- runGH $ select $ (AUserField ==. userKey)
+   let asgnInfos = catMaybes $
+        (\asgn -> Map.lookup (Utils.keyToIntegral $ aSequence asgn)
+                  experimentPaths) <$> asgns
+
+   liftIO $ print "ASGNINFOS"
+   liftIO $ print asgnInfos
+   I.renderWithSplices "_index" (asgnsSplices asgnInfos)
+   where
     errs = maybe mempty splice authError
     splice err = "loginError" ## I.textSplice err
-
+    asgnSplices (txt, href) = do
+      "link" ## I.textSplice href
+      "assignmentLabel" ## I.textSplice txt
+    bindAsgns = I.mapSplices $ I.runChildrenWith . asgnSplices
+    asgnsSplices asgns = errs <> ("assignments" ## (bindAsgns asgns))
+    -- asgnsSplices' _ = do
+    --   "assignments" ## I.textSplice "HI!"
+    --   "atest" ## I.textSplice "Test complete"
 
 ------------------------------------------------------------------------------
 -- | Handle login submit
@@ -96,8 +135,8 @@ handleLoginSubmit =
 
 ------------------------------------------------------------------------------
 -- | Logs out and redirects the user to the site index.
-handleLogout :: Handler App (AuthManager App) ()
-handleLogout = logout >> redirect "/"
+handleLogout :: Handler App App ()
+handleLogout = with auth $ logout >> redirect "/"
 
 
 ------------------------------------------------------------------------------
@@ -107,7 +146,7 @@ handleLogout = logout >> redirect "/"
 sessionServer :: Server SessionAPI AppHandler
 sessionServer = -- apiLogin
                 -- :<|> apiCurrentUser
-  apiCurrentUser
+  handleCurrentTaggingUser -- apiCurrentUser
                 -- :<|> apiNewUser
                 -- :<|> with auth handleLogout
   where
@@ -135,6 +174,10 @@ sessionServer = -- apiLogin
              return
              getCurrentTaggingUser
 
+handleCurrentTaggingUser :: Handler App App TaggingUser
+handleCurrentTaggingUser =
+  exceptT (Server.Utils.err300 . ("apiCurrentUser error" ++))
+  return getCurrentTaggingUser
 
 instance ToFormUrlEncoded LoginInfo where
   toFormUrlEncoded LoginInfo{..} = [("username",liUsername)

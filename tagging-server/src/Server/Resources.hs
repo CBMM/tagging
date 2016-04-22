@@ -103,6 +103,7 @@ migrateResourcesIO = runMigration $ do
   migrate (undefined :: TaggingUser)
   migrate (undefined :: StimulusSequence)
   migrate (undefined :: StimSeqItem)
+  migrate (undefined :: StimSeqAnswer)
   migrate (undefined :: StimulusRequest)
   migrate (undefined :: StimulusResponse)
   migrate (undefined :: APIKey)

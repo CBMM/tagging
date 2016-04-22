@@ -49,6 +49,7 @@ library
                     , MonadCatchIO-transformers
                     , monad-logger
                     , mtl >= 2.2 && < 2.3
+                    , random
                     , resource-pool
                     , postgresql-simple
                     , servant >= 0.5 && < 0.6
@@ -90,6 +91,7 @@ executable tagging-server
                      , monad-logger
                      , mtl >= 2.2 && < 2.3
                      , optparse-applicative
+                     , random
                      , resource-pool
                      , servant
                      , servant-docs

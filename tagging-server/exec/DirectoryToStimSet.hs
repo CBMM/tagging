@@ -71,7 +71,8 @@ main = do
       key <- require cfg "researcherkey"
       let s3Opts = W.defaults & W.auth ?~ W.awsAuth W.AWSv4 kId key
       (stimSeq :: StimulusSequence, ssItems) <- readStimSeq (uoSeqFile uOpts)
-      _ <- traverse (uploadOne uOpts s3Opts stimSeq) (ssItems :: [([FilePath],StimSeqItem)])
+      _ <- traverse (uploadOne uOpts s3Opts stimSeq)
+           (drop (uoSkipN uOpts) ssItems :: [([FilePath],StimSeqItem)])
       return ()
 
 
@@ -103,7 +104,12 @@ mkStimSeq opts@SetupOpts{..} = do
                    . sort
                    $ map takeFileName files :: [[FilePath]]
 
-  u <- U4.nextRandom
+  u <- case soSeqUuid of
+         "" -> U4.nextRandom
+         us -> case U.fromString us of
+           Nothing -> error $ "Failure decoding uuid from string: " ++ us
+           Just uu -> return uu
+
   let stimSeq = StimulusSequence (T.pack soTitle) u
                                  A.Null (T.pack soDescr) (T.pack soUrlBase)
                                  soSample
@@ -124,12 +130,12 @@ getStimSeqItem SetupOpts{..} stimSeq (ind, fileGroup) =
                            ind
 
 
--- TODO: Unused. Use or delete
-data SortBy = Name | Created | Modified
-  deriving (Eq, Show, Read, Enum, Bounded)
+-- -- TODO: Unused. Use or delete
+-- data SortBy = Name | Created | Modified
+--   deriving (Eq, Show, Read, Enum, Bounded)
 
 vidExtensions :: [FilePath]
-vidExtensions = [".mp4",".ogv"]
+vidExtensions = [".mp4",".ogv",".ogg",".webm"]
 
 fullDescription :: String
 fullDescription = [s|
@@ -150,12 +156,13 @@ data Opts = SOpts SetupOpts | DOpts DbOpts | UOpts UploadOpts
 
 data SetupOpts = SetupOpts
   { soPath    :: !String
-  , soSortBy  :: !SortBy
+  -- , soSortBy  :: !SortBy
   , soUrlBase :: !String
   , soTitle   :: !String
   , soDescr   :: !String
   , soSample  :: !SamplingMethod
   , soOutFile :: !String
+  , soSeqUuid :: !String
 }
 
 
@@ -170,6 +177,7 @@ data UploadOpts = UploadOpts
   , uoBaseDir :: FilePath
   , uoConfig  :: FilePath
   , uoBucket  :: FilePath
+  , uoSkipN   :: Int
   } deriving (Show)
 
 
@@ -191,7 +199,7 @@ uploadOne UploadOpts{..} wreqOpts sSeq (paths, ssItem) = do
       print    r
     when (r ^. W.responseStatus . W.statusCode == 200) $
       putStrLn $ "Success on index " <> show (ssiIndex ssItem)
-    threadDelay 200000 -- Wait half a second to to be bombarding the server
+    threadDelay 200000 -- Wait a bit to not be bombarding the server
   return True
 
 
@@ -217,8 +225,8 @@ setupOpts :: Parser Opts
 setupOpts = fmap SOpts $ SetupOpts
   <$> (option str (long "path" <> short 'p'
                    <> help "Path to data directory") <|> pure ".")
-  <*> (option auto (long "sort" <> short 's'
-                   <> help ("Sort by [" ++ sr ++ "]")) <|> pure Name)
+  -- <*> (option auto (long "sort" <> short 's'
+  --                  <> help ("Sort by [" ++ sr ++ "]")) <|> pure Name)
   <*> option str (long "url" <> short 'u' <> help "Base url")
   <*> option str (long "title" <> short 't' <> help "Title")
   <*> option str (long "description" <> short 'd' <> help "Description")
@@ -226,7 +234,9 @@ setupOpts = fmap SOpts $ SetupOpts
        <|> pure SampleIncrement)
   <*> (option str (long "output" <> short 'o' <> help "Output json file")
        <|> pure "./out.json")
-  where sr = intercalate "|" (map show [minBound..(maxBound :: SortBy)])
+  <*> (option str (long "sequenc-uuid" <> short 'i' <> help "UUID to use for stimulus sequence")
+      <|> pure "")
+  -- where sr = intercalate "|" (map show [minBound..(maxBound :: SortBy)])
 
 
 dbOpts :: Parser Opts
@@ -238,14 +248,16 @@ dbOpts = fmap DOpts $ DbOpts
 
 uploadOpts :: Parser Opts
 uploadOpts = fmap UOpts $ UploadOpts
-  <$> (option str (long "seqfile" <> short 's'
-                   <> help "Path to data directory") <|> pure ".")
+  <$> option str (long "stimseqconfig" <> short 's'
+                  <> help "Path to stimulus sequence and stimseqitem config file")
   <*> option str (long "base" <> short 'b'
                   <> help "Base path of stimuli")
   <*> option str (long "config" <> short 'c'
                   <> help "Snaplet config file with AWS keys")
   <*> option str (long "bucket" <> short 'b'
                   <> help "S3 bucket name")
+  <*> (option auto (long "nskip" <> short 'k'
+                    <> help "Skip n stimuli before uploading (for mid-upload crash recovery)") <|> pure 0)
 
 
 fullOpts :: ParserInfo Opts

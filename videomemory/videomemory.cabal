@@ -17,17 +17,21 @@ cabal-version:       >=1.10
 
 executable videomemory
   main-is:             Main.hs
-  -- other-modules:       
+  other-modules:       MediaElement
   -- other-extensions:    
   build-depends:       base >=4.8 && <4.9, 
                        aeson, 
                        bytestring, 
                        containers, 
+                       data-default,
                        ghcjs-dom, 
+                       lens,
                        reflex, 
                        reflex-dom, 
+                       reflex-dom-contrib,
                        tagging-common, 
                        text, 
+                       transformers,
                        unordered-containers,
                        vector
   hs-source-dirs:      src
