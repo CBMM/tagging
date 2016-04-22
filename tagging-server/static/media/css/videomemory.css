@@ -16,6 +16,24 @@ body {
     width: 100%;
 }
 
+.interaction {
+    max-width: 640px;
+    max-height: 480px;
+}
+
+.interaction, .warning-modal, .survey {
+    position: absolute;
+    left: 0px;
+    right: 0px;
+    margin-left: auto;
+    margin-right: auto;
+    top: 0px;
+    bottom: 0px;
+    margin-top: auto;
+    margin-bottom: auto;
+}
+
+
 .modal-background {
     background-color: rgba(0,0,0,0.75);
     width: 100%;
@@ -103,3 +121,68 @@ video {
 /************************/
 
 /* TODO */
+
+/************************/
+/* Performance Warning  */
+/************************/
+
+.warning-modal {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.warning-modal > div {
+    background-color: white;
+    width: 80%;
+    padding: 20px;
+    border-radius:20px;
+    box-shadow: 10px 10px 10px rgba(0,0,0,0.25);
+}
+
+.warning-top {
+    padding: 20px;
+    display: flex;
+    align-items: center;
+}
+
+.warning-text {
+    padding: 10px;
+}
+
+.warning-text > h1 {
+    font-size: 20pt;
+}
+
+.warning-text > p {
+    font-size: 14pt;
+}
+
+.warning-text > h2 {
+    font-size: 16pt;
+}
+
+.warning-glyphicon > span {
+    font-size: 80pt;
+    color: hsla(180, 50%, 75%,1);
+}
+
+.warning-modal .button-group {
+    display: flex;
+    justify-content: space-around;
+    border-top: solid 1px hsla(0,0%,0%,0.25);
+    padding: 20px;
+}
+
+.warning-modal .button-group .glyphicon {
+    margin: 10px;
+}
+
+// TODO drop
+.content > button {
+    position: absolute;
+}

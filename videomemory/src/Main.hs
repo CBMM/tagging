@@ -33,6 +33,7 @@ import           Reflex
 import           Reflex.Dom
 import           Reflex.Dom.Contrib.Widgets.Common
 import           Reflex.Dom.Contrib.Widgets.ButtonGroup
+import           Reflex.Dom.Contrib.Widgets.Modal
 import           Tagging.Response
 import           Tagging.Stimulus
 import           Tagging.User
@@ -251,19 +252,55 @@ trialSequence phaseTask (Assignment _ s i, Progress nFinished nTrials) = do
       let thisScore = attachWith checkAnswers (current responseList) answerKeys
       totalScore <- foldDyn (\(x',y') (x,y) -> (x + x', y + y')) (0 :: Int,0 :: Int) thisScore
       let listClear = () <$ updated totalScore
-      warningAttrs <- forDyn totalScore $ \(nCorrect,nTotal) -> "class" =: "performance-warning" <>
-        if   fromIntegral nCorrect / (fromIntegral nTotal + 0.01) < (1.0 :: Double)  -- TODO: Use real threshold
-        then mempty
-        else "style" =: "display:none"
-      warning <- elDynAttr "div" warningAttrs $ do
-        el "div" $ do
-          text "nCorrect: "
-          display =<< mapDyn fst totalScore
-        el "div" $ do
-          text "nTotal: "
-          display =<< mapDyn snd totalScore
+
+      wButton <- toggle False =<< button "Show Warning"
+
+      badScore <- forDyn totalScore $ \(nCorrect, nTotal) ->
+        fromIntegral nCorrect / (fromIntegral nTotal + 0.01) < (0.5 :: Double)
+      showWarning <- holdDyn False $ leftmost [updated badScore, updated wButton, False <$ warningClose]
+      modalAttrs <- forDyn showWarning $ \b ->
+        "class" =: "warning-modal" <>
+        "style" =: bool "display:none" "display:flex" b
+      warningClose <- elDynAttr "div" modalAttrs $ do
+          closes <- performanceWarning totalScore
+          return closes
+
 
   return ()
+
+performanceWarning :: MonadWidget t m => Dynamic t (Int,Int) -> m (Event t ())
+performanceWarning totalScore = el "div" $ do
+
+  elClass "div" "warning-top" $ do
+    elClass "div" "warning-text" $ do
+      el "h1" $ text "Having a hard time?"
+      el "p"  $ text $ "It's very important that you try your best " ++
+                      "to remember whether you saw each clip. " ++
+                      "If you need a break, feel free to close " ++
+                      "the browser and log in later. " ++
+                      "We'll save your place so you don't have to start over. "
+      el "p" $ text $ "Thanks for participating. We know it's a hard task, and " ++
+                       "we couldn't do it without you!"
+    elClass "div" "warning-glyphicon" $ do
+      elClass "span" "glyphicon glyphicon-info-sign" fin
+
+
+  elClass "div" "button-group" $ do
+
+    elAttr "a" ("href" =: "/") $ do
+      elAttr "button" ("type" =: "button" <> "class" =: "btn btn-default btn-lg") $ do
+        text "Take a break"
+        elAttr "span" ("class" =: "glyphicon glyphicon-off") fin
+
+    ok <- fmap (domEvent Click . fst) $
+          elAttr' "button" ("type" =: "button"
+                         <> "class" =: "btn btn-default btn-lg") $ do
+      text "I'm ready"
+      fmap fst $
+        elAttr' "span" ("class" =: "glyphicon glyphicon-thumbs-up") fin
+    return ok
+
+
 
 checkAnswers :: [(Int, Response)] -> [StimSeqAnswer] -> (Int,Int)
 checkAnswers resps answers =
@@ -297,7 +334,7 @@ run = elClass "div" "content" $ mdo
   return ()
 
 makeTrial :: MonadWidget t m => TaskPhase -> m (Event t (Int, Response))
-makeTrial TaskPhaseSurvey     = (fmap . fmap) ((0,) . RSurvey) modal
+makeTrial TaskPhaseSurvey     = (fmap . fmap) ((0,) . RSurvey) surveyParent
 makeTrial TaskPhaseMemoryQuiz = (fmap . fmap) ((0,) . RQuiz  ) memoryQuiz
 makeTrial (TaskPhaseTrial n)  = mdo
   pb <- getPostBuild
@@ -409,15 +446,10 @@ radioMultichoice label idattr choices validate eval =
       mapDyn validate rMaybe
     return r
 
-bootstrapButton :: MonadWidget t m => String -> m (Event t ())
-bootstrapButton glyphShortname = (domEvent Click . fst) <$>
-  elAttr' "span" ("class" =: (prfx <> glyphShortname)) (return ())
-  where prfx = "glyphicon glyphicon-"
-
--- TODO: Rename this
-modal :: MonadWidget t m => m (Event t Survey)
-modal = do
+surveyParent :: MonadWidget t m => m (Event t Survey)
+surveyParent = do
   elClass "div" "modal-background" $ survey
+
 
 ------------------------------------------------------------------------------
 -- | Survey questions, emits a Survey when form is filled out right
@@ -442,11 +474,8 @@ survey = elClass "form" "survey" $ mdo
                 "Written word" "written-word" validateWritten sends
       vidHer <- bootstrapLabeledInput
                 "Spoken word" "spoken-word" validateSpoken sends
-      $(qDyn [| Survey <$> $(unqDyn [|name|]) <*> $(unqDyn [|seen1  |])
-                                              <*> $(unqDyn [|seenN  |])
-                                              <*> $(unqDyn [|vidVis |])
-                                              <*> $(unqDyn [|vidHer |])
-            |])
+      liftA5 Survey `mapDyn` name `apDyn` seen1 `apDyn` seenN
+                    `apDyn` vidVis `apDyn` vidHer
 
     elClass "div" "survey-video" $ mdo
       let vidUrlBase = "https://s3.amazonaws.com/gk24/avtest."
@@ -454,9 +483,9 @@ survey = elClass "form" "survey" $ mdo
                        ,(vidUrlBase <> "ogg" , "video/ogg")
                        ,(vidUrlBase <> "webm", "video/webm")
                   ]
-        (def & videoWidgetConfig_play .~ leftmost [pb, replay])
+        (def { _videoWidgetConfig_play = leftmost [pb, replay]})
       replayAttrs <- holdDyn ("style" =: "display:none")
-                     (mempty <$ v ^. videoWidget_ended)
+                     (mempty <$ _videoWidget_ended v)
       replay <- elDynAttr "div" replayAttrs $ bootstrapButton "repeat"
       el "p" $ text
         "To test your video and audio, please tell us what you see and hear."
@@ -557,3 +586,27 @@ mimeOf fn = case extension fn of
 hush :: Either e a -> Maybe a
 hush (Right a) = Just a
 hush _         = Nothing
+
+
+------------------------------------------------------------------------------
+apDyn :: (Reflex t, MonadHold t m)
+      => m (Dynamic t (a -> b))
+      -> Dynamic t a
+      -> m (Dynamic t b)
+apDyn mf a = do
+  f <- mf
+  combineDyn ($) f a
+
+
+------------------------------------------------------------------------------
+liftA5 :: Applicative f => (a -> b -> c -> d -> e -> r)
+       -> f a -> f b -> f c -> f d -> f e -> f r
+liftA5 f a b c d e = f <$> a <*> b <*> c <*> d <*> e
+
+
+------------------------------------------------------------------------------
+bootstrapButton :: MonadWidget t m => String -> m (Event t ())
+bootstrapButton glyphShortname = (domEvent Click . fst) <$>
+  elAttr' "span" ("class" =: (prfx <> glyphShortname)) (return ())
+  where prfx = "glyphicon glyphicon-"
+

@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP             #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 -- Specification:
 -- https://www.w3.org/TR/html5/embedded-content-0.html#htmlmediaelement
@@ -34,7 +33,7 @@ data VideoWidgetConfig t = VideoWidgetConfig
   , _videoWidgetConfig_setMuted :: Event t Bool
   }
 
-makeLenses ''VideoWidgetConfig
+-- makeLenses ''VideoWidgetConfig
 
 instance Reflex t => Default (VideoWidgetConfig t) where
   def = VideoWidgetConfig defAttr f never never never never never never never
@@ -54,7 +53,7 @@ data VideoWidget t = VideoWidget
   , _videoWidget_ended :: Event t ()
   }
 
-makeLenses ''VideoWidget
+-- makeLenses ''VideoWidget
 
 ------------------------------------------------------------------------------
 -- | Create a video playing widget with access to video controls, events, and
