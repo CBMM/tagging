@@ -3,7 +3,6 @@ html {
     width: 100%;
 }
 
-
 body {
     background-color: rgba(200,200,200,1);
     margin: 0px;
@@ -17,12 +16,6 @@ body {
     width: 100%;
 }
 
-.interaction {
-    max-width: 640px;
-    max-height: 480px;
-}
-
-
 .modal-background {
     display: flex;
     align-items: center;
@@ -30,28 +23,6 @@ body {
     background-color: rgba(0,0,0,0.75);
     width: 100%;
     height: 100%;
-}
-
-.survey {
-    background-color: white;
-    padding: 20px;
-    max-width:90%;
-    max-height: 90%;
-    border-radius:20px;
-    box-shadow: 5px 5px 20px rgba(0,0,0,0.5);
-}
-
-.debrief {
-    background-color: white;
-    padding: 20px;
-    max-width:90%;
-    max-height: 90%;
-    border-radius:20px;
-    box-shadow: 5px 5px 20px rgba(0,0,0,0.5);
-}
-
-.debrief span {
-    margin: 5px;
 }
 
 .survey-content {
@@ -65,32 +36,53 @@ body {
 }
 
 .yesno {
-    width: 50%;
-    background-color:green;
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 20px;
+    color: #245C44;
+}
+
+.yesno button {
+    width: 100px;
+    height: 75px;
+    border-radius: 10px;
+    box-shadow: 10px 10px 10px rgba(0,0,0,0.05);
+}
+
+.yesno button:hover {
+    box-shadow: 9px 9px 9px rgba(0,0,0,0.05);
+}
+
+.yesno span {
+    margin: 10px;
+}
+
+.interaction {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+}
+
+.videoandquestion {
+    font-size: 14pt;
 }
 
 .video-container {
     width: 640px;
     height: 480px;
     background-color: black;
-    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 10px 10px 20px rgba(0,0,0,0.25);
 }
 
-video {
-}
-
-.questions, .survey-video {
-    padding: 20px;
-    position: relative;
-}
-
-.replay-button {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-}
-
-.survey-form {
+.video-container video {
+    width: 640px;
 }
 
 .input-group {
@@ -116,6 +108,30 @@ video {
     background-color: rgba(255,255,255,0.75);
 
 }
+
+.survey {
+    background-color: white;
+    padding: 20px;
+    max-width:90%;
+    max-height: 90%;
+    border-radius:20px;
+    box-shadow: 5px 5px 20px rgba(0,0,0,0.5);
+}
+
+.questions, .survey-video {
+    padding: 20px;
+    position: relative;
+}
+
+.replay-button {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+}
+
+.survey-form {
+}
+
 
 .survey-video span:hover {
     background-color: rgba(255,255,255,1);
@@ -229,3 +245,22 @@ video {
 .content > button {
     position: absolute;
 }
+
+/*********************************/
+/*         Debriefing            */
+/*********************************/
+
+.debrief {
+    background-color: white;
+    padding: 20px;
+    max-width:90%;
+    max-height: 90%;
+    border-radius:20px;
+    box-shadow: 5px 5px 20px rgba(0,0,0,0.5);
+}
+
+.debrief span {
+    margin: 5px;
+}
+
+

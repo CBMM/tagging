@@ -218,7 +218,7 @@ data TaskPhase = TaskPhaseSurvey
 
 ------------------------------------------------------------------------------
 trialSequence :: MonadWidget t m
-              => (TaskPhase -> m (Event t (Int, Response)))
+              => (Event t () -> TaskPhase -> m (Event t (Int, Response)))
               -> (Assignment, Progress)
               -> m ()
 trialSequence phaseTask (Assignment _ s i, Progress nFinished nTrials) = do
@@ -231,7 +231,7 @@ trialSequence phaseTask (Assignment _ s i, Progress nFinished nTrials) = do
       answerKeyUrl = "/api/answerkey?experiment=" ++ show (U.keyToInt s)
 
   rec trials    <- zipListWithEvent const
-                                    (map phaseTask ts)
+                                    (map (phaseTask warningClose) ts)
                                     (leftmost [() <$ responseAck, pb])
       responses <- switchPromptlyDyn <$> widgetHold (never <$ text "Loading") trials
 
@@ -251,14 +251,14 @@ trialSequence phaseTask (Assignment _ s i, Progress nFinished nTrials) = do
                     getAndDecode (answerKeyUrl <$ ffilter ((>= 10) . length)
                     (traceEvent "ResponseList" $ updated responseList))
       let thisScore = attachWith checkAnswers (current responseList) answerKeys
-      totalScore <- foldDyn (\(x',y') (x,y) -> (x + x', y + y')) (0 :: Int,0 :: Int) thisScore
+      totalScore <- foldDyn (\(x',y') (x,y) -> (x + x', y + y'))
+                            (0 :: Int,0 :: Int) thisScore
       let listClear = () <$ updated totalScore
-
-      wButton <- toggle False =<< button "Show Warning"
 
       badScore <- forDyn totalScore $ \(nCorrect, nTotal) ->
         fromIntegral nCorrect / (fromIntegral nTotal + 0.01) < (0.5 :: Double)
-      showWarning <- holdDyn False $ leftmost [updated badScore, updated wButton, False <$ warningClose]
+      showWarning <- holdDyn False $ leftmost
+                     [updated badScore, False <$ warningClose]
       modalAttrs <- forDyn showWarning $ \b ->
         "class" =: "warning-modal" <>
         "style" =: bool "display:none" "display:flex" b
@@ -269,6 +269,7 @@ trialSequence phaseTask (Assignment _ s i, Progress nFinished nTrials) = do
 
   return ()
 
+------------------------------------------------------------------------------
 performanceWarning :: MonadWidget t m => Dynamic t (Int,Int) -> m (Event t ())
 performanceWarning totalScore = el "div" $ do
 
@@ -334,16 +335,16 @@ run = elClass "div" "content" $ mdo
   widgetHold (return ()) (fmap (maybe pleaseLogin (trialSequence makeTrial)) (updated p))
   return ()
 
-makeTrial :: MonadWidget t m => TaskPhase -> m (Event t (Int, Response))
-makeTrial TaskPhaseSurvey     = (fmap . fmap) ((0,) . RSurvey) surveyParent
-makeTrial TaskPhaseMemoryQuiz = (fmap . fmap) ((0,) . RQuiz  ) memoryQuiz
-makeTrial TaskPhaseDone       = debrief >> return never
-makeTrial (TaskPhaseTrial n)  = mdo
+makeTrial :: MonadWidget t m => Event t () -> TaskPhase -> m (Event t (Int, Response))
+makeTrial _ TaskPhaseSurvey     = (fmap . fmap) ((0,) . RSurvey) surveyParent
+makeTrial _ TaskPhaseMemoryQuiz = (fmap . fmap) ((0,) . RQuiz  ) memoryQuiz
+makeTrial _ TaskPhaseDone       = debrief >> return never
+makeTrial r (TaskPhaseTrial n)  = mdo
   pb <- getPostBuild
   pos <- fmapMaybe id <$> getAndDecode ("/api/fullposinfo" <$ pb)
   let ind = ffor pos $ \(Assignment _ _ ind, _, _) -> ind
   responses <- elClass "div" "interaction" $
-    widgetHold (text "Waiting ..." >> return never) (fmap videoQuestion pos)
+    widgetHold (text "Waiting ..." >> return never) (fmap (videoQuestion r) pos)
   return $ switchPromptlyDyn responses
 
 debrief :: MonadWidget t m => m ()
@@ -363,9 +364,10 @@ debrief = elClass "div" "modal-background" $ elClass "div" "debrief" $ do
 
 ------------------------------------------------------------------------------
 videoQuestion :: forall t m.MonadWidget t m
-              => (Assignment, StimulusSequence, StimSeqItem)
+              => Event t ()
+              -> (Assignment, StimulusSequence, StimSeqItem)
               -> m (Event t (Int,Response))
-videoQuestion (Assignment _ _ i, stimseq, ssi) = do
+videoQuestion resets (Assignment _ _ i, stimseq, ssi) = do
   elClass "div" "videoandquestion" $ mdo
     pb <- getPostBuild
     pbDelay <- delay 4 pb
@@ -379,28 +381,41 @@ videoQuestion (Assignment _ _ i, stimseq, ssi) = do
     vid <- divClass "video-container" $ videoWidget
            (map (\s -> (T.unpack (ssBaseUrl stimseq)
                         <> "/" <> s, mimeOf s)) srcs)
-           (def {_videoWidgetConfig_play = _videoWidget_canplaythrough vid
+           (def {_videoWidgetConfig_play = leftmost [_videoWidget_canplaythrough vid, resets]
                 ,_videoWidgetConfig_attributes = vidAttrs
                 })
-
-    display (_videoWidget_paused vid)
 
     let showIfBroken = gate (current $ _videoWidget_paused vid) pbDelay
 
     -- Show buttons either when video ends, of after N (pbDelay) seconds
     -- if video is not playing (to allow click-through in case of broken video)
     btnsVis <- holdDyn False (leftmost [True <$ showIfBroken
-                                       ,True <$ _videoWidget_ended vid])
+                                       ,True <$ _videoWidget_ended vid
+                                       ,False <$ resets])
     vidAttrs  <- forDyn btnsVis $ bool mempty ("style" =: "opacity:0")
     btnsAttrs <- forDyn btnsVis $ (("class" =: "yesno") <>) . bool ("style" =: "opacity:0.25" <> "disabled" =: "true") mempty
 
     rememb <- elDynAttr "div" btnsAttrs $ do
        text "Have you seen this clip?"
-       ys <- fmap (True  <$) (button "Yes")
-       ns <- fmap (False <$) (button "No")
+       ys <- fmap (True <$)  (gatedButton "Yes" "ok" btnsVis)
+       ns <- fmap (False <$) (gatedButton "No" "remove" btnsVis)
        return $ leftmost [ys,ns]
     remembered <- holdDyn Nothing $ fmap Just rememb
     return $ fmap ((i,) . RClip . ClipResponse) $ fmapMaybe id (updated remembered)
+
+gatedButton :: MonadWidget t m
+            => String
+            -> String
+            -> Dynamic t Bool
+            -> m (Event t ())
+gatedButton label glyphicon vis =
+ fmap (gate (current vis) . domEvent Click . fst) $ do
+  btnAttr <- forDyn vis $ \b -> "type" =: "button"
+                             <> "class" =: ("btn btn-default btn-lg"
+                                            ++ bool " disabled" "" b)
+  elDynAttr' "button" btnAttr $ do
+    text label
+    elAttr "span" ("class" =: ("glyphicon glyphicon-" ++ glyphicon)) fin
 
 
 ------------------------------------------------------------------------------
