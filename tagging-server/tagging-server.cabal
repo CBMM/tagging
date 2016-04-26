@@ -26,6 +26,7 @@ library
                     , Server.Application
                     , Server.Crud
                     , Server.Database
+                    , Server.GroundhogAuth
                     , Server.Researcher
                     , Server.Resources
                     , Server.Session
@@ -35,9 +36,10 @@ library
   build-depends:      base >=4.8 && <4.9
                     , aeson >= 0.8 && < 0.10
                     , bytestring >=0.10 && <0.11
+                    , clientsession
                     , containers >= 0.5 && < 0.6
                     , configurator
-                    , errors >= 2.0 && < 2.1
+                    , errors >= 2.0 && < 2.2
                     , filepath
                     , groundhog >= 0.7 && < 0.7.0.4
                     , groundhog-th >= 0.7.1.0 && < 0.8
@@ -47,11 +49,13 @@ library
                     , lens >= 4.11 && < 4.14
                     , map-syntax >= 0.2 && < 0.3
                     , MonadCatchIO-transformers
+                    , monad-control
                     , monad-logger
                     , mtl >= 2.2 && < 2.3
                     , random
+                    , readable
                     , resource-pool
-                    , postgresql-simple
+--                     , postgresql-simple
                     , servant >= 0.5 && < 0.6
                     , servant-docs >= 0.5 && < 0.6
                     , servant-snap >= 0.5 && < 0.6
@@ -77,6 +81,7 @@ executable tagging-server
   build-depends:       base >=4.8 && <4.9
                      , aeson >= 0.8 && < 0.10
                      , bytestring >=0.10 && <0.11
+                     , clientsession
                      , containers >= 0.5 && < 0.6
                      , configurator
                      , errors
@@ -88,10 +93,12 @@ executable tagging-server
                      , lens >= 4.11 && < 4.14
                      , map-syntax >= 0.2 && < 0.3
                      , MonadCatchIO-transformers
+                     , monad-control
                      , monad-logger
                      , mtl >= 2.2 && < 2.3
                      , optparse-applicative
                      , random
+                     , readable
                      , resource-pool
                      , servant
                      , servant-docs
@@ -144,14 +151,14 @@ executable directoryToStimSet
                   , monad-logger
                   , mtl
                   , optparse-applicative
-                  , postgresql-simple
+--                   , postgresql-simple
                   , resource-pool
                   , s3-signer
                   , servant
                   , servant-snap
                   , snap
                   , snap-core
-                  , snaplet-postgresql-simple
+--                   , snaplet-postgresql-simple
                   , string-qq
                   , tagging-common
                   , tagging-server

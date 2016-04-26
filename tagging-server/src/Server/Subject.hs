@@ -35,7 +35,7 @@ import           Servant.Docs
 import           Servant.Server
 import           Snap.Core
 import           Snap.Snaplet
-import           Snap.Snaplet.PostgresqlSimple
+-- import           Snap.Snaplet.PostgresqlSimple
 import qualified Data.Aeson as A
 ------------------------------------------------------------------------------
 import           Tagging.Stimulus

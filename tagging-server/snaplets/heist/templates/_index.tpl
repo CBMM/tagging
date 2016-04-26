@@ -11,7 +11,7 @@
     </assignments>
     </ul>
 
-    <p><a href="api/logout">Logout</a></p>
+    <p><a href="/logout">Logout</a></p>
   </ifLoggedIn>
 
   <ifLoggedOut>

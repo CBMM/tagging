@@ -1,28 +1,15 @@
-{ try-reflex, ... }:
+{ reflex-platform, ... }:
 let
 
   dontCheck = (import <nixpkgs> {}).pkgs.haskell.lib.dontCheck;
-
+  cabal2nixResult = reflex-platform.cabal2nixResult;
   nixpkgs = (import <nixpkgs> {});
-
-  # lifted from http://github.com/reflex-frp/reflex-platform
-  cabal2nixResult = src: nixpkgs.runCommand "cabal2nixResult" {
-    buildCommand = ''
-      cabal2nix file://"${src}" >"$out"
-    '';
-    buildInputs = with nixpkgs; [
-      cabal2nix
-    ];
-    # Support unicode characters in cabal files
-    ${if !nixpkgs.stdenv.isDarwin then "LOCALE_ARCHIVE" else null} = "${nixpkgs.glibcLocales}/lib/locale/locale-archive";
-    ${if !nixpkgs.stdenv.isDarwin then "LC_ALL" else null} = "en_US.UTF-8";
-  };
-
 in
-try-reflex.ghc.override {
+reflex-platform.ghc.override {
   overrides = self: super: { 
      # inherit (nixpkgs.haskellPackages) lens clock lens-aeson wreq HUnit;
-     tagging-common      = dontCheck (self.callPackage (cabal2nixResult ../tagging-common) { compilername = "ghc"; });
+     # tagging-common      = dontCheck (self.callPackage (cabal2nixResult ../tagging-common) { compilername = "ghc"; });
+     tagging-common      = dontCheck (self.callPackage ../tagging-common { compilername = "ghc"; });
      servant-snap        = dontCheck (self.callPackage (cabal2nixResult ../deps/servant-snap) {});
      servant-matlab      = dontCheck (self.callPackage (cabal2nixResult ../deps/servant-matlab) {});
      servant-foreign     = dontCheck (self.callPackage (cabal2nixResult ../deps/servant-snap/deps/servant/servant-foreign) {});
@@ -41,6 +28,7 @@ try-reflex.ghc.override {
      xmlhtml             = dontCheck (self.callPackage (cabal2nixResult ../deps/snap/deps/xmlhtml) {});
      snap-core           = dontCheck (self.callPackage (cabal2nixResult ../deps/snap/deps/snap-core) {});
      snap-server         = dontCheck (self.callPackage (cabal2nixResult ../deps/snap/deps/snap-server) {});
+     clock               = dontCheck (self.callPackage (cabal2nixResult ../deps/clock) {} );
      snap-loader-static  = dontCheck (self.callPackage (cabal2nixResult ../deps/snap-loader-static) {});
      snap-loader-dynamic = dontCheck (self.callPackage (cabal2nixResult ../deps/snap-loader-dynamic) {});
      groundhog-th        = dontCheck (self.callPackage (cabal2nixResult ../deps/groundhog/groundhog-th) {}); 

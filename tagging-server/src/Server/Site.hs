@@ -41,8 +41,8 @@ import           Snap.Core
 import           Snap.Snaplet
 import           Snap.Snaplet.Auth
 import           Snap.Snaplet.Session
-import           Snap.Snaplet.PostgresqlSimple
-import           Snap.Snaplet.Auth.Backends.PostgresqlSimple
+import           Snap.Snaplet.PostgresqlSimple (getConnectionString)
+-- import           Snap.Snaplet.Auth.Backends.PostgresqlSimple
 -- import           Snap.Snaplet.Heist
 import qualified Snap.Snaplet.Heist as SHeist
 import qualified Snap.Snaplet.Heist.Interpreted as I
@@ -58,6 +58,7 @@ import           API
 import           APIDocs
 import           Server.Application
 import           Server.Crud
+import           Server.GroundhogAuth
 import           Server.Researcher
 import           Server.Resources
 import           Server.Session
@@ -77,7 +78,8 @@ apiApplication = serve apiProxy apiServer
 routes :: [(ByteString, Handler App App ())]
 routes = [ ("login",    with auth handleLoginSubmit)
          , ("currentuser", with auth (currentUser >>= writeBS . BS.pack . show))
-         --, ("logout",   handleLogout)
+         , ("atest", with auth (logout))
+         , ("logout",   handleLogout)
          , ("new_user", handleNewUser)
          , ("all_users", getAllUsers >>= json)
          , ("client/:taskname", handleTaggingClient)
@@ -164,19 +166,23 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     h <- nestSnaplet "" heist $ I.heistInit "templates"
     SHeist.setInterpreted h
 
-    d <- nestSnaplet "" db pgsInit
+    -- d <- nestSnaplet "" gh pgsInit
 
     s <- nestSnaplet "sess" sess $
            initCookieSessionManager "site_key.txt" "sess" Nothing (Just 3600)
-
-    a <- nestSnaplet "auth" auth $
-           initPostgresAuth sess d
 
     cfg <- C.subconfig "postgresql-simple" <$> getSnapletUserConfig
     connstr <- liftIO $ T.decodeUtf8 <$> getConnectionString cfg
     liftIO $ putStrLn $ "connstr: " <> T.unpack connstr
 
     g <- liftIO $ GH.withPostgresqlPool (T.unpack connstr) 3 return
+
+    -- a <- nestSnaplet "auth" auth $
+    --        initPostgresAuth sess d
+
+    a <- nestSnaplet "auth" auth $
+           initGroundhogAuth sess g
+
 
     liftIO (print "SnapletUserConfig:")
     cBig <- getSnapletUserConfig
@@ -191,7 +197,7 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     --  from expiring
     wrapSite (\s -> with sess touchSession >> s >> with sess commitSession)
 
-    return $ App h s a d g
+    return $ App h s a g
 
 
 docsServer :: ServerT Raw AppHandler

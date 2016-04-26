@@ -33,7 +33,6 @@ import           Reflex
 import           Reflex.Dom
 import           Reflex.Dom.Contrib.Widgets.Common
 import           Reflex.Dom.Contrib.Widgets.ButtonGroup
--- import           Reflex.Dom.Contrib.Widgets.Modal
 import           Tagging.Response
 import           Tagging.Stimulus
 import           Tagging.User

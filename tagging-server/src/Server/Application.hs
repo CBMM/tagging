@@ -21,14 +21,14 @@ import Snap.Snaplet.Session
 import qualified Database.Groundhog as G
 import qualified Database.Groundhog.Core as G
 import qualified Database.Groundhog.Postgresql as G
-import Snap.Snaplet.PostgresqlSimple
+-- import Snap.Snaplet.PostgresqlSimple
 
 ------------------------------------------------------------------------------
 data App = App
     { _heist :: Snaplet (Heist App)
     , _sess  :: Snaplet SessionManager
     , _auth  :: Snaplet (AuthManager App)
-    , _db    :: Snaplet Postgres
+--    , _db    :: Snaplet Postgres
     , _gh   ::  Pool    G.Postgresql
     }
 
@@ -37,17 +37,17 @@ makeLenses ''App
 instance HasHeist App where
     heistLens = subSnaplet heist
 
-instance HasPostgres (Handler b App) where
-   getPostgresState = with db get
-   setLocalPostgresState s = local (set (db . snapletValue) s)
+-- instance HasPostgres (Handler b App) where
+--    getPostgresState = with db get
+--    setLocalPostgresState s = local (set (db . snapletValue) s)
 
 -- instance G.HasGroundhogPostgres (Handler b App) where
 --   getGroundhogPostgresState = with gdb get
 
-instance G.ConnectionManager (Pool Connection) G.Postgresql where
-  withConn f pconn = withResource pconn $ G.withConn f . G.Postgresql
-  withConnNoTransaction f pconn =
-     withResource pconn $ G.withConnNoTransaction f . G.Postgresql
+-- instance G.ConnectionManager (Pool G.Postgresql) G.Postgresql where
+--   withConn f pconn = withResource pconn $ G.withConn f . G.Postgresql
+--   withConnNoTransaction f pconn =
+--      withResource pconn $ G.withConnNoTransaction f . G.Postgresql
 
 instance G.ConnectionManager App G.Postgresql where
   withConn f app              = G.withConn f (_gh app)

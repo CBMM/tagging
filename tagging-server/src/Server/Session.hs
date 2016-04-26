@@ -50,12 +50,12 @@ type SessionAPI =
 --       "login" :> ReqBody '[FormUrlEncoded, JSON] LoginInfo
 --               :> Raw AppHandler (AppHandler ())
 
-       "currentuser" :> Get '[JSON] TaggingUser
+   "currentuser" :> Get '[JSON] TaggingUser
 
 --  :<|> "newuser" :> ReqBody '[FormUrlEncoded, JSON] RegisterInfo
 --                 :> Post '[JSON] ()
 
---  :<|> "logout" :> Raw AppHandler (AppHandler ())
+--  :<|> "logout" :> Get '[JSON] ()
 
 
 
@@ -108,8 +108,6 @@ handleLogin authError = do
         (\asgn -> Map.lookup (Utils.keyToIntegral $ aSequence asgn)
                   experimentPaths) <$> asgns
 
-   liftIO $ print "ASGNINFOS"
-   liftIO $ print asgnInfos
    I.renderWithSplices "_index" (asgnsSplices asgnInfos)
    where
     errs = maybe mempty splice authError
@@ -154,7 +152,7 @@ sessionServer = -- apiLogin
     apiLogin li = do
       with auth $ loginByUsername
                   (liUsername li)
-                  (ClearText . T.encodeUtf8 $ liPassword li)
+                  (T.encodeUtf8 $ liPassword li)
                   (liRemember li)
       return ()
 
