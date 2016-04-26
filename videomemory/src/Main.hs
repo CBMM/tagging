@@ -219,10 +219,10 @@ data TaskPhase = TaskPhaseSurvey
 
 ------------------------------------------------------------------------------
 trialSequence :: MonadWidget t m
-              => (Event t () -> TaskPhase -> m (Event t (Int, Response)))
+              => (Dynamic t Progress -> Event t () -> TaskPhase -> m (Event t (Int, Response)))
               -> (Assignment, Progress)
               -> m ()
-trialSequence phaseTask (Assignment _ s i, Progress nFinished nTrials) = do
+trialSequence phaseTask (Assignment _ s i, prog0@(Progress nFinished nTrials)) = do
   pb <- getPostBuild
 
   let ts = drop nFinished $
@@ -232,9 +232,11 @@ trialSequence phaseTask (Assignment _ s i, Progress nFinished nTrials) = do
       answerKeyUrl = "/api/answerkey?experiment=" ++ show (U.keyToInt s)
 
   rec trials    <- zipListWithEvent const
-                                    (map (phaseTask warningClose) ts)
+                                    (map (phaseTask progress warningClose) ts)
                                     (leftmost [() <$ responseAck, pb])
       responses <- switchPromptlyDyn <$> widgetHold (never <$ text "Loading") trials
+
+      progress  <- holdDyn prog0 . fmapMaybe id =<< getAndDecode ("/api/progress" <$ responses)
 
       responseAck <- performRequestAsync $ ffor responses $ \(_, r :: Response) ->
         xhrRequest "POST" "/api/response?advance"
@@ -276,7 +278,7 @@ performanceWarning totalScore = el "div" $ do
 
   elClass "div" "warning-top" $ do
     elClass "div" "warning-text" $ do
-      el "h1" $ text "Having a hard time?"
+      el "h1" $ text "Having a hard time remembering?"
       el "p"  $ text $ "It's very important that you try your best " ++
                       "to remember whether you saw each clip. " ++
                       "If you need a break, feel free to close " ++
@@ -337,39 +339,36 @@ run = elClass "div" "content" $ mdo
   return ()
 
 
-makeTrial :: MonadWidget t m => Event t () -> TaskPhase -> m (Event t (Int, Response))
-makeTrial _ TaskPhaseSurvey     = (fmap . fmap) ((0,) . RSurvey) surveyParent
-makeTrial _ TaskPhaseMemoryQuiz = (fmap . fmap) ((0,) . RQuiz  ) memoryQuiz
-makeTrial _ TaskPhaseDone       = debrief >> return never
-makeTrial r (TaskPhaseTrial n)  = mdo
+makeTrial :: MonadWidget t m => Dynamic t Progress -> Event t () -> TaskPhase -> m (Event t (Int, Response))
+makeTrial _ _ TaskPhaseSurvey     = (fmap . fmap) ((0,) . RSurvey) surveyParent
+makeTrial _ _ TaskPhaseMemoryQuiz = (fmap . fmap) ((0,) . RQuiz  ) memoryQuiz
+makeTrial _ _ TaskPhaseDone       = debrief >> return never
+makeTrial p r (TaskPhaseTrial n)  = mdo
   pb <- getPostBuild
   pos <- fmapMaybe id <$> getAndDecode ("/api/fullposinfo" <$ pb)
   let ind = ffor pos $ \(Assignment _ _ ind, _, _) -> ind
   responses <- elClass "div" "interaction" $
-    widgetHold (text "Waiting ..." >> return never) (fmap (videoQuestion r) pos)
+    widgetHold awaitVideo (fmap (videoQuestion p r) pos)
+    -- widgetHold (text "Waiting ..." >> return never) (fmap (videoQuestion r) pos)
   return $ switchPromptlyDyn responses
 
-debrief :: MonadWidget t m => m ()
-debrief = elClass "div" "modal-background" $ elClass "div" "debrief" $ do
-  el "h2" (text "All done!")
-  el "p" (text $ "Thank you very much for participating in our research "
-              ++ "study. If you would like to know more about the science "
-              ++ "of long-term memory, get in touch with the experimenters. "
-              ++ "Your results will be kept confidential.")
-  elAttr "a" ("href" =: "/") $
-    elAttr "button" ("type"  =: "button" <>
-                     "class" =: "btn btn-default btn-lg") $ do
-      text "Goodbye"
-      elAttr "span" ("class" =: "glyphicon glyphicon-log-out") fin
+
+awaitVideo :: MonadWidget t m => m (Event t (Int, Response))
+awaitVideo = elClass "div" "videoandquestion" $ mdo
+  pb <- getPostBuild
+  pbPlus <- delay 3 pb
+  widgetHold fin (pleaseLogin <$ pbPlus)
+  return never
 
 
 
 ------------------------------------------------------------------------------
 videoQuestion :: forall t m.MonadWidget t m
-              => Event t ()
+              => Dynamic t Progress
+              -> Event t ()
               -> (Assignment, StimulusSequence, StimSeqItem)
               -> m (Event t (Int,Response))
-videoQuestion resets (Assignment _ _ i, stimseq, ssi) = do
+videoQuestion progress resets (Assignment _ _ i, stimseq, ssi) = do
   doc <- askDocument
   keyPresses <- wrapDomEvent doc (`on` keyPress) getKeyEvent
   let yKeys = ffilter (\k -> k == 121 || k == 89) keyPresses
@@ -392,6 +391,14 @@ videoQuestion resets (Assignment _ _ i, stimseq, ssi) = do
                 ,_videoWidgetConfig_attributes = vidAttrs
                 })
 
+    let fi = fromIntegral
+    progAttrs <- forDyn progress $ \(Progress nFinished nTotal) ->
+      "class" =: "progress-finished" <>
+      "style" =: ("width: " ++ show (100 * fi nFinished / (fi nTotal + 0.01) :: Double) ++ "%")
+    elClass "div" "progress-bar" $ do
+      elDynAttr "div" progAttrs fin
+      elClass "div" "progress-remaining" fin
+
     let showIfBroken = gate (current $ _videoWidget_paused vid) pbDelay
 
     -- Show buttons either when video ends, of after N (pbDelay) seconds
@@ -407,8 +414,8 @@ videoQuestion resets (Assignment _ _ i, stimseq, ssi) = do
 
     rememb <- elDynAttr "div" btnsAttrs $ do
        text "Have you seen this clip?"
-       ys <- fmap (True <$)  (gatedButton "Yes" "ok" btnsVis)
-       ns <- fmap (False <$) (gatedButton "No" "remove" btnsVis)
+       ys <- fmap (True <$)  (gatedButton "Yes (y)" "ok" btnsVis)
+       ns <- fmap (False <$) (gatedButton "No (n)" "remove" btnsVis)
        return $ leftmost [ys,ns, True <$ yKeys, False <$ nKeys]
     remembered <- holdDyn Nothing $
                   gate (current btnsVis) $
@@ -571,6 +578,7 @@ bootstrapLink =
   <> "type" =: "text/css"
   <> "href" =: "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
 
+
 ------------------------------------------------------------------------------
 main :: IO ()
 main = mainWidget run
@@ -580,6 +588,22 @@ main = mainWidget run
 -- | Convenience
 fin :: MonadWidget t m => m ()
 fin = return ()
+
+
+------------------------------------------------------------------------------
+-- | Widget wishing the subject farewell
+debrief :: MonadWidget t m => m ()
+debrief = elClass "div" "modal-background" $ elClass "div" "debrief" $ do
+  el "h2" (text "All done!")
+  el "p" (text $ "Thank you very much for participating in our research "
+              ++ "study. If you would like to know more about the science "
+              ++ "of long-term memory, get in touch with the experimenters. "
+              ++ "Your results will be kept confidential.")
+  elAttr "a" ("href" =: "/") $
+    elAttr "button" ("type"  =: "button" <>
+                     "class" =: "btn btn-default btn-lg") $ do
+      text "Goodbye"
+      elAttr "span" ("class" =: "glyphicon glyphicon-log-out") fin
 
 
 ------------------------------------------------------------------------------

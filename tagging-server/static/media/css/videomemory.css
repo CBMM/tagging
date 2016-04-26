@@ -4,7 +4,7 @@ html {
 }
 
 body {
-    background-color: rgba(200,200,200,1);
+    background-color: hsla(0,0%,20%,1);
     margin: 0px;
     height: 100%;
     width: 100%;
@@ -41,17 +41,25 @@ body {
     justify-content: space-around;
     align-items: center;
     padding: 20px;
-    color: #245C44;
+    color: hsla(154,35%,62%,0.5);
 }
 
-.yesno button {
-    width: 100px;
+.yesno button, .yesno button:focus {
+    color: hsla(154,35%,62%,0.75);
+    width: 130px;
     height: 75px;
     border-radius: 10px;
+    background-color: hsla(0,0%,0%,0.5);
+    border-color: hsla(0,0%,100%,0.05);
     box-shadow: 10px 10px 10px rgba(0,0,0,0.05);
 }
 
+
+
 .yesno button:hover {
+    color: hsla(154,35%,62%,0.75);
+    background-color: hsla(0,0%,0%,0.25);
+    border-color: hsla(0,0%,0%,0.1);
     box-shadow: 9px 9px 9px rgba(0,0,0,0.05);
 }
 
@@ -188,6 +196,8 @@ body {
     position: absolute;
     height: 100%;
     width: 100%;
+    top: 0px;
+    left: 0px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -263,3 +273,19 @@ body {
 }
 
 
+/*********************************/
+/*        Progress Bar           */
+/*********************************/
+
+.progress-bar {
+    display: flex;
+    background-color:black;
+    height: 3px;
+    width: 640px;
+}
+
+.progress-finished {
+    background-color: hsla(154,35%,62%,0.4);
+    box-shadow: 0px 0px 5px hsla(154,35%,60%,0.5);
+    z-index:0;
+}
