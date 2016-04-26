@@ -151,7 +151,6 @@ body {
 /************************/
 
 .memory-quiz {
-    width: 80%;
     padding: 50px;
     border-radius: 20px;
     background-color: white;
@@ -162,7 +161,7 @@ body {
     align-items: center;
 }
 
-.memory-quiz form {
+.memory-quiz .form-control {
     flex-grow: 2;
 }
 

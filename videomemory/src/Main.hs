@@ -28,6 +28,8 @@ import qualified Data.Text                  as T
 import           Data.Traversable           (forM)
 import qualified Data.Vector                as Vector
 import           GHC.Generics
+import           GHCJS.DOM.EventM           (on)
+import           GHCJS.DOM.Document         (keyPress)
 import           MediaElement
 import           Reflex
 import           Reflex.Dom
@@ -141,7 +143,7 @@ memoryQuiz = divClass "modal-background" $
          (set mqLandmark)
        , memoryQuestion
          (radioMultichoice
-          "Which of th efollowing roles is depicted in the movie?"
+          "Which of the following roles is depicted in the movie?"
           "mqFamousRole"
           (map (\x->(x,x)) ["Head coach of the Yankees team"
                            ,"A wealthy entrepeneur" ,"A musician"
@@ -203,7 +205,7 @@ memoryQuestion :: MonadWidget t m
                   -- ^ Quiz update function
                -> m (Event t (MemoryQuiz -> MemoryQuiz))
 memoryQuestion question fUpdate = mdo
-  r    <- mapDyn hush =<< elClass "form" "memory-quiz-form" (question next)
+  r    <- mapDyn hush =<< elClass "div" "form-group memory-quiz-form" (question next)
   next <- bootstrapButton "chevron-right"
   let quizUpdates = fmapMaybe (fmap fUpdate) (tag (current r) next)
   return quizUpdates
@@ -334,6 +336,7 @@ run = elClass "div" "content" $ mdo
   widgetHold (return ()) (fmap (maybe pleaseLogin (trialSequence makeTrial)) (updated p))
   return ()
 
+
 makeTrial :: MonadWidget t m => Event t () -> TaskPhase -> m (Event t (Int, Response))
 makeTrial _ TaskPhaseSurvey     = (fmap . fmap) ((0,) . RSurvey) surveyParent
 makeTrial _ TaskPhaseMemoryQuiz = (fmap . fmap) ((0,) . RQuiz  ) memoryQuiz
@@ -367,6 +370,11 @@ videoQuestion :: forall t m.MonadWidget t m
               -> (Assignment, StimulusSequence, StimSeqItem)
               -> m (Event t (Int,Response))
 videoQuestion resets (Assignment _ _ i, stimseq, ssi) = do
+  doc <- askDocument
+  keyPresses <- wrapDomEvent doc (`on` keyPress) getKeyEvent
+  let yKeys = ffilter (\k -> k == 121 || k == 89) keyPresses
+      nKeys = ffilter (\k -> k == 110 || k == 78) keyPresses
+
   elClass "div" "videoandquestion" $ mdo
     pb <- getPostBuild
     pbDelay <- delay 4 pb
@@ -392,14 +400,19 @@ videoQuestion resets (Assignment _ _ i, stimseq, ssi) = do
                                        ,True <$ _videoWidget_ended vid
                                        ,False <$ resets])
     vidAttrs  <- forDyn btnsVis $ bool mempty ("style" =: "opacity:0")
-    btnsAttrs <- forDyn btnsVis $ (("class" =: "yesno") <>) . bool ("style" =: "opacity:0.25" <> "disabled" =: "true") mempty
+    btnsAttrs <- forDyn btnsVis $ (("class" =: "yesno") <>) .
+                                  bool ("style" =: "opacity:0.25"
+                                        <> "disabled" =: "true")
+                                  mempty
 
     rememb <- elDynAttr "div" btnsAttrs $ do
        text "Have you seen this clip?"
        ys <- fmap (True <$)  (gatedButton "Yes" "ok" btnsVis)
        ns <- fmap (False <$) (gatedButton "No" "remove" btnsVis)
-       return $ leftmost [ys,ns]
-    remembered <- holdDyn Nothing $ fmap Just rememb
+       return $ leftmost [ys,ns, True <$ yKeys, False <$ nKeys]
+    remembered <- holdDyn Nothing $
+                  gate (current btnsVis) $
+                  fmap Just rememb
     return $ fmap ((i,) . RClip . ClipResponse) $ fmapMaybe id (updated remembered)
 
 gatedButton :: MonadWidget t m
@@ -438,13 +451,14 @@ bootstrapLabeledInput :: forall t m a.MonadWidget t m
                       -> (String -> Either String a)
                       -> Event t ()
                       -> m (Dynamic t (Either String a))
-bootstrapLabeledInput label idattr validate eval =
+bootstrapLabeledInput label idattr validate eval = -- elStopPropagationNS Nothing "div" Click $
   elClass "div" "input-group" $ mdo
     elAttr "label" ("for" =: idattr) $ text label
     attrs <- forDyn isOk $ \ok ->
-      "type"  =: "text" <>
-      "id"    =: idattr <>
-      "class" =: bool "form-control invalid" "form-control valid" ok
+      "type"      =: "text" <>
+      "id"        =: idattr <>
+      "maxlength" =: "140" <>
+      "class"     =: bool "form-control invalid" "form-control valid" ok
     mapDyn (bool mempty ("class" =: "valid")) isOk
 
     v <- mapDyn validate =<<
@@ -462,7 +476,7 @@ radioMultichoice :: (MonadWidget t m, Eq a, Ord a, Show a)
                  -> (Maybe a -> Either String a)
                  -> Event t ()
                  -> m (Dynamic t (Either String a))
-radioMultichoice label idattr choices validate eval =
+radioMultichoice label idattr choices validate eval = -- elStopPropagationNS Nothing "div" Click $
   elClass "div" "input-group" $ mdo
     grpAttr <- holdDyn True (tag (fmap isRight $ current r) eval) >>= \isOk ->
       forDyn isOk (\b -> "class" =:
@@ -495,11 +509,11 @@ survey = elClass "div" "survey" $ elClass "div" "survey-content" $ mdo
 
        seen1 <- radioMultichoice
                 "Have you seen 24, Season 5 Episode 1?"
-                "seen1" [(True,"Yes"),(False,"No")] validateSeenEp1 sends
+                "seen1" [(True,"Yes"),(False,"No")] (note "error") sends
 
        seenN <- radioMultichoice
                 "Have you seen any other episodes of 24?"
-                "seenN" [(True,"Yes"),(False,"No")] validateSeenEpN sends
+                "seenN" [(True,"Yes"),(False,"No")] (note "error") sends
 
        vidVis <- bootstrapLabeledInput
                  "Written word" "written-word" validateWritten sends
@@ -534,27 +548,6 @@ survey = elClass "div" "survey" $ elClass "div" "survey-content" $ mdo
   where
     validateName "" = Left "Please enter your full name"
     validateName n  = Right n
-
-    validateSeenEp1 (Just False) = Left
-      "This test is only for subjects who saw 24 Season 5, Episode 1"
-    validateSeenEp1 Nothing      = Left
-      "Please indicate whether or not you saw Episode 1"
-    validateSeenEp1 (Just True)  = Right True
-
-    validateSeenEpN (Just True)  = Left
-      "This test is for subjects who have only seen 24 Season 5 Episode 1"
-    validateSeenEpN Nothing      = Left
-      "Please indicate whether or not you saw any other episodes of 24"
-    validateSeenEpN (Just False) = Right False
-
-    validateVidLook   n
-      | map toLower n == "brain" = Right "brain"
-      | otherwise                = Left
-        "Sorry, that isn't the work shown in the video"
-    validateVidListen n
-      | map toLower n == "mind" = Right "mind"
-      | otherwise               = Left
-        "Sorry, that isn't the word spoken in the video"
     validateWritten n
       | map toLower n == "hand" = Right "hand"
       | otherwise = Left
@@ -641,3 +634,7 @@ bootstrapButton glyphShortname = (domEvent Click . fst) <$>
   elAttr' "span" ("class" =: (prfx <> glyphShortname)) (return ())
   where prfx = "glyphicon glyphicon-"
 
+
+note :: e -> Maybe a -> Either e a
+note _ (Just x) = Right x
+note m _        = Left  m
