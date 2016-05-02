@@ -80,6 +80,15 @@ instance ToSample Char where
 -- instance HasDocs (Raw a b) where
 --   docsFor _ _ = mempty
 
+instance ToSample Int where
+  toSamples _ = singleSample 1
+
+
 instance ToParam (QueryParam "experiment" Int) where
   toParam _ = DocQueryParam "experiment" []
     ("Experiment (stimulus sequence) ID of the answer key to look up") Normal
+
+instance ToParam (QueryParam "index" [Int]) where
+  toParam _ = DocQueryParam "index" []
+    ("Stimulus id's to be looking up (any id's not answered " ++
+     "by the user will be ignored)") Normal

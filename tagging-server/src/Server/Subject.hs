@@ -16,10 +16,12 @@ import           Control.Monad.Trans.Class  (lift)
 import           Control.Monad.Trans.Except (except)
 import           Control.Monad.Logger       (NoLoggingT)
 import qualified Data.ByteString.Char8      as B8
-import qualified Data.List as L
+import qualified Data.List                  as L
+import           Data.Monoid
 import           Data.Proxy
-import qualified Data.Set as S
-import qualified Data.Text as T
+import qualified Data.Set                   as S
+import           Data.String                (fromString)
+import qualified Data.Text                  as T
 import           Data.Time
 import           Database.Groundhog
 import qualified Database.Groundhog.Core    as G
@@ -60,7 +62,8 @@ type SubjectAPI = "currentstim"       :> Get '[JSON] StimSeqItem
              :<|> "progress"          :> Get '[JSON] Progress
              :<|> "response"          :> QueryFlag "advance" :> ReqBody '[JSON] ResponsePayload
                                       :> Post '[JSON] ()
-             :<|> "answerkey"         :> QueryParam "experiment" Int :> Get '[JSON] [StimSeqAnswer]
+             :<|> "answerkey"         :> QueryParam "experiment" Int
+                                      :> Get '[JSON] [StimSeqAnswer]
 
 ------------------------------------------------------------------------------
 subjectServer :: Server SubjectAPI AppHandler
@@ -143,20 +146,47 @@ handleSubmitResponse advanceStim t = do
                 (AUserField ==. k'
                  &&. ASequenceField ==. s)
         SampleRandomNoReplacement -> do
-          liftIO $ print "ADVANCING"
-          resps <- fmap (S.fromList . fmap srIndex) $
-                   select (SrSequenceField ==. s'' &&.
-                           SrUserField ==. tuId u)
-          allInds <- (\n -> S.fromList $ take n [0..]) <$> count (SsiStimulusSequenceField ==. s'')
-          let remainingInds = S.difference allInds resps
-          if S.null remainingInds
-          then deleteBy (Utils.integralToKey (tuId u) :: DefaultKey Assignment)
-          else do
-            i <- liftIO $ randomRIO (0,S.size remainingInds)
-            let newAssignmentInd = S.toList remainingInds !! i
-            update [AIndexField =. (fromIntegral newAssignmentInd :: Int)]
-                   (AUserField ==. (Utils.integralToKey (tuId u) :: DefaultKey TaggingUser)
-                    &&. ASequenceField ==. s)
+
+          -- resps <- fmap (S.fromList . fmap srIndex) $
+          --          select (SrSequenceField ==. s'' &&.
+          --                  SrUserField ==. tuId u)
+          -- allInds <- (\n -> S.fromList $ take n [0..]) <$> count (SsiStimulusSequenceField ==. s'')
+          -- let remainingInds = S.difference allInds resps
+          let u'' = tuId u :: Int64
+              pxy = Proxy  :: Proxy Postgresql
+
+          let cse = "WITH answered as (SELECT ssi_index FROM stimulus_response "
+                                   ++ "INNER JOIN stim_seq_item "
+                                   ++ "ON ssi_index = sr_index AND ssi_stimulus_sequence = sr_sequence "
+                                   ++ "WHERE sr_sequence = ? AND sr_user = ?) "
+          [nAnswered] :: [Int] <- queryRaw False
+                          (cse ++ "SELECT count(*) FROM answered")
+                          [ G.toPrimitivePersistValue pxy s''
+                          , G.toPrimitivePersistValue pxy u''] $
+                          G.mapAllRows (fmap fst . G.fromPersistValues)
+
+          nRemaining <- fmap (+ negate nAnswered) $ count (SsiStimulusSequenceField ==. s'')
+
+          nextStim :: [Int] <- queryRaw False
+                      (cse
+                       ++ "(SELECT ssi_index FROM stim_seq_item "
+                       ++ "WHERE ssi_stimulus_sequence = ?) "
+                       ++ "EXCEPT (SELECT ssi_index FROM answered) "
+                       ++ "OFFSET floor(random() * " ++ show nRemaining ++ ") LIMIT 1"
+                      ) [ G.toPrimitivePersistValue pxy s''
+                        , G.toPrimitivePersistValue pxy u''
+                        , G.toPrimitivePersistValue pxy s''] $
+                      G.mapAllRows (fmap fst . G.fromPersistValues)
+
+          liftIO $ print $ "NEXT STIM: " ++ show nextStim
+          case nextStim of
+            []    -> deleteBy (Utils.integralToKey (tuId u) :: DefaultKey Assignment)
+            (n:_) -> do
+              -- i <- liftIO $ randomRIO (0,S.size remainingInds)
+              -- let newAssignmentInd = S.toList remainingInds !! i
+              update [AIndexField =. (fromIntegral n :: Int)]
+                     (AUserField ==. (Utils.integralToKey (tuId u) :: DefaultKey TaggingUser)
+                      &&. ASequenceField ==. s)
 
 
 ------------------------------------------------------------------------------
@@ -234,16 +264,29 @@ handleFullPosInfo =
 
 handleAnswerKey :: Maybe Int -> AppHandler [StimSeqAnswer]
 handleAnswerKey Nothing = error "Must pass 'experiment' parameter"
+--handleAnswerKey (Just k) qs = do
 handleAnswerKey (Just k) = do
   tu :: TaggingUser <- exceptT (Server.Utils.err300) return getCurrentTaggingUser
-  let queryProxy = Proxy :: Proxy Postgresql
-      seqKey = G.toPrimitivePersistValue queryProxy k
-      userKey = G.toPrimitivePersistValue queryProxy (tuId tu)
+  let queryProxy  = Proxy :: Proxy Postgresql
+      seqKey      = G.toPrimitivePersistValue queryProxy k
+      userKey     = G.toPrimitivePersistValue queryProxy (tuId tu)
+      -- TODO: We only take the answer key from the last 20 responses,
+      --       due to a strange problem accepting a list of preferred indices into the
+      --       answer key from the request body, because request body parsing was failing
+      --       here (not sure why)
+      -- reqRestrict = map G.toPrimitivePersistValue queryProxy $ fromMaybe [] qs
+      -- restr       = G.PersistCustom (G.Utf8 . fromString $ "(" <> L.intercalate "," (map show qs) <> ")") []
   runGH (queryRaw False (unlines
          ["WITH resps AS ("
          ,"  SELECT sr_index FROM stimulus_response"
-         ,"  WHERE sr_sequence = ? AND sr_user = ?)"
+         ,"  WHERE sr_sequence = ? AND sr_user = ? ORDER BY sr_responded_time DESC LIMIT 20)"
          ,"SELECT * FROM stim_seq_answer"
-         ," WHERE ssa_stimulus_sequence = ? AND ssa_index IN (SELECT * FROM resps)"])
+         ," WHERE ssa_stimulus_sequence = ? "
+         ," AND ssa_index IN (SELECT sr_index FROM resps"
+         ,"                   INTERSECT "
+         ,"                   (SELECT ssa_index FROM stim_seq_answer as sr_index) ) "
+         -- ," AND ssa_index IN ?"
+         ])
          [seqKey, userKey, seqKey]
+--          [seqKey, userKey, seqKey,restr]
         (G.mapAllRows (fmap fst . G.fromPersistValues)))

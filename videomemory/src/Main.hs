@@ -218,7 +218,7 @@ data TaskPhase = TaskPhaseSurvey
 
 
 ------------------------------------------------------------------------------
-trialSequence :: MonadWidget t m
+trialSequence :: forall t m.MonadWidget t m
               => (Dynamic t Progress -> Event t () -> TaskPhase -> m (Event t (Int, Response)))
               -> (Assignment, Progress)
               -> m ()
@@ -250,9 +250,21 @@ trialSequence phaseTask (Assignment _ s i, prog0@(Progress nFinished nTrials)) =
                                                , const [] <$ listClear])
 
       -- On every 10th submission
-      answerKeys <- (fmap . fmap) (fromMaybe []) $
-                    getAndDecode (answerKeyUrl <$ ffilter ((>= 10) . length)
-                    (traceEvent "ResponseList" $ updated responseList))
+      -- answerKeys <- (fmap . fmap) (fromMaybe []) $
+      --               getAndDecode (answerKeyUrl <$ ffilter ((>= 10) . length)
+      --               (traceEvent "ResponseList" $ updated responseList))
+      let answerKeysR :: Event t XhrRequest = ffor (ffilter ((>= 10) . length) $ updated responseList) $ \rl ->
+            XhrRequest "GET" answerKeyUrl
+            (def { _xhrRequestConfig_headers = "Content-Type" =: "application/json"
+                 , _xhrRequestConfig_sendData =
+                   Just (BSL.unpack $ A.encode (fst <$> rl))
+                 })
+            --(XhrRequestConfig ("Content-Type" =: "application/json") Nothing Nothing Nothing
+            -- (Just $ BSL.unpack $ A.encode rl))
+      answerKeys :: Event t [StimSeqAnswer] <- (fmap . fmap) (fromMaybe [] . decodeXhrResponse)
+        (performRequestAsync $ traceEvent "AnswerKey: " answerKeysR)
+
+
       let thisScore = attachWith checkAnswers (current responseList) answerKeys
       totalScore <- foldDyn (\(x',y') (x,y) -> (x + x', y + y'))
                             (0 :: Int,0 :: Int) thisScore
@@ -466,7 +478,7 @@ bootstrapLabeledInput label idattr validate eval = -- elStopPropagationNS Nothin
       "id"        =: idattr <>
       "maxlength" =: "140" <>
       "class"     =: bool "form-control invalid" "form-control valid" ok
-    mapDyn (bool mempty ("class" =: "valid")) isOk
+    -- mapDyn (bool mempty ("class" =: "valid")) isOk
 
     v <- mapDyn validate =<<
          (fmap value $ textInput (def & attributes .~ attrs))

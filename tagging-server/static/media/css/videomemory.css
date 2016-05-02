@@ -77,6 +77,17 @@ body {
 
 .videoandquestion {
     font-size: 14pt;
+    color: white;
+    display: flex;
+    flex-direction: column;
+}
+
+.videoandquestion > a {
+    background-color: hsla(0,0%,100%,0.8);
+    border-radius: 5px;
+    box-shadow: 5px 5px 5px hsla(0,0%,0%,0.5);
+    padding: 5px;
+    margin: 10px;
 }
 
 .video-container {
