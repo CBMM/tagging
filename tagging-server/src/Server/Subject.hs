@@ -101,25 +101,26 @@ subjectServer = handleCurrentStimSeqItem
 --handleSubmitResponse :: StimulusResponse -> Handler App App ()
 handleSubmitResponse :: Bool -> ResponsePayload -> Handler App App ()
 handleSubmitResponse advanceStim t = do
-  liftIO $ print "HANDLE SUBMIT"
-  liftIO $ print advanceStim
-  liftIO $ print t
+
   exceptT Server.Utils.err300 (const $ return ()) $ do
 
+    tNow     <- lift $ liftIO getCurrentTime
     u                 <- getCurrentTaggingUser
     asgn <- noteT "No assignment" $ MaybeT getCurrentAssignment
     let (Assignment aU s i) = asgn
     let s'' = s :: DefaultKey StimulusSequence
     let i' = fromIntegral (i :: Int) :: Int64
 
-    thisReq  <- noteT "No request record by user for stimulus"
+    thisReq  <- case i of
+      -- Special-case for index '-1': There is no stim-seq-item
+      (-1) -> return $ StimulusRequest (tuId u) s i' tNow
+      _    -> noteT "No request record by user for stimulus"
                 $ MaybeT $ fmap listToMaybe $ runGH
                 $ select $ (SreqUserField ==. tuId u
                            &&. SreqSequenceField ==. s
                            &&. SreqIndexField    ==. i')
                            `orderBy` [Asc SreqTimeField]
     thisSeq  <- noteT "No such stimulus sequence" $ MaybeT $ runGH $ get s
-    tNow     <- lift $ liftIO getCurrentTime
 
     stim     <- noteT "Bad stim lookup from response" $ MaybeT $ runGH
                 $ get s
