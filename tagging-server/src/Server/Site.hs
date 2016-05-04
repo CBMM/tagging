@@ -86,7 +86,7 @@ routes = [ ("login",    with auth handleLoginSubmit)
          -- Experimenter routes
 
          , ("adminPanel", adminPanel)
-         , ("api", applicationToSnap apiApplication)
+         , ("api", with sess touchSession >> applicationToSnap apiApplication)
          , ("migrateResources", migrateHandler)
          , ("api/docs", docsServer)
          -- , ("subjectdata/:seqid/:userid", handleSubjectData)
