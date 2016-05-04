@@ -29,7 +29,8 @@ import           Data.Traversable           (forM)
 import qualified Data.Vector                as Vector
 import           GHC.Generics
 import           GHCJS.DOM.EventM           (on)
-import           GHCJS.DOM.Document         (keyPress)
+import           GHCJS.DOM.Document         (getLocation, keyPress)
+import           GHCJS.DOM.Location         (reload)
 import           MediaElement
 import           Reflex
 import           Reflex.Dom
@@ -223,6 +224,7 @@ trialSequence :: forall t m.MonadWidget t m
               -> (Assignment, Progress)
               -> m ()
 trialSequence phaseTask (Assignment _ s i, prog0@(Progress nFinished nTrials)) = do
+  doc <- askDocument
   pb <- getPostBuild
 
   let ts = drop nFinished $
@@ -239,7 +241,12 @@ trialSequence phaseTask (Assignment _ s i, prog0@(Progress nFinished nTrials)) =
       progress  <- holdDyn prog0 . fmapMaybe id =<< getAndDecode ("/api/progress" <$ responses)
 
       responseAck <- performRequestAsync $ ffor responses $ \(_, r :: Response) ->
-        xhrRequest "POST" "/api/response?advance"
+        let xhrUrl = case r of
+              RQuiz   _ -> "/api/response?advance"
+              RClip   _ -> "/api/response?advance"
+              RSurvey _ -> "/api/response"
+        in
+        xhrRequest "POST" xhrUrl
         (def { _xhrRequestConfig_headers  = "Content-Type" =: "application/json"
              , _xhrRequestConfig_sendData =
                Just (BSL.unpack $ A.encode (ResponsePayload (A.toJSON r)))})
@@ -262,7 +269,7 @@ trialSequence phaseTask (Assignment _ s i, prog0@(Progress nFinished nTrials)) =
             --(XhrRequestConfig ("Content-Type" =: "application/json") Nothing Nothing Nothing
             -- (Just $ BSL.unpack $ A.encode rl))
       answerKeys :: Event t [StimSeqAnswer] <- (fmap . fmap) (fromMaybe [] . decodeXhrResponse)
-        (performRequestAsync $ traceEvent "AnswerKey: " answerKeysR)
+        (performRequestAsync answerKeysR)
 
 
       let thisScore = attachWith checkAnswers (current responseList) answerKeys
@@ -280,6 +287,16 @@ trialSequence phaseTask (Assignment _ s i, prog0@(Progress nFinished nTrials)) =
       warningClose <- elDynAttr "div" modalAttrs $ do
           closes <- performanceWarning totalScore
           return closes
+      display totalScore
+
+      -- NOTE: There may be a memory leak - long (~2 hour?) sessions on the
+      --       page can cause the page to crash or videos to show up
+      --       as all-black. This code forces a page reload when the every-10
+      --       trial counter ticks above 300 total trials
+      performEvent_ $
+        ffor (ffilter ((> 300) . snd) (updated totalScore)) $ \_ -> do
+          Just loc <- getLocation doc
+          reload loc
 
 
   return ()
