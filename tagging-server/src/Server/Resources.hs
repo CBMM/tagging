@@ -106,6 +106,7 @@ migrateResourcesIO = runMigration $ do
   migrate (undefined :: StimSeqAnswer)
   migrate (undefined :: StimulusRequest)
   migrate (undefined :: StimulusResponse)
+  migrate (undefined :: SequenceMetadata)
   migrate (undefined :: APIKey)
   migrate (undefined :: Assignment)
 

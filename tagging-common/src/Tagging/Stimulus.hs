@@ -132,6 +132,20 @@ G.mkPersist ghCodeGen [G.groundhog|
              fields: [ssaStimulusSequence, ssaIndex]
 |]
 
+
+data SequenceMetadata = SequenceMetadata
+  { smSequence :: G.DefaultKey StimulusSequence
+  , smMetadata :: A.Value
+  } deriving (Eq, Show, Generic)
+
+G.mkPersist ghCodeGen [G.groundhog|
+   - entity: SequenceMetadata
+|]
+
+instance ToJSON SequenceMetadata
+instance FromJSON SequenceMetadata
+
+
 instance ToJSON U.UUID where
   toJSON u = A.object ["uuid" .= U.toWords u]
 
