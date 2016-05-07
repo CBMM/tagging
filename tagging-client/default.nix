@@ -16,7 +16,7 @@ mkDerivation {
   ];
   executableHaskellDepends = [
     aeson base bytestring containers ghcjs-dom groundhog reflex
-    reflex-dom reflex-dom-contrib tagging-common text
+    reflex-dom reflex-dom-contrib tagging-common text uuid
   ];
   license = stdenv.lib.licenses.bsd3;
 }

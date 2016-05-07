@@ -1,12 +1,11 @@
 { reflex-platform, ... }:
 let
 
-  dontCheck = (import <nixpkgs> {}).pkgs.haskell.lib.dontCheck;
 
   nixpkgs = (import <nixpkgs> {});
 
   # lifted from http://github.com/reflex-frp/reflex-platform
-  cabal2nixResult = src: nixpkgs.runCommand "cabal2nixResult" {
+  cabal2nixResult2 = src: nixpkgs.runCommand "cabal2nixResult" {
     buildCommand = ''
       cabal2nix file://"${src}" >"$out"
     '';
@@ -21,12 +20,13 @@ let
 in
 reflex-platform.ghcjs.override {
   overrides = self: super: { 
-     tagging-common      = dontCheck (self.callPackage ../tagging-common/default.nix { compilername = "ghcjs"; });
-     servant             = dontCheck (self.callPackage (cabal2nixResult ../deps/servant-snap/deps/servant/servant) {});
-     servant-docs        = dontCheck (self.callPackage (cabal2nixResult ../deps/servant-snap/deps/servant/servant-docs) {});
-     yaml-ghcjs          = dontCheck (self.callPackage (cabal2nixResult ../deps/yaml-ghcjs) {});
-     groundhog-th        = dontCheck (self.callPackage (cabal2nixResult ../deps/groundhog/groundhog-th) { compilername="ghcjs"; });
-     reflex-dom-contrib  = dontCheck (self.callPackage (cabal2nixResult ../deps/reflex-dom-contrib) {});
+     # reflex-dom-contrib  = (self.callPackage ../deps/reflex-dom-contrib { compilername = "ghcjs"; });
+     reflex-dom-contrib  = (self.callPackage (reflex-platform.cabal2nixResult ../deps/reflex-dom-contrib) {});
+     tagging-common      = (self.callPackage ../tagging-common/default.nix { compilername = "ghcjs"; });
+     servant             = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-snap/deps/servant/servant) {});
+     servant-docs        = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-snap/deps/servant/servant-docs) {});
+     yaml-ghcjs          = (self.callPackage (reflex-platform.cabal2nixResult ../deps/yaml-ghcjs) {});
+     groundhog-th        = (self.callPackage ../deps/groundhog/groundhog-th { compilername = "ghcjs"; });
      groundhog-postgresql = null;
   };
 }
