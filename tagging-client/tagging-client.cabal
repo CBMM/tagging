@@ -16,9 +16,7 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Tagging.Experiments.SimplePics.Widgets
-                     , Tagging.Experiments.HomeAlone.Widgets
-                     , Tagging.Crud
+  exposed-modules:   Tagging.Crud
   build-depends:       base >=4.8 && <4.9
                      , aeson
                      , bytestring
@@ -39,24 +37,6 @@ library
   default-language:    Haskell2010
   hs-source-dirs:      src
 
-
-
-executable HomeAlone
-  main-is:             HomeAlone.hs
-  build-depends:       base >=4.8 && <4.9
-                     , aeson
-                     , bytestring
-                     , containers
-                     , ghcjs-dom
-                     , groundhog
-                     , reflex
-                     , reflex-dom
-                     , reflex-dom-contrib >= 0.4 && < 0.5
-                     , tagging-common
-                     , tagging-client
-                     , text
-  hs-source-dirs:      exec
-  default-language:    Haskell2010
 
 executable AdminPanel
   main-is: AdminPanel.hs

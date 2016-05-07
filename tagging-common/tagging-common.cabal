@@ -19,8 +19,6 @@ library
   exposed-modules:     Tagging.User
                      , Tagging.Stimulus
                      , Tagging.Response
-                     , Experiments.HomeAlonePersonAndDirection
-                     , Experiments.SimplePics
                      , Utils
   -- other-modules:
   -- other-extensions:
