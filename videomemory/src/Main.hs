@@ -31,7 +31,7 @@ import           GHC.Generics
 import           GHCJS.DOM.EventM           (on)
 import           GHCJS.DOM.Document         (getLocation, keyPress)
 import           GHCJS.DOM.Location         (reload)
-import           MediaElement
+import           Tagging.MediaElement
 import           Reflex
 import           Reflex.Dom
 import           Reflex.Dom.Contrib.Widgets.Common

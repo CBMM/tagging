@@ -17,6 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:   Tagging.Crud
+                     Tagging.MediaElement
   build-depends:       base >=4.8 && <4.9
                      , aeson
                      , bytestring
@@ -26,6 +27,7 @@ library
                      , ghcjs-dom >= 0.2 && < 0.3
                      , groundhog
                      , groundhog-th >= 0.7.1 && < 0.8
+                     , lens
                      , reflex
                      , reflex-dom-contrib >= 0.4 && < 0.5
                      , reflex-dom >= 0.3 && < 0.4

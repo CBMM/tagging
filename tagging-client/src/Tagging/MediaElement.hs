@@ -4,7 +4,7 @@
 -- https://www.w3.org/TR/html5/embedded-content-0.html#htmlmediaelement
 -- https://www.w3.org/TR/html5/embedded-content-0.html#mediaevents
 
-module MediaElement where
+module Tagging.MediaElement where
 
 import Control.Lens
 import Control.Monad.IO.Class (liftIO)
@@ -74,10 +74,10 @@ videoWidget srcs cfg = do
   -- Property getters
   -- TODO: What are the correct initial values?
 
+#ifdef ghcjs_HOST_OS
   timeUpdates <- wrapDomEvent e (`on` Media.timeUpdate)
                                 (Media.getCurrentTime e)
 
-#ifdef ghcjs_HOST_OS
   curTime <- holdDyn 0 timeUpdates
   isPaused <- fmap nubDyn $ holdDyn True =<<
               performEvent (liftIO (Media.getPaused e) <$ timeUpdates)

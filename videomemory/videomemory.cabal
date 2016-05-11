@@ -17,7 +17,6 @@ cabal-version:       >=1.10
 
 executable videomemory
   main-is:             Main.hs
-  other-modules:       MediaElement
   -- other-extensions:    
   build-depends:       base >=4.8 && <4.9, 
                        aeson, 
@@ -30,6 +29,7 @@ executable videomemory
                        reflex-dom, 
                        reflex-dom-contrib,
                        tagging-common, 
+                       tagging-client,
                        text, 
                        transformers,
                        unordered-containers,
