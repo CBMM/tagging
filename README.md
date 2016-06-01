@@ -26,7 +26,7 @@ git submodule update --init --recursive
 If this is your first time installing, use *reflex-platform* to install nix:
 
 ```bash
-../deps/reflex-platform/installNix.sh
+./deps/reflex-platform/installNix.sh
 ```
 
 To build the server and frontends, TODO: finish 
