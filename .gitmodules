@@ -34,3 +34,6 @@
 [submodule "deps/clock"]
 	path = deps/clock
 	url = https://github.com/corsis/clock
+[submodule "deps/reflex-platform"]
+	path = deps/reflex-platform
+	url = https://github.com/reflex-frp/reflex-platform
