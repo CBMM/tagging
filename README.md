@@ -10,6 +10,7 @@ A general-purpose web-based psychophysics experiment platform
 
  - [PostgreSQL](https://postgresql.org) database
    Create a database for *Tagging*. You will specify the database user, name and password later in a *Tagging* config file.
+   (hint: [with homebrew](http://exponential.io/blog/2015/02/21/install-postgresql-on-mac-os-x-via-brew/) )
 
  - [git](https://git-scm.com)
 
