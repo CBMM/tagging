@@ -8,6 +8,11 @@ echo "Building homealone"
 cd homealone && ../deps/reflex-platform/work-on ./tr.nix ./. --run "cabal configure --ghcjs && cabal build" && cp -r dist/build/*/*.jsexe ../app/static/media/js/ && cd ..
 echo "Done with homealone"
 
+echo "Building videomemory"
+cd videomemory && ../deps/reflex-platform/work-on ./tr.nix ./. --run "cabal configure --ghcjs && cabal build" && cp -r dist/build/*/*.jsexe ../app/static/media/js/ && cd ..
+echo "Done with videomemory"
+
+
 echo "Building tagging-server"
 cd tagging-server && ../deps/reflex-platform/work-on ./tr.nix ./. --run "cabal configure && cabal build" && cp dist/build/tagging-server/tagging-server ../app/ && cd ..
 echo "Done with tagging-server"
