@@ -28,7 +28,6 @@ executable homealone
                        reflex-dom, 
                        reflex-dom-contrib,
                        tagging-common, 
-                       tagging-client,
                        text, 
                        time,
                        transformers,

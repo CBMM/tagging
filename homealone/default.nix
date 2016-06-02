@@ -1,6 +1,6 @@
 { mkDerivation, aeson, base, bytestring, containers, ghcjs-dom
 , lens, lens-aeson, reflex, reflex-dom, reflex-dom-contrib, stdenv
-, tagging-common, tagging-client, text, unordered-containers, vector
+, tagging-common, text, unordered-containers, vector
 }:
 mkDerivation {
   pname = "homealone";
@@ -11,7 +11,7 @@ mkDerivation {
   executableHaskellDepends = [
     aeson base bytestring containers ghcjs-dom 
     lens lens-aeson reflex reflex-dom reflex-dom-contrib
-    tagging-common tagging-client text unordered-containers vector
+    tagging-common text unordered-containers vector
   ];
   license = stdenv.lib.licenses.bsd3;
 }
