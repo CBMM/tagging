@@ -1,7 +1,7 @@
 { mkDerivation, aeson, base, bytestring, containers, data-default
 , errors, ghcjs-dom, groundhog, groundhog-th, reflex, reflex-dom, reflex-dom-contrib
 , stdenv, tagging-common, text, time
-, transformers, uuid, yaml-ghcjs
+, transformers, uuid-types, yaml-ghcjs
 }:
 mkDerivation {
   pname = "tagging-client";
@@ -12,11 +12,11 @@ mkDerivation {
   libraryHaskellDepends = [
     aeson base bytestring containers data-default errors ghcjs-dom
     groundhog groundhog-th reflex reflex-dom
-    tagging-common text time transformers uuid yaml-ghcjs
+    tagging-common text time transformers uuid-types yaml-ghcjs
   ];
   executableHaskellDepends = [
     aeson base bytestring containers ghcjs-dom groundhog reflex
-    reflex-dom reflex-dom-contrib tagging-common text uuid
+    reflex-dom reflex-dom-contrib tagging-common text uuid-types
   ];
   license = stdenv.lib.licenses.bsd3;
 }

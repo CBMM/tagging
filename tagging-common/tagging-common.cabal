@@ -39,7 +39,7 @@ library
                      , text
                      , time
                      , transformers
-                     , uuid
+                     , uuid-types
                      , vector
   if !impl(ghcjs)
     build-depends:

@@ -28,7 +28,7 @@ import qualified Data.Text          as T
 import qualified Data.Text.Lazy     as T (toStrict, fromStrict)
 import qualified Data.Text.Lazy.Encoding as T
 import           Data.Time
-import qualified Data.UUID          as U
+import qualified Data.UUID.Types    as U
 import qualified Data.Vector        as V
 import qualified Database.Groundhog         as G
 import qualified Database.Groundhog.Core    as G

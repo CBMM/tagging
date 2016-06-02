@@ -27,7 +27,7 @@ import Data.Monoid
 import Data.Proxy
 import qualified Data.Text as T
 import Data.Traversable
-import qualified Data.UUID as U
+import qualified Data.UUID.Types as U
 import Database.Groundhog
 import           Database.Groundhog.Core -- (Key, PersistValue(PersistInt64))
 import GHC.Int
