@@ -1,33 +1,33 @@
 [submodule "deps/snap"]
 	path = deps/snap
-	url = http://github.com/snapframework/snap
+	url = https://github.com/snapframework/snap
 [submodule "deps/servant-snap"]
 	path = deps/servant-snap
-	url = http://github.com/haskell-servant/servant-snap
+	url = https://github.com/haskell-servant/servant-snap
 [submodule "deps/snaplet-postgresql-simple"]
 	path = deps/snaplet-postgresql-simple
-	url = http://github.com/mightybyte/snaplet-postgresql-simple
+	url = https://github.com/mightybyte/snaplet-postgresql-simple
 [submodule "deps/servant-matlab"]
 	path = deps/servant-matlab
-	url = http://github.com/imalsogreg/servant-matlab
+	url = https://github.com/imalsogreg/servant-matlab
 [submodule "deps/snap-loader-static"]
 	path = deps/snap-loader-static
-	url = http://github.com/snapframework/snap-loader-static
+	url = https://github.com/snapframework/snap-loader-static
 [submodule "deps/snap-loader-dynamic"]
 	path = deps/snap-loader-dynamic
-	url = http://github.com/snapframework/snap-loader-dynamic
+	url = https://github.com/snapframework/snap-loader-dynamic
 [submodule "deps/yaml-ghcjs"]
 	path = deps/yaml-ghcjs
-	url = http://github.com/imalsogreg/yaml-ghcjs
+	url = https://github.com/imalsogreg/yaml-ghcjs
 [submodule "deps/groundhog"]
 	path = deps/groundhog
-	url = http://github.com/imalsogreg/groundhog
+	url = https://github.com/imalsogreg/groundhog
 [submodule "deps/reflex-dom"]
 	path = deps/reflex-dom
-	url = http://github.com/imalsogreg/reflex-dom
+	url = https://github.com/imalsogreg/reflex-dom
 [submodule "deps/reflex-dom-contrib"]
 	path = deps/reflex-dom-contrib
-	url = http://github.com/reflex-frp/reflex-dom-contrib
+	url = https://github.com/reflex-frp/reflex-dom-contrib
 [submodule "deps/reflex"]
 	path = deps/reflex
 	url = https://github.com/reflex-frp/reflex
