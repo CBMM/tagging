@@ -1,9 +1,8 @@
-cd tagging-client && ../deps/reflex-platform/work-on ./tr.nix ./. --run "cabal configure --ghcjs && cabal build" && cp -r tagging-client/dist/build/*/*.jsexe ../app/static/media/js/ && cd ..
+mkdir -p app/static/media/js
 
-cd tagging-server && ../deps/reflex-platform/work-on ./tr.nix ./. --run "cabal configure && cabal build"
+cd tagging-client && ../deps/reflex-platform/work-on ./tr.nix ./. --run "cabal configure --ghcjs && cabal build" && cp -r dist/build/*/*.jsexe ../app/static/media/js/ && cd ..
 
-
-cp tagging-server/dist/build/tagging-server/tagging-server app/
+cd tagging-server && ../deps/reflex-platform/work-on ./tr.nix ./. --run "cabal configure && cabal build" && cp dist/build/tagging-server/tagging-server ../app/ && cd ..
 
 
 
