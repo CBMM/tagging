@@ -30,7 +30,7 @@ import Server.Database
 import Server.Resources
 import Server.Utils hiding (intToKey)
 import Server.Application
-import API
+import Tagging.API
 import Utils
 
 

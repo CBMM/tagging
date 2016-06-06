@@ -27,6 +27,7 @@ import Servant.Server hiding (err300)
 import Server.Application
 import Server.Database
 import Server.Utils
+import Tagging.API
 import Tagging.User
 
 -------------------------------------------------------------------------------
@@ -155,15 +156,6 @@ crudServer :: Crud v => Proxy v -> Server (CrudAPI v) AppHandler
 crudServer p =
   getServer p :<|> getsServer p :<|> postServer p :<|> putServer :<|> deleteServer p
 
-
-type CrudAPI a = GetAPI a :<|> GetsAPI a
-                 :<|> PostAPI a :<|> PutAPI a :<|> DeleteAPI a
-
-type GetAPI a  = Capture "id" Int64 :> Get '[JSON] a
-type GetsAPI a = Get '[JSON] [(Int64, a)]
-type PostAPI a = ReqBody '[JSON] a :> Post '[JSON] Int64
-type PutAPI  a = Capture "id" Int64 :> ReqBody '[JSON] a :> Put '[JSON] ()
-type DeleteAPI a = Capture "id" Int64 :> Delete '[JSON] Bool
 
 
 getServer :: Crud v => Proxy v -> Server (GetAPI v) AppHandler

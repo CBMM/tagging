@@ -15,7 +15,7 @@ import Servant.Docs
 import Tagging.Response
 import Tagging.Stimulus
 import Tagging.User
-import API
+import Tagging.API
 import Server.Database
 import Server.Session
 import Server.Crud
@@ -92,3 +92,14 @@ instance ToParam (QueryParam "index" [Int]) where
   toParam _ = DocQueryParam "index" []
     ("Stimulus id's to be looking up (any id's not answered " ++
      "by the user will be ignored)") Normal
+
+
+instance ToCapture (Capture "sequence" Int64) where
+  toCapture _ = DocCapture "sequence" "Key for the Stimulus Sequence"
+
+instance ToCapture (Capture "userid" Int64) where
+  toCapture _ = DocCapture "sequence" "Numeric key for the user"
+
+instance ToSample LoginInfo where
+  toSamples _ = singleSample (LoginInfo "greg" "myPassword" True)
+

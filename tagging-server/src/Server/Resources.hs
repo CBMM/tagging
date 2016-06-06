@@ -22,6 +22,7 @@ import Servant.Server
 import Snap.Core
 import Snap.Snaplet
 import Snap.Snaplet.Auth
+import Tagging.API
 import Tagging.Stimulus
 import Tagging.User
 import Tagging.Response
@@ -33,15 +34,6 @@ import Server.Crud
 import Server.Database
 import Utils
 
-
-------------------------------------------------------------------------------
-type ResourcesAPI =
-       "tagginguser"      :> CrudAPI TaggingUser
-  :<|> "assignment"       :> CrudAPI Assignment
-  :<|> "stimulussequence" :> CrudAPI StimulusSequence
-  :<|> "stimseqitem"      :> CrudAPI StimSeqItem
-  :<|> "stimulusresponse" :> CrudAPI StimulusResponse
-  :<|> "stimulusrequest"  :> CrudAPI StimulusRequest
 
 resourceServer :: Server ResourcesAPI AppHandler
 resourceServer = crudServer Proxy :<|> crudServer Proxy :<|> crudServer Proxy
