@@ -4,7 +4,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
 
-module Experiments.HomeAlonePersonAndDirection where
+module Types where
 
 import Control.Applicative
 import Control.Error
@@ -13,7 +13,7 @@ import qualified Data.Aeson as A
 import Data.Aeson.Types
 import Data.Char
 import qualified Data.Text as T
-import qualified Data.UUID as U
+import qualified Data.UUID.Types as U
 import qualified Data.Vector as V
 import GHC.Generics
 import Tagging.Stimulus

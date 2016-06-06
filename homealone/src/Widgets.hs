@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TupleSections             #-}
 
-module Tagging.Experiments.HomeAlone.Widgets where
+module Widgets where
 
 ------------------------------------------------------------------------------
 import           Control.Applicative
@@ -42,7 +42,7 @@ import           Reflex.Dom.Xhr
 import           Tagging.Response
 import           Tagging.Stimulus
 import           Tagging.User
-import           Experiments.HomeAlonePersonAndDirection
+import           Types
 ------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------

@@ -14,11 +14,11 @@ import           Data.Maybe (catMaybes, isJust, maybeToList)
 import           Data.Monoid ((<>))
 import           Reflex
 import           Reflex.Dom
-import           Experiments.HomeAlonePersonAndDirection
 import           Tagging.Stimulus
 import           Tagging.Response
 import           Tagging.User
-import           Tagging.Experiments.HomeAlone.Widgets
+import           Widgets
+import           Types
 
 
 main :: IO ()

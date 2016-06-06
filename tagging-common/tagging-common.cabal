@@ -20,8 +20,6 @@ library
                      , Tagging.User
                      , Tagging.Stimulus
                      , Tagging.Response
---                     , Experiments.HomeAlonePersonAndDirection
---                     , Experiments.SimplePics
                      , Utils
   -- other-modules:
   -- other-extensions:
@@ -32,7 +30,7 @@ library
                      , deepseq
                      , errors
                      , filepath
-                     , groundhog >= 0.7 && < 0.7.0.4
+                     , groundhog >= 0.7 && < 0.9
                      , groundhog-th
                      , lens
                      , monad-logger
@@ -42,7 +40,7 @@ library
                      , text
                      , time
                      , transformers
-                     , uuid
+                     , uuid-types
                      , vector
   if !impl(ghcjs)
     build-depends:

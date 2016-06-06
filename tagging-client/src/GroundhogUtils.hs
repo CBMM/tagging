@@ -25,7 +25,7 @@ import           Database.Groundhog.Postgresql
 import           GHC.Int
 #endif
 ------------------------------------------------------------------------------
-import qualified Data.UUID as U
+import qualified Data.UUID.Types as U
 
 
 -- #ifdef __GHCJS__

@@ -16,8 +16,8 @@ cabal.sandbox.config
 *.prof
 *.aux
 *.hp
-*.cfg
 site_key.txt
 *.jsexe
 devel.cfg
 prod.cfg
+app/tagging-server

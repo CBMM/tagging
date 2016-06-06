@@ -3,7 +3,7 @@
 , tagging-common, tagging-client, text, unordered-containers, vector
 }:
 mkDerivation {
-  pname = "videomemory";
+  pname = "videogeneral";
   version = "0.1.0.0";
   src = ./.;
   isLibrary = false;

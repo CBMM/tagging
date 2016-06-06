@@ -24,7 +24,7 @@ import           Data.Char (toLower)
 import qualified Data.Text.Encoding as T
 import qualified Data.Text as T
 import           Data.Time
-import qualified Data.UUID as UUID
+import qualified Data.UUID.Types as UUID
 import qualified Data.Vector as V
 import           Database.Groundhog
 import           Database.Groundhog.Core
