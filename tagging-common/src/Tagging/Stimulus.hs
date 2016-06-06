@@ -72,7 +72,8 @@ definitions:
 
 data StimulusSequence = StimulusSequence
   { ssName        :: !T.Text
-  , ssUuid        :: !U.UUID -- An extra key for namespacing the StimSeqItems
+  , ssUuid        :: !U.UUID
+                     -- ^ An extra key for namespacing the StimSeqItems
   , ssMetaData    :: !A.Value
   , ssDescription :: !T.Text
   , ssBaseUrl     :: !T.Text

@@ -49,7 +49,7 @@ import qualified Utils as Utils
 -- Listing of paths to experiments indexed by int. TODO this information
 --   should be in the StimulusSequence table of the tagging db
 experimentPaths :: Map.Map Int (T.Text,T.Text)
-experimentPaths = Map.fromList[(4,("Home Alone 2","/client/HomeAlone"))
+experimentPaths = Map.fromList[(4,("Home Alone 2","/client/homealone"))
                               ,(5,("Video Memory","/client/videomemory"))
                               ]
 
