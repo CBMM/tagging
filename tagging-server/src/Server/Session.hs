@@ -37,54 +37,13 @@ import qualified Snap.Snaplet.Heist.Interpreted as I
 -- import Heist
 -- import Snap.Snaplet.Heist
 -- import Heist.Interpreted
-
+import           Tagging.API
 import           Tagging.User
 import           Tagging.Stimulus
 import           Server.Application
 import           Server.Utils
 import qualified Utils as Utils
 
-
-------------------------------------------------------------------------------
-type SessionAPI =
---       "login" :> ReqBody '[FormUrlEncoded, JSON] LoginInfo
---               :> Raw AppHandler (AppHandler ())
-
-   "currentuser" :> Get '[JSON] TaggingUser
-
---  :<|> "newuser" :> ReqBody '[FormUrlEncoded, JSON] RegisterInfo
---                 :> Post '[JSON] ()
-
---  :<|> "logout" :> Get '[JSON] ()
-
-
-
-data LoginInfo = LoginInfo {
-    liUsername :: T.Text
-  , liPassword :: T.Text
-  , liRemember :: Bool
-  } deriving (Eq, Show, Generic)
-
-instance A.ToJSON LoginInfo where
-  toJSON = A.genericToJSON A.defaultOptions { A.fieldLabelModifier = drop 2 . map toLower }
-
-instance A.FromJSON LoginInfo where
-  parseJSON = A.genericParseJSON A.defaultOptions { A.fieldLabelModifier = drop 2 . map toLower}
-
-data RegisterInfo = RegisterInfo {
-    riUsername :: T.Text
-  , riPassword :: T.Text
-} deriving (Eq, Show, Generic)
-
-instance A.ToJSON RegisterInfo where
-  toJSON = A.genericToJSON A.defaultOptions { A.fieldLabelModifier = drop 2 . map toLower }
-
-instance A.FromJSON RegisterInfo where
-  parseJSON = A.genericParseJSON A.defaultOptions { A.fieldLabelModifier = drop 2 . map toLower}
-
-
-instance ToSample LoginInfo where
-  toSamples _ = singleSample (LoginInfo "greg" "myPassword" True)
 
 ------------------------------------------------------------------------------
 -- Listing of paths to experiments indexed by int. TODO this information

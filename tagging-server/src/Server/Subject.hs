@@ -40,6 +40,7 @@ import           Snap.Snaplet
 -- import           Snap.Snaplet.PostgresqlSimple
 import qualified Data.Aeson as A
 ------------------------------------------------------------------------------
+import           Tagging.API
 import           Tagging.Stimulus
 import           Tagging.Response
 import           Tagging.User
@@ -50,20 +51,6 @@ import           Server.Resources
 import           Server.Utils
 import qualified Utils as Utils
 
-
-------------------------------------------------------------------------------
-type SubjectAPI = "currentstim"       :> Get '[JSON] StimSeqItem
-             :<|> "currentsequence"   :> Get '[JSON] StimulusSequence
-             :<|> "currentassignment" :> Get '[JSON] Assignment
-             :<|> "fullposinfo"       :> Get '[JSON] (Maybe
-                                         (Assignment,
-                                          StimulusSequence,
-                                          StimSeqItem))
-             :<|> "progress"          :> Get '[JSON] Progress
-             :<|> "response"          :> QueryFlag "advance" :> ReqBody '[JSON] ResponsePayload
-                                      :> Post '[JSON] ()
-             :<|> "answerkey"         :> QueryParam "experiment" Int
-                                      :> Get '[JSON] [StimSeqAnswer]
 
 ------------------------------------------------------------------------------
 subjectServer :: Server SubjectAPI AppHandler

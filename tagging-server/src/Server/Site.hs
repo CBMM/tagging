@@ -50,11 +50,11 @@ import           Snap.Snaplet.Session.Backends.CookieSession
 import           Snap.Util.FileServe
 ------------------------------------------------------------------------------
 import           Server.Utils
+import           Tagging.API
 import           Tagging.User
 import           Tagging.Stimulus
 import           Tagging.Response
 ------------------------------------------------------------------------------
-import           API
 import           APIDocs
 import           Server.Application
 import           Server.Crud
