@@ -30,12 +30,10 @@ import           Tagging.Response
 
 ------------------------------------------------------------------------------
 type TaggingAPI =
-  SessionAPI
-  :<|> SubjectAPI
-  :<|> ResourcesAPI
-  :<|> ResearcherAPI
---   :<|> "docs" :> Raw AppHandler (AppHandler ())
---   :<|> "clients" :> ClientLibs
+  SessionAPI         -- API for creating and logging in users
+  :<|> SubjectAPI    -- API for getting stimuli and responding to them
+  :<|> ResourcesAPI  -- API for talking to the database directly
+  :<|> ResearcherAPI -- API administering experiments
 
 ------------------------------------------------------------------------------
 type ResearcherAPI = "assignsequence" :> Capture "userid"   Int64
@@ -80,8 +78,7 @@ type SubjectAPI = "currentstim"       :> Get '[JSON] StimSeqItem
                                           StimulusSequence,
                                           StimSeqItem))
              :<|> "progress"          :> Get '[JSON] Progress
-             :<|> "response"          :> QueryFlag "advance" :> ReqBody '[JSON] ResponsePayload
-                                      :> Post '[JSON] ()
+             :<|> "response"          :> QueryFlag "advance" :> ReqBody '[JSON] ResponsePayload :> Post '[JSON] ()
              :<|> "answerkey"         :> QueryParam "experiment" Int
                                       :> Get '[JSON] [StimSeqAnswer]
 
@@ -91,6 +88,8 @@ type SessionAPI =
 --               :> Raw AppHandler (AppHandler ())
 
    "currentuser" :> Get '[JSON] TaggingUser
+   :<|> "turk" :> QueryParam "userid" Int  :> QueryParam "experimentid" Int
+               :> QueryParam "extra-data" String :> Get '[JSON] ()
 
 --  :<|> "newuser" :> ReqBody '[FormUrlEncoded, JSON] RegisterInfo
 --                 :> Post '[JSON] ()
