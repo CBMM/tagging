@@ -16,8 +16,10 @@ executable homealone
   main-is: HomeAlone.hs
   other-modules: Widgets
                  Types
+                 Admin
   build-depends:       base >=4.8 && <4.9, 
                        aeson, 
+                       base64-bytestring,
                        bytestring, 
                        containers, 
                        data-default,

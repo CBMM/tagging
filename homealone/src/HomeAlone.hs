@@ -2,16 +2,25 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE CPP #-}
 
 module Main where
 
+import           Control.Monad (when)
+import           Control.Monad.IO.Class (liftIO)
 import qualified Data.Aeson as A
 import           Data.Bool (bool)
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import qualified Data.List as List
+import           Data.List (isInfixOf)
 import qualified Data.Map  as Map
 import           Data.Maybe (catMaybes, isJust, maybeToList)
 import           Data.Monoid ((<>))
+#ifdef ghcjs_HOST_OS
+import           GHCJS.DOM.Document (getLocation)
+import           GHCJS.DOM.Location (toString)
+import           GHCJS.DOM.Types (Location(..))
+#endif
 import           Reflex
 import           Reflex.Dom
 import           Tagging.Stimulus
@@ -19,10 +28,16 @@ import           Tagging.Response
 import           Tagging.User
 import           Widgets
 import           Types
+import           Admin
 
 
 main :: IO ()
-main = mainWidget contentWidget
+main = mainWidget $ do
+  doc <- askDocument
+  (Just loc) <- liftIO $ getLocation doc
+  isAdmin <- liftIO $ urlIsAdmin loc
+  when isAdmin adminWidget
+  contentWidget
 
 -------------------------------------------------------------------------------
 contentWidget :: MonadWidget t m => m ()
@@ -130,3 +145,16 @@ sampleClipProperties clipPropsMap selectionSet = do
   --   dynList <- mapM (mapDyn (\maybeProps)) ()
   --   mconcatDyn dynList
 
+
+-- | Test whether the document location contains 'admin flag'. If so, we'll show
+--   a modal allowing admins to build links back to tagging suitable for mturk
+urlIsAdmin :: Location -> IO Bool
+urlIsAdmin loc = do
+  locStr <- toString loc
+  return $ isInfixOf "admin" (dropWhile (/= '?') locStr)
+
+#ifndef ghcjs_HOST_OS
+data Location
+getLocation = undefined
+toString = undefined
+#endif
