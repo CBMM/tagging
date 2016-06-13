@@ -18,15 +18,10 @@ import           GHC.Generics
 import           GHC.Int
 import           Servant.API
 import           Servant.API.Capture
--- import           Servant.Docs
 import           Tagging.User
 import           Tagging.Stimulus
 import           Tagging.Response
--- import           Server.Application
--- import           Server.Crud
--- import           Server.Resources
--- import           Server.Session
--- import           Server.Subject
+
 
 ------------------------------------------------------------------------------
 type TaggingAPI =
@@ -34,6 +29,7 @@ type TaggingAPI =
   :<|> SubjectAPI    -- API for getting stimuli and responding to them
   :<|> ResourcesAPI  -- API for talking to the database directly
   :<|> ResearcherAPI -- API administering experiments
+
 
 ------------------------------------------------------------------------------
 type ResearcherAPI = "assignsequence" :> Capture "userid"   Int64
@@ -84,20 +80,15 @@ type SubjectAPI = "currentstim"       :> Get '[JSON] StimSeqItem
 
 ------------------------------------------------------------------------------
 type SessionAPI =
---       "login" :> ReqBody '[FormUrlEncoded, JSON] LoginInfo
---               :> Raw AppHandler (AppHandler ())
 
    "currentuser" :> Get '[JSON] TaggingUser
 
-   :<|> "turk"  :> QueryParam "userid" Int :> QueryParam "experimentid" Int :> QueryParam "extradata" String :> Get '[JSON] String
-   -- :<|> "turk" :> Capture "userid" Int64  :> Capture "experiment" Int64
-   --             :> Capture "extra-data" String :> Get '[JSON] ()
-
---  :<|> "newuser" :> ReqBody '[FormUrlEncoded, JSON] RegisterInfo
---                 :> Post '[JSON] ()
-
---  :<|> "logout" :> Get '[JSON] ()
-
+   :<|> "turk"  :> QueryParam "assignmentId" T.Text
+                :> QueryParam "hitId" T.Text
+                :> QueryParam "workerId" T.Text
+                :> QueryParam "redirectURL" T.Text
+                :> QueryParam "experimentData" T.Text
+                :> Raw
 
 
 data LoginInfo = LoginInfo {

@@ -10,6 +10,7 @@ module Server.Session where
 
 import           Control.Error
 import           Control.Monad (mzero)
+import qualified Data.ByteString.Char8 as BSC
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Trans.Class (lift)
 import qualified Data.Aeson as A
@@ -30,6 +31,7 @@ import           Servant.Docs
 import           Snap.Core       (redirect, writeText, getParams)
 import           Snap.Snaplet
 import           Snap.Snaplet.Auth
+import qualified Web.ClientSession as W
 
 
 import qualified Heist.Interpreted as I
@@ -76,9 +78,7 @@ handleLogin authError = do
       "assignmentLabel" ## I.textSplice txt
     bindAsgns = I.mapSplices $ I.runChildrenWith . asgnSplices
     asgnsSplices asgns = errs <> ("assignments" ## (bindAsgns asgns))
-    -- asgnsSplices' _ = do
-    --   "assignments" ## I.textSplice "HI!"
-    --   "atest" ## I.textSplice "Test complete"
+
 
 ------------------------------------------------------------------------------
 -- | Handle login submit
@@ -95,19 +95,19 @@ handleLoginSubmit =
 handleLogout :: Handler App App ()
 handleLogout = with auth $ logout >> redirect "/"
 
+instance FromHttpApiData A.Value where
+  
 
 ------------------------------------------------------------------------------
 -- | Handle new user form submit
---handleNewUser :: Handler App App ()
---handleNewUser = method GET handleForm <|> method POST handleFormSubmit
 sessionServer :: Server SessionAPI AppHandler
 sessionServer = handleCurrentTaggingUser
            :<|> handleTurk
   where
 
-    handleTurk (turkUserId) (turkExpId) (extraData) = do
-      ps <- getParams
-      return $ show ps
+    -- handleTurk (turkUserId) (turkExpId) (extraData) s = do
+    --   ps <- getParams
+    --   return ()
       -- TODO real handleTurk implementation:
       --    If turkUserId has previously visited, look up his/her tagging login
       --    Otherwise, make a new tagging login from the turk id
@@ -115,13 +115,6 @@ sessionServer = handleCurrentTaggingUser
       --    redirect to appropriate page
       -- liftIO . putStrLn . unwords $ [show turkUserId, show turkExpId, show extraData]
       -- return ()
-
-    -- apiLogin li = do
-    --   with auth $ loginByUsername
-    --               (liUsername li)
-    --               (T.encodeUtf8 $ liPassword li)
-    --               (liRemember li)
-    --   return ()
 
     -- apiNewUser RegisterInfo{..} = maybeT (Server.Utils.err300 "New user error") return $ do
     --     user <- hushT $ ExceptT $ with auth $ createUser riUsername (T.encodeUtf8 riPassword)
@@ -139,15 +132,36 @@ sessionServer = handleCurrentTaggingUser
     --          return
     --          getCurrentTaggingUser
 
--- turk :: Int -> Int -> String -> Handler App App ()
--- turk turkId turkExpId extraData = do
---   let taggingId = turkIdToTaggingLogin turkId
---       taggingPw = T.encodeUtf8 taggingId <> "pass" -- TODO fix this. Use token?
---   isRepeatVisit <- usernameExists taggingId
---   authUser <- case isRepeatVisit of
---     False -> createUser taggingId taggingPw
---     True -> loginUser taggingId taggingPw
---   redirect somewhere
+-------------------------------------------------------------------------------
+handleTurk :: Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text
+           -> Maybe T.Text -> Handler App App ()
+handleTurk (Just assignmentId) (Just hitId) (Just workerId) (Just redirectUrl) (Just extraData) = do
+  turkLogin workerId
+  redirect (T.encodeUtf8 redirectUrl)
+handleTurk _ _ _ _ _ = writeText "Missing query parameters"
+  -- TODO: Improve error message
+
+
+turkLogin :: T.Text -> Handler App App ()
+turkLogin workerId = do
+
+  -- We'll use the site_key to generate passwords for tagging users
+  siteKey <- liftIO $ W.getKey "site_key.txt"
+  let pw = maybe
+           (error "Error: Bad initialization vector during turk pw creation" :: b)
+           (\i -> W.encrypt siteKey i (T.encodeUtf8 workerId))
+           (W.mkIV "AAAAAAAAAAAAAAAA" :: Maybe W.IV)
+
+  with auth $ do
+    uExist <- usernameExists workerId
+    bool (createUser workerId pw >> return ()) (loginTurker workerId pw) uExist
+
+  where
+    loginTurker uId pw = do
+      au <- loginByUsername workerId pw True
+      either (\_ -> error "Login error") (\_ -> return ()) au
+      -- TODO fix this error message (must run in Handler App (AuthManager App))
+
 
 
 handleCurrentTaggingUser :: Handler App App TaggingUser

@@ -48,6 +48,7 @@ import qualified Snap.Snaplet.Heist as SHeist
 import qualified Snap.Snaplet.Heist.Interpreted as I
 import           Snap.Snaplet.Session.Backends.CookieSession
 import           Snap.Util.FileServe
+import           Web.ClientSession
 ------------------------------------------------------------------------------
 import           Server.Utils
 import           Tagging.API
@@ -92,11 +93,17 @@ routes = [ ("login",    with auth handleLoginSubmit)
          -- , ("subjectdata/:seqid/:userid", handleSubjectData)
          -- , ("library/matlab", matlabLibrary)
          -- , ("library/javascript", javascriptLibrary)
+         , ("getkey", handleGetKey)
          , ("", Snap.Util.FileServe.serveDirectory "static")
 
          , ("", with auth $ handleLogin Nothing)
          ]
 
+
+handleGetKey :: AppHandler ()
+handleGetKey = do
+  k <- liftIO $ getKey "site_key.txt"
+  writeText $ (T.pack $ show k)
 
 ------------------------------------------------------------------------------
 readParam :: (MonadSnap m, Read a) => BS.ByteString -> ExceptT String m a
