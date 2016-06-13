@@ -27,7 +27,7 @@ import           GHC.Generics
 import           GHC.Int
 import           Servant
 import           Servant.Docs
-import           Snap.Core       (redirect)
+import           Snap.Core       (redirect, writeText, getParams)
 import           Snap.Snaplet
 import           Snap.Snaplet.Auth
 
@@ -101,35 +101,54 @@ handleLogout = with auth $ logout >> redirect "/"
 --handleNewUser :: Handler App App ()
 --handleNewUser = method GET handleForm <|> method POST handleFormSubmit
 sessionServer :: Server SessionAPI AppHandler
-sessionServer = -- apiLogin
-                -- :<|> apiCurrentUser
-  handleCurrentTaggingUser -- apiCurrentUser
-                -- :<|> apiNewUser
-                -- :<|> with auth handleLogout
+sessionServer = handleCurrentTaggingUser
+           :<|> handleTurk
   where
 
-    apiLogin li = do
-      with auth $ loginByUsername
-                  (liUsername li)
-                  (T.encodeUtf8 $ liPassword li)
-                  (liRemember li)
-      return ()
+    handleTurk (turkUserId) (turkExpId) (extraData) = do
+      ps <- getParams
+      return $ show ps
+      -- TODO real handleTurk implementation:
+      --    If turkUserId has previously visited, look up his/her tagging login
+      --    Otherwise, make a new tagging login from the turk id
+      --    log in
+      --    redirect to appropriate page
+      -- liftIO . putStrLn . unwords $ [show turkUserId, show turkExpId, show extraData]
+      -- return ()
 
-    apiNewUser RegisterInfo{..} = maybeT (Server.Utils.err300 "New user error") return $ do
-        user <- hushT $ ExceptT $ with auth $ createUser riUsername (T.encodeUtf8 riPassword)
-        uId   <- hoistMaybe (readMay . T.unpack =<< (unUid <$> userId user))
-        nUser <- lift $ runGH $ countAll (undefined :: TaggingUser)
-        lift $ runGH $ do
-          n <- countAll (undefined :: TaggingUser)
-          let newRoles = if n == 0 then [Admin] else [Subject]
-          insert (TaggingUser (uId :: Int64) Nothing Nothing newRoles)
-        return ()
+    -- apiLogin li = do
+    --   with auth $ loginByUsername
+    --               (liUsername li)
+    --               (T.encodeUtf8 $ liPassword li)
+    --               (liRemember li)
+    --   return ()
 
-    apiCurrentUser =
-      exceptT
-             (Server.Utils.err300 . ("apiCurrentUser error: " ++))
-             return
-             getCurrentTaggingUser
+    -- apiNewUser RegisterInfo{..} = maybeT (Server.Utils.err300 "New user error") return $ do
+    --     user <- hushT $ ExceptT $ with auth $ createUser riUsername (T.encodeUtf8 riPassword)
+    --     uId   <- hoistMaybe (readMay . T.unpack =<< (unUid <$> userId user))
+    --     nUser <- lift $ runGH $ countAll (undefined :: TaggingUser)
+    --     lift $ runGH $ do
+    --       n <- countAll (undefined :: TaggingUser)
+    --       let newRoles = if n == 0 then [Admin] else [Subject]
+    --       insert (TaggingUser (uId :: Int64) Nothing Nothing newRoles)
+    --     return ()
+
+    -- apiCurrentUser =
+    --   exceptT
+    --          (Server.Utils.err300 . ("apiCurrentUser error: " ++))
+    --          return
+    --          getCurrentTaggingUser
+
+-- turk :: Int -> Int -> String -> Handler App App ()
+-- turk turkId turkExpId extraData = do
+--   let taggingId = turkIdToTaggingLogin turkId
+--       taggingPw = T.encodeUtf8 taggingId <> "pass" -- TODO fix this. Use token?
+--   isRepeatVisit <- usernameExists taggingId
+--   authUser <- case isRepeatVisit of
+--     False -> createUser taggingId taggingPw
+--     True -> loginUser taggingId taggingPw
+--   redirect somewhere
+
 
 handleCurrentTaggingUser :: Handler App App TaggingUser
 handleCurrentTaggingUser =

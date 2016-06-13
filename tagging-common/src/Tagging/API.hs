@@ -88,8 +88,10 @@ type SessionAPI =
 --               :> Raw AppHandler (AppHandler ())
 
    "currentuser" :> Get '[JSON] TaggingUser
-   :<|> "turk" :> QueryParam "userid" Int  :> QueryParam "experimentid" Int
-               :> QueryParam "extra-data" String :> Get '[JSON] ()
+
+   :<|> "turk"  :> QueryParam "userid" Int :> QueryParam "experimentid" Int :> QueryParam "extradata" String :> Get '[JSON] String
+   -- :<|> "turk" :> Capture "userid" Int64  :> Capture "experiment" Int64
+   --             :> Capture "extra-data" String :> Get '[JSON] ()
 
 --  :<|> "newuser" :> ReqBody '[FormUrlEncoded, JSON] RegisterInfo
 --                 :> Post '[JSON] ()
