@@ -12,7 +12,7 @@ import qualified Servant.JS               as JS
 import qualified Servant.Matlab           as Matlab
 import qualified Servant.Matlab.Functions as Matlab
 
-import API
+import Tagging.API
 
 
 ------------------------------------------------------------------------------
@@ -23,9 +23,9 @@ matlabLibrary = []
 --  Matlab.matlabFunctions
 
 jsLibrary :: Text
-jsLibrary =
-  JS.jsForAPI (Proxy :: Proxy TaggingAPI)
-  JS.vanillaJS
+jsLibrary = undefined
+  -- JS.jsForAPI (Proxy :: Proxy TaggingAPI)
+  -- JS.vanillaJS
 
 main :: IO ()
 main =

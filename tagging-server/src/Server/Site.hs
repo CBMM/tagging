@@ -201,6 +201,6 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
 
 
 docsServer :: ServerT Raw AppHandler
-docsServer = writeBS . BS.pack . markdown $ docsWithIntros [docsIntro] apiProxy
+docsServer = undefined -- writeBS . BS.pack . markdown $ docsWithIntros [docsIntro] apiProxy
 
 
