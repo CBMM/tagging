@@ -73,7 +73,8 @@ apiProxy = Proxy
 type SubjectAPI = "currentstim"       :> Get '[JSON] StimSeqItem
              :<|> "currentsequence"   :> Get '[JSON] StimulusSequence
              :<|> "currentassignment" :> Get '[JSON] Assignment
-             :<|> "fullposinfo"       :> Get '[JSON] (Maybe
+             :<|> "fullposinfo"       :> QueryParam "indexRequest" Int
+                                      :> Get '[JSON] (Maybe
                                          (Assignment,
                                           StimulusSequence,
                                           StimSeqItem))
