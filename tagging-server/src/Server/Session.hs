@@ -133,17 +133,20 @@ sessionServer = handleCurrentTaggingUser
     --          getCurrentTaggingUser
 
 -------------------------------------------------------------------------------
+-- TODO: Collect all these Text arguments into a `TurkData` type
 handleTurk :: Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text
-           -> Maybe T.Text -> Handler App App ()
-handleTurk (Just assignmentId) (Just hitId) (Just workerId) (Just redirectUrl) (Just extraData) = do
-  turkLogin workerId
+           -> Maybe Int64 -> Maybe T.Text -> Handler App App ()
+handleTurk (Just assignmentId) (Just hitId) (Just workerId) (Just redirectUrl) (Just taggingExptNum) (Just extraData)  = do
+  turkLogin workerId taggingExptNum
   redirect (T.encodeUtf8 redirectUrl)
-handleTurk _ _ _ _ _ = writeText "Missing query parameters"
+handleTurk _ _ _ _ _ _ = do
+  ps <- getParams
+  writeText ("Param problem. Params: " <> T.pack (show ps))
   -- TODO: Improve error message
 
 
-turkLogin :: T.Text -> Handler App App ()
-turkLogin workerId = do
+turkLogin :: T.Text -> Int64 -> Handler App App ()
+turkLogin workerId taggingExptNum = do
 
   -- We'll use the site_key to generate passwords for tagging users
   siteKey <- liftIO $ W.getKey "site_key.txt"
@@ -152,15 +155,47 @@ turkLogin workerId = do
            (\i -> W.encrypt siteKey i (T.encodeUtf8 workerId))
            (W.mkIV "AAAAAAAAAAAAAAAA" :: Maybe W.IV)
 
-  with auth $ do
+  userId <- with auth $ do
     uExist <- usernameExists workerId
-    bool (createUser workerId pw >> return ()) (loginTurker workerId pw) uExist
+    bool (createTurker pw) (loginTurker workerId pw) uExist
+
+  assignExperimentToUser userId taggingExptNum
 
   where
+
+    assignExperimentToUser :: Int64 -> Int64 -> Handler App App ()
+    assignExperimentToUser userid expid = do
+      runGH $ insert (Assignment (Utils.intToKey $ fromIntegral userid) (Utils.intToKey $ fromIntegral expid) 1)
+      -- TODO how to assign anything but index 1?
+      return ()
+
     loginTurker uId pw = do
-      au <- loginByUsername workerId pw True
-      either (\_ -> error "Login error") (\_ -> return ()) au
-      -- TODO fix this error message (must run in Handler App (AuthManager App))
+      au <- loginByUsername workerId pw True :: Handler App (AuthManager App) (Either AuthFailure AuthUser)
+      case au of
+        Left _ -> error "login error for turk user"
+        Right au' -> do
+          -- TODO clean up
+          let uid  :: Either String Int64 = note "No userid" $ readMay . T.unpack . unUid $
+                (fromMaybe (error "error: no userID") (userId au') :: UserId)
+          case uid of
+            Left e -> error e
+            Right uid' -> return uid'
+          -- TODO cleanup repeated use of snap auth user ID decoding
+          -- TODO fix this error message (must run in Handler App (AuthManager App))
+
+    createTurker pw = do
+      au <- createUser workerId pw :: Handler App (AuthManager App) (Either AuthFailure AuthUser)
+      case au of
+        -- TODO: improve error handler
+        Left _ -> error "Create user error on turk user"
+        Right au' -> do
+          let uid  :: Either String Int64 = note "No userid" $ readMay . T.unpack . unUid $
+                (fromMaybe (error "error: no userID") (userId au') :: UserId)
+          case uid of
+            Left e -> error e
+            Right uid' -> do
+              runGH $ insert (TaggingUser uid' Nothing (Just "Some Turk User") [Subject])
+              return uid'
 
 
 
