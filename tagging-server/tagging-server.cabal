@@ -163,5 +163,6 @@ executable makeClients
                   , servant-foreign
                   , servant-matlab
                   , servant-js
+                  , tagging-common
                   , tagging-server
                   , text

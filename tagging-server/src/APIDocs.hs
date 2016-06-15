@@ -21,7 +21,7 @@ import Server.Session
 import Server.Crud
 
 apiDocs :: Servant.Docs.API
-apiDocs = docs apiProxy
+apiDocs = undefined -- docs apiProxy
 
 docsIntro = DocIntro "Welcome"
             ["Tagging-server api", "For all your stimulus tagging needs."]
@@ -87,6 +87,12 @@ instance ToSample Int where
 instance ToParam (QueryParam "experiment" Int) where
   toParam _ = DocQueryParam "experiment" []
     ("Experiment (stimulus sequence) ID of the answer key to look up") Normal
+
+instance ToParam (QueryParam "extra-data" String) where
+  toParam _ = DocQueryParam "extra-data" []
+    ("Metadata string from turk experiment") Normal
+
+
 
 instance ToParam (QueryParam "index" [Int]) where
   toParam _ = DocQueryParam "index" []

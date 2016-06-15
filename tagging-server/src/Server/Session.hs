@@ -10,6 +10,7 @@ module Server.Session where
 
 import           Control.Error
 import           Control.Monad (mzero)
+import qualified Data.ByteString.Char8 as BSC
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Trans.Class (lift)
 import qualified Data.Aeson as A
@@ -27,9 +28,10 @@ import           GHC.Generics
 import           GHC.Int
 import           Servant
 import           Servant.Docs
-import           Snap.Core       (redirect)
+import           Snap.Core       (redirect, writeText, getParams)
 import           Snap.Snaplet
 import           Snap.Snaplet.Auth
+import qualified Web.ClientSession as W
 
 
 import qualified Heist.Interpreted as I
@@ -76,9 +78,7 @@ handleLogin authError = do
       "assignmentLabel" ## I.textSplice txt
     bindAsgns = I.mapSplices $ I.runChildrenWith . asgnSplices
     asgnsSplices asgns = errs <> ("assignments" ## (bindAsgns asgns))
-    -- asgnsSplices' _ = do
-    --   "assignments" ## I.textSplice "HI!"
-    --   "atest" ## I.textSplice "Test complete"
+
 
 ------------------------------------------------------------------------------
 -- | Handle login submit
@@ -95,41 +95,110 @@ handleLoginSubmit =
 handleLogout :: Handler App App ()
 handleLogout = with auth $ logout >> redirect "/"
 
+instance FromHttpApiData A.Value where
+  
 
 ------------------------------------------------------------------------------
 -- | Handle new user form submit
---handleNewUser :: Handler App App ()
---handleNewUser = method GET handleForm <|> method POST handleFormSubmit
 sessionServer :: Server SessionAPI AppHandler
-sessionServer = -- apiLogin
-                -- :<|> apiCurrentUser
-  handleCurrentTaggingUser -- apiCurrentUser
-                -- :<|> apiNewUser
-                -- :<|> with auth handleLogout
+sessionServer = handleCurrentTaggingUser
+           :<|> handleTurk
   where
 
-    apiLogin li = do
-      with auth $ loginByUsername
-                  (liUsername li)
-                  (T.encodeUtf8 $ liPassword li)
-                  (liRemember li)
+    -- handleTurk (turkUserId) (turkExpId) (extraData) s = do
+    --   ps <- getParams
+    --   return ()
+      -- TODO real handleTurk implementation:
+      --    If turkUserId has previously visited, look up his/her tagging login
+      --    Otherwise, make a new tagging login from the turk id
+      --    log in
+      --    redirect to appropriate page
+      -- liftIO . putStrLn . unwords $ [show turkUserId, show turkExpId, show extraData]
+      -- return ()
+
+    -- apiNewUser RegisterInfo{..} = maybeT (Server.Utils.err300 "New user error") return $ do
+    --     user <- hushT $ ExceptT $ with auth $ createUser riUsername (T.encodeUtf8 riPassword)
+    --     uId   <- hoistMaybe (readMay . T.unpack =<< (unUid <$> userId user))
+    --     nUser <- lift $ runGH $ countAll (undefined :: TaggingUser)
+    --     lift $ runGH $ do
+    --       n <- countAll (undefined :: TaggingUser)
+    --       let newRoles = if n == 0 then [Admin] else [Subject]
+    --       insert (TaggingUser (uId :: Int64) Nothing Nothing newRoles)
+    --     return ()
+
+    -- apiCurrentUser =
+    --   exceptT
+    --          (Server.Utils.err300 . ("apiCurrentUser error: " ++))
+    --          return
+    --          getCurrentTaggingUser
+
+-------------------------------------------------------------------------------
+-- TODO: Collect all these Text arguments into a `TurkData` type
+handleTurk :: Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text
+           -> Maybe Int64 -> Maybe T.Text -> Handler App App ()
+handleTurk (Just assignmentId) (Just hitId) (Just workerId) (Just redirectUrl) (Just taggingExptNum) (Just extraData)  = do
+  turkLogin workerId taggingExptNum
+  redirect (T.encodeUtf8 redirectUrl)
+handleTurk _ _ _ _ _ _ = do
+  ps <- getParams
+  writeText ("Param problem. Params: " <> T.pack (show ps))
+  -- TODO: Improve error message
+
+
+turkLogin :: T.Text -> Int64 -> Handler App App ()
+turkLogin workerId taggingExptNum = do
+
+  -- We'll use the site_key to generate passwords for tagging users
+  siteKey <- liftIO $ W.getKey "site_key.txt"
+  let pw = maybe
+           (error "Error: Bad initialization vector during turk pw creation" :: b)
+           (\i -> W.encrypt siteKey i (T.encodeUtf8 workerId))
+           (W.mkIV "AAAAAAAAAAAAAAAA" :: Maybe W.IV)
+
+  userId <- with auth $ do
+    uExist <- usernameExists workerId
+    bool (createTurker pw) (loginTurker workerId pw) uExist
+
+  assignExperimentToUser userId taggingExptNum
+
+  where
+
+    assignExperimentToUser :: Int64 -> Int64 -> Handler App App ()
+    assignExperimentToUser userid expid = do
+      runGH $ insert (Assignment (Utils.intToKey $ fromIntegral userid) (Utils.intToKey $ fromIntegral expid) 1)
+      -- TODO how to assign anything but index 1?
       return ()
 
-    apiNewUser RegisterInfo{..} = maybeT (Server.Utils.err300 "New user error") return $ do
-        user <- hushT $ ExceptT $ with auth $ createUser riUsername (T.encodeUtf8 riPassword)
-        uId   <- hoistMaybe (readMay . T.unpack =<< (unUid <$> userId user))
-        nUser <- lift $ runGH $ countAll (undefined :: TaggingUser)
-        lift $ runGH $ do
-          n <- countAll (undefined :: TaggingUser)
-          let newRoles = if n == 0 then [Admin] else [Subject]
-          insert (TaggingUser (uId :: Int64) Nothing Nothing newRoles)
-        return ()
+    loginTurker uId pw = do
+      au <- loginByUsername workerId pw True :: Handler App (AuthManager App) (Either AuthFailure AuthUser)
+      case au of
+        Left _ -> error "login error for turk user"
+        Right au' -> do
+          -- TODO clean up
+          let uid  :: Either String Int64 = note "No userid" $ readMay . T.unpack . unUid $
+                (fromMaybe (error "error: no userID") (userId au') :: UserId)
+          case uid of
+            Left e -> error e
+            Right uid' -> return uid'
+          -- TODO cleanup repeated use of snap auth user ID decoding
+          -- TODO fix this error message (must run in Handler App (AuthManager App))
 
-    apiCurrentUser =
-      exceptT
-             (Server.Utils.err300 . ("apiCurrentUser error: " ++))
-             return
-             getCurrentTaggingUser
+    createTurker pw = do
+      au <- createUser workerId pw :: Handler App (AuthManager App) (Either AuthFailure AuthUser)
+      case au of
+        -- TODO: improve error handler
+        Left _ -> error "Create user error on turk user"
+        Right au' -> do
+          forceLogin au'
+          let uid  :: Either String Int64 = note "No userid" $ readMay . T.unpack . unUid $
+                (fromMaybe (error "error: no userID") (userId au') :: UserId)
+          case uid of
+            Left e -> error e
+            Right uid' -> do
+              runGH $ insert (TaggingUser uid' Nothing (Just "Some Turk User") [Subject])
+              return uid'
+
+
 
 handleCurrentTaggingUser :: Handler App App TaggingUser
 handleCurrentTaggingUser =

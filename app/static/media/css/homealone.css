@@ -247,3 +247,26 @@ video {
     border-color: white;
     border-width: 3px;
 }
+
+/* Admin dialog */
+dialog {
+    background-color: white;
+    border-radius:2px;
+    border: 1px solid grey;
+    max-width: 80%;
+    z-index: 200;
+}
+dialog .inp-group {
+    margin: 10px;
+}
+.dynlink{
+    white-space: no-wrap;
+    overflow-x: scroll;
+    display:block;
+}
+.instructions{
+    border-radius: 10px;
+    border: 1px solid rgba(0,0,255,0.2);
+    padding: 20px;
+    font-size: 12pt;
+}
