@@ -244,8 +244,9 @@ handleCurrentStimulusSequence =
   (MaybeT getCurrentStimulusSequence)
 
 handleFullPosInfo
-  :: AppHandler (Maybe (Assignment, StimulusSequence, StimSeqItem))
-handleFullPosInfo indexRequest =
+  :: (Maybe Int) -> AppHandler (Maybe (Assignment, StimulusSequence, StimSeqItem))
+handleFullPosInfo indexRequest = do
+  
   maybeT (return Nothing) (return . Just) $ (,,) <$> MaybeT getCurrentAssignment
                                                  <*> MaybeT getCurrentStimulusSequence
                                                  <*> MaybeT getCurrentStimSeqItem
