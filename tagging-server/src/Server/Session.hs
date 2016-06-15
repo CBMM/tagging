@@ -189,6 +189,7 @@ turkLogin workerId taggingExptNum = do
         -- TODO: improve error handler
         Left _ -> error "Create user error on turk user"
         Right au' -> do
+          forceLogin au'
           let uid  :: Either String Int64 = note "No userid" $ readMay . T.unpack . unUid $
                 (fromMaybe (error "error: no userID") (userId au') :: UserId)
           case uid of
