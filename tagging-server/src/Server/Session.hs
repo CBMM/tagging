@@ -119,12 +119,19 @@ handleTurk (Just assignmentId) (Just hitId) (Just workerId) (Just redirectUrl)
 
   turkLogin workerId taggingExptNum iRange
 
-  redirect (T.encodeUtf8 redirectUrl)
-
+  writeText $ linkPage redirectUrl
 handleTurk _ _ _ _ _ _ _ _ = do
   ps <- getParams
   writeText ("Param problem. Params: " <> T.pack (show ps))
   -- TODO: Improve error message
+
+
+linkPage :: T.Text -> T.Text
+linkPage url =
+  T.unlines ["<html><head></head><body>"
+            ,"<a href=\"" <> url <> "\" target=\"_blank\">Tagging Experiment</a>"
+            ,"</body></html>"
+            ]
 
 lookupRange :: Int -> AppHandler (Int,Int)
 lookupRange exptNum = do
