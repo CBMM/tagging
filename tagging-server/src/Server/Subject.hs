@@ -120,6 +120,7 @@ handleSubmitResponse advanceStim t = do
                 (sreqTime thisReq) tNow "sometype" (rpJson t))
 
       when advanceStim $ case ssSampling thisSeq of
+        SampleIndex -> error "No advance allowed for SampleIndex SamplingMethod experiments"
         SampleIncrement -> do
           let x = tuId u :: Int64
           if i == l - 1
@@ -246,11 +247,29 @@ handleCurrentStimulusSequence =
 handleFullPosInfo
   :: (Maybe Int) -> AppHandler (Maybe (Assignment, StimulusSequence, StimSeqItem))
 handleFullPosInfo indexRequest = do
-  
-  maybeT (return Nothing) (return . Just) $ (,,) <$> MaybeT getCurrentAssignment
-                                                 <*> MaybeT getCurrentStimulusSequence
-                                                 <*> MaybeT getCurrentStimSeqItem
+  pInfo <- maybeT (return Nothing) (return . Just) $ (,,)
+    <$> MaybeT getCurrentAssignment
+    <*> MaybeT getCurrentStimulusSequence
+    <*> MaybeT getCurrentStimSeqItem
+  case pInfo of
+    Nothing -> error "Bad decoding of fullposinfo" -- TODO
+    Just (asgn, ss, ssi) -> case indexRequest of
+      Nothing   -> case ssSampling ss of
+        SampleIndex -> error "SamplingMethod is SampleIndex - client must set 'indexRequest' query parameter"
+        _           -> return pInfo
+      Just iReq -> do
+        asgn' <- case ssSampling ss of
+          SampleIndex              -> userChooseIndex iReq asgn
+          SampleIndexNoReplacement -> error "Not Implemented" -- TODO implement
+          _                        -> error "Tried to request a stimulus index when that's not allowed"
+        return $ Just (asgn', ss, ssi)
 
+  where userChooseIndex :: Int -> Assignment -> AppHandler Assignment
+        userChooseIndex i asgn@(Assignment aUsr aSeq aInd) = do
+          runGH $ update [AIndexField =. i] (AUserField ==. aUsr &&. ASequenceField ==. aSeq)
+          return (Assignment aUsr aSeq i)
+
+-------------------------------------------------------------------------------
 handleAnswerKey :: Maybe Int -> AppHandler [StimSeqAnswer]
 handleAnswerKey Nothing = error "Must pass 'experiment' parameter"
 --handleAnswerKey (Just k) qs = do

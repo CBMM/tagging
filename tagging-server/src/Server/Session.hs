@@ -11,6 +11,7 @@ module Server.Session where
 import           Control.Error
 import           Control.Monad (mzero)
 import qualified Data.ByteString.Char8 as BSC
+import qualified Data.ByteString.Lazy.Char8 as BSL
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Trans.Class (lift)
 import qualified Data.Aeson as A
@@ -96,57 +97,44 @@ handleLogout :: Handler App App ()
 handleLogout = with auth $ logout >> redirect "/"
 
 instance FromHttpApiData A.Value where
-  
+  parseQueryParam = note "Bad decode" . A.decode
+    . BSL.fromStrict . T.encodeUtf8
 
 ------------------------------------------------------------------------------
 -- | Handle new user form submit
 sessionServer :: Server SessionAPI AppHandler
 sessionServer = handleCurrentTaggingUser
            :<|> handleTurk
-  where
 
-    -- handleTurk (turkUserId) (turkExpId) (extraData) s = do
-    --   ps <- getParams
-    --   return ()
-      -- TODO real handleTurk implementation:
-      --    If turkUserId has previously visited, look up his/her tagging login
-      --    Otherwise, make a new tagging login from the turk id
-      --    log in
-      --    redirect to appropriate page
-      -- liftIO . putStrLn . unwords $ [show turkUserId, show turkExpId, show extraData]
-      -- return ()
-
-    -- apiNewUser RegisterInfo{..} = maybeT (Server.Utils.err300 "New user error") return $ do
-    --     user <- hushT $ ExceptT $ with auth $ createUser riUsername (T.encodeUtf8 riPassword)
-    --     uId   <- hoistMaybe (readMay . T.unpack =<< (unUid <$> userId user))
-    --     nUser <- lift $ runGH $ countAll (undefined :: TaggingUser)
-    --     lift $ runGH $ do
-    --       n <- countAll (undefined :: TaggingUser)
-    --       let newRoles = if n == 0 then [Admin] else [Subject]
-    --       insert (TaggingUser (uId :: Int64) Nothing Nothing newRoles)
-    --     return ()
-
-    -- apiCurrentUser =
-    --   exceptT
-    --          (Server.Utils.err300 . ("apiCurrentUser error: " ++))
-    --          return
-    --          getCurrentTaggingUser
 
 -------------------------------------------------------------------------------
 -- TODO: Collect all these Text arguments into a `TurkData` type
 handleTurk :: Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text
-           -> Maybe Int64 -> Maybe T.Text -> Handler App App ()
-handleTurk (Just assignmentId) (Just hitId) (Just workerId) (Just redirectUrl) (Just taggingExptNum) (Just extraData)  = do
-  turkLogin workerId taggingExptNum
+           -> Maybe Int64 -> Maybe Int -> Maybe Int -> Maybe T.Text
+           -> Handler App App ()
+handleTurk (Just assignmentId) (Just hitId) (Just workerId) (Just redirectUrl)
+           (Just taggingExptNum) rangeStart rangeEnd (Just extraData)  = do
+  (lookupStart, lookupEnd) <- lookupRange $ fromIntegral taggingExptNum
+  let iRange = (fromMaybe lookupStart rangeStart, fromMaybe lookupEnd rangeEnd)
+
+  turkLogin workerId taggingExptNum iRange
+
   redirect (T.encodeUtf8 redirectUrl)
-handleTurk _ _ _ _ _ _ = do
+
+handleTurk _ _ _ _ _ _ _ _ = do
   ps <- getParams
   writeText ("Param problem. Params: " <> T.pack (show ps))
   -- TODO: Improve error message
 
+lookupRange :: Int -> AppHandler (Int,Int)
+lookupRange exptNum = do
+  items :: [StimSeqItem] <- runGH $ select (SsiStimulusSequenceField ==. (Utils.intToKey (fromIntegral exptNum) :: DefaultKey StimulusSequence))
+  let inds = map ssiIndex items
+  return (minimum inds, maximum inds)
 
-turkLogin :: T.Text -> Int64 -> Handler App App ()
-turkLogin workerId taggingExptNum = do
+
+turkLogin :: T.Text -> Int64 -> (Int,Int) -> Handler App App ()
+turkLogin workerId taggingExptNum iRange = do
 
   -- We'll use the site_key to generate passwords for tagging users
   siteKey <- liftIO $ W.getKey "site_key.txt"
@@ -165,7 +153,7 @@ turkLogin workerId taggingExptNum = do
 
     assignExperimentToUser :: Int64 -> Int64 -> Handler App App ()
     assignExperimentToUser userid expid = do
-      runGH $ insert (Assignment (Utils.intToKey $ fromIntegral userid) (Utils.intToKey $ fromIntegral expid) 1)
+      runGH $ insert (Assignment (Utils.intToKey $ fromIntegral userid) (Utils.intToKey $ fromIntegral expid) (fst iRange))
       -- TODO how to assign anything but index 1?
       return ()
 

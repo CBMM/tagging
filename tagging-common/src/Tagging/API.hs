@@ -89,6 +89,8 @@ type SessionAPI =
                 :> QueryParam "workerId" T.Text
                 :> QueryParam "redirectURL" T.Text
                 :> QueryParam "taggingExperiment" Int64
+                :> QueryParam "rangeStart" Int
+                :> QueryParam "rangeEnd" Int
                 :> QueryParam "experimentData" T.Text
                 :> Raw
 
