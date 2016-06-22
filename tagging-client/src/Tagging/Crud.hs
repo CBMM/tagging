@@ -181,7 +181,7 @@ instance Crud TaggingUser where
 ------------------------------------------------------------------------------
 instance Crud Assignment where
   resourceName _ = "assignment"
-  resourceHeaders _ = ["Tagging Id","Sequence","Index"]
+  resourceHeaders _ = ["Tagging Id","Sequence","Index","Start Index","End Index"]
   resourceWidget dynVal dynB = do
     pb <- getPostBuild
     let pbV = tag (current dynVal) pb
@@ -194,12 +194,16 @@ instance Crud Assignment where
           (show . ssKey . aSequence)
           attrs
     f3 <- crudPieceField pbV (show . aIndex) attrs
+    f4 <- crudPieceField pbV (show . aStart) attrs
+    f5 <- crudPieceField pbV (show . aEnd) attrs
     $(qDyn [| Assignment
               <$> fmap Utils.intToKey (readEither "No user id parse"
                                        $(unqDyn [|f1|]))
               <*> fmap Utils.intToKey (readEither "No sequence id parse"
                                        $(unqDyn [|f2|]))
               <*> readEither "No index parse"       $(unqDyn [|f3|])
+              <*> readEither "No start index parse" $(unqDyn [|f4|])
+              <*> readEither "No end index parse"   $(unqDyn [|f5|])
             |])
 
 
