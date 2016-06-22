@@ -61,7 +61,7 @@
       <div class="linkbox">
 
         <div class="imgdiv">
-          <img src="file:///home/greghale/Programming/tagging/app/static/media/img/camera.png"/>
+          <img src="https://raw.githubusercontent.com/CBMM/tagging/assignmentStartEnd/app/static/media/img/camera.png"/>
         </div>
 
         <div class="info">
