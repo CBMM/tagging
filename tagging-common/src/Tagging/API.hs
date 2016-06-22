@@ -32,8 +32,10 @@ type TaggingAPI =
 
 
 ------------------------------------------------------------------------------
-type ResearcherAPI = "assignsequence" :> Capture "userid"   Int64
-                                      :> Capture "sequence" Int64
+type ResearcherAPI = "assignsequence" :> QueryParam "userid"   Int64
+                                      :> QueryParam "sequence" Int64
+                                      :> QueryParam "rangeStart" Int64
+                                      :> QueryParam "rangeEnd" Int64
                                       :> Put '[JSON] ()
 
                 :<|> "loadSequence" :> ReqBody '[JSON] (StimulusSequence,

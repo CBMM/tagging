@@ -45,6 +45,7 @@ import           Tagging.User
 import           Tagging.Stimulus
 import           Server.Application
 import           Server.Utils
+import           Server.Researcher
 import qualified Utils as Utils
 
 
@@ -109,17 +110,28 @@ sessionServer = handleCurrentTaggingUser
 
 -------------------------------------------------------------------------------
 -- TODO: Collect all these Text arguments into a `TurkData` type
+{-| Servant-snap handel for accepting a user from Mechanical Turk
+    MTurk users have their own 'workerId' from their Amazon login.
+    We create an account with the same login name on tagging, and
+    generate a password by combining that workerId and our site-key.txt
+    secret.
+    MTurk workers who already have accounts on tagging are force-logged-in.
+    The worker is assigned to a stimulus sequence automatically
+|-}
 handleTurk :: Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text
            -> Maybe Int64 -> Maybe Int -> Maybe Int -> Maybe T.Text
            -> Handler App App ()
 handleTurk (Just assignmentId) (Just hitId) (Just workerId) (Just redirectUrl)
            (Just taggingExptNum) rangeStart rangeEnd (Just extraData)  = do
-  (lookupStart, lookupEnd) <- lookupRange $ fromIntegral taggingExptNum
-  let iRange = (fromMaybe lookupStart rangeStart, fromMaybe lookupEnd rangeEnd)
 
-  turkLogin workerId taggingExptNum iRange
+  let fI = fromIntegral
+  turkLogin workerId taggingExptNum (fI <$> rangeStart) (fI <$> rangeEnd)
+-- fmap :: (a -> b) -> (f a -> f b)
+-- (fmap fromIntegral) = (f Int -> f Int64)
+--   (Int -> I64)   (May Int)
 
-  writeText $ linkPage redirectUrl
+  -- writeText $ linkPage redirectUrl
+  I.renderWithSplices "_turklink" ("turklink" ## I.textSplice (redirectUrl))
 handleTurk _ _ _ _ _ _ _ _ = do
   ps <- getParams
   writeText ("Param problem. Params: " <> T.pack (show ps))
@@ -133,15 +145,10 @@ linkPage url =
             ,"</body></html>"
             ]
 
-lookupRange :: Int -> AppHandler (Int,Int)
-lookupRange exptNum = do
-  items :: [StimSeqItem] <- runGH $ select (SsiStimulusSequenceField ==. (Utils.intToKey (fromIntegral exptNum) :: DefaultKey StimulusSequence))
-  let inds = map ssiIndex items
-  return (minimum inds, maximum inds)
 
-
-turkLogin :: T.Text -> Int64 -> (Int,Int) -> Handler App App ()
-turkLogin workerId taggingExptNum iRange = do
+-------------------------------------------------------------------------------
+turkLogin :: T.Text -> Int64 -> Maybe Int64 -> Maybe Int64 -> Handler App App ()
+turkLogin workerId taggingExptNum startInd endInd = do
 
   -- We'll use the site_key to generate passwords for tagging users
   siteKey <- liftIO $ W.getKey "site_key.txt"
@@ -154,18 +161,23 @@ turkLogin workerId taggingExptNum iRange = do
     uExist <- usernameExists workerId
     bool (createTurker pw) (loginTurker workerId pw) uExist
 
-  assignExperimentToUser userId taggingExptNum
+  -- assignExperimentToUser userId taggingExptNum
+  assignUserSeqStart (Just userId) (Just taggingExptNum) startInd endInd
 
   where
 
-    assignExperimentToUser :: Int64 -> Int64 -> Handler App App ()
-    assignExperimentToUser userid expid = do
-      runGH $ insert (Assignment (Utils.intToKey $ fromIntegral userid) (Utils.intToKey $ fromIntegral expid) (fst iRange))
-      -- TODO how to assign anything but index 1?
-      return ()
+    -- assignExperimentToUser :: Int64 -> Int64 -> Handler App App ()
+    -- assignExperimentToUser userid expid = do
+    --   runGH $ insert (Assignment (Utils.intToKey $ fromIntegral userid)
+    --                              (Utils.intToKey $ fromIntegral expid)
+    --                              (fst iRange)
+    --                              (fst iRange)
+    --                              (snd iRange))
+    --   -- TODO how to assign anything but index 1?
+    --   return ()
 
     loginTurker uId pw = do
-      au <- loginByUsername workerId pw True :: Handler App (AuthManager App) (Either AuthFailure AuthUser)
+      au <- loginByUsername workerId pw True
       case au of
         Left _ -> error "login error for turk user"
         Right au' -> do

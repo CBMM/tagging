@@ -73,16 +73,20 @@ data Assignment = Assignment
   { aUser     :: DefaultKey TaggingUser
   , aSequence :: DefaultKey StimulusSequence
   , aIndex    :: Int
+  , aStart    :: Int
+  , aEnd      :: Int
   } deriving (Generic)
 
 deriving instance Eq Assignment
 
 deriving instance Show Assignment
 instance A.ToJSON Assignment where
-  toJSON (Assignment u k i) = A.object
+  toJSON (Assignment u k i s e) = A.object
     [ "user" .= keyToInt u
     , "sequence" .= keyToInt k
     , "index"    .= i
+    , "start"    .= s
+    , "end"      .= e
     ]
 
 instance A.FromJSON Assignment where
@@ -90,6 +94,8 @@ instance A.FromJSON Assignment where
     <$> fmap intToKey (o .: "user")
     <*> fmap intToKey (o .: "sequence")
     <*> o .: "index"
+    <*> o .: "start"
+    <*> o .: "end"
   parseJSON _ = mzero
 
 
@@ -157,7 +163,7 @@ instance ToSample TaggingUser where
 
 instance ToSample Assignment where
   toSamples _ = singleSample $
-    Assignment (intToKey 1) (intToKey 10) 1
+    Assignment (intToKey 1) (intToKey 10) 1 1 1000
 
 data Progress = Progress
   { _progressNResponses :: Int
