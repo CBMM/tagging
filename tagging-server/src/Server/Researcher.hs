@@ -55,8 +55,9 @@ assignUserSeqStart :: Maybe Int64 -- ^ User to assign
                    -> Maybe Int64 -- ^ Stim Seq to assign
                    -> Maybe Int64 -- ^ Optional assignment range start
                    -> Maybe Int64 -- ^ Optional assignment range end
+                   -> Maybe T.Text  -- ^ Completion URL
                    -> Handler App App ()
-assignUserSeqStart (Just userIdParam) (Just seqId) seqStart seqEnd = do
+assignUserSeqStart (Just userIdParam) (Just seqId) seqStart seqEnd finishedUrl = do
   let uKey   = intToKey (fromIntegral userIdParam) :: DefaultKey TaggingUser
       seqKey = intToKey (fromIntegral seqId)  :: DefaultKey StimulusSequence
 
@@ -82,10 +83,11 @@ assignUserSeqStart (Just userIdParam) (Just seqId) seqStart seqEnd = do
         let asgnStart = fromMaybe indMin (fmap fromIntegral seqStart)
             asgnEnd   = fromMaybe indMax (fmap fromIntegral seqEnd)
         case nAsgn of
-          0 -> insert (Assignment uKey seqKey asgnStart asgnStart asgnEnd)
+          0 -> insert (Assignment uKey seqKey (Just asgnStart)
+                                  asgnStart asgnEnd finishedUrl)
                >> return (Right ())
           n -> do
-              update [AIndexField =. asgnStart
+              update [AIndexField =. Just asgnStart
                      ,AStartField =. asgnStart
                      , AEndField  =. asgnEnd ]
                      (AUserField ==. uKey &&. ASequenceField ==. seqKey)

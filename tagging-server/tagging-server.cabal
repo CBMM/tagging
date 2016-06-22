@@ -43,6 +43,7 @@ library
                     , groundhog-postgresql
                     , heist
                     , http-types
+                    , http-streams >= 0.8.3.3 && < 0.9
                     , lens >= 4.11 && < 4.14
                     , map-syntax >= 0.2 && < 0.3
                     , MonadCatchIO-transformers
@@ -87,6 +88,7 @@ executable tagging-server
                      , groundhog-postgresql
                      , heist
                      , http-types
+                     , http-streams
                      , lens >= 4.11 && < 4.14
                      , map-syntax >= 0.2 && < 0.3
                      , MonadCatchIO-transformers

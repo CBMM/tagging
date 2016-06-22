@@ -36,6 +36,7 @@ type ResearcherAPI = "assignsequence" :> QueryParam "userid"   Int64
                                       :> QueryParam "sequence" Int64
                                       :> QueryParam "rangeStart" Int64
                                       :> QueryParam "rangeEnd" Int64
+                                      :> QueryParam "finishURL" T.Text
                                       :> Put '[JSON] ()
 
                 :<|> "loadSequence" :> ReqBody '[JSON] (StimulusSequence,
@@ -89,6 +90,7 @@ type SessionAPI =
    :<|> "turk"  :> QueryParam "assignmentId" T.Text
                 :> QueryParam "hitId" T.Text
                 :> QueryParam "workerId" T.Text
+                :> QueryParam "turkSubmitTo" T.Text
                 :> QueryParam "redirectURL" T.Text
                 :> QueryParam "taggingExperiment" Int64
                 :> QueryParam "rangeStart" Int
