@@ -100,6 +100,7 @@ migrateResourcesIO = runMigration $ do
   migrate (undefined :: StimulusResponse)
   migrate (undefined :: SequenceMetadata)
   migrate (undefined :: APIKey)
+  migrate (undefined :: SubjectCanSelfAssign)
   migrate (undefined :: Assignment)
 
  -- selectAll >>= mapM_ (\(ku,u) -> case tuCurrentStimulus u of

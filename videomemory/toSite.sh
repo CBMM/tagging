@@ -1,1 +1,1 @@
-cp -r dist/build/*/*.jsexe ../tagging-server/static/media/js/
+cp -r dist/build/*/*.jsexe ../app/static/media/js/

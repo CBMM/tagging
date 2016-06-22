@@ -223,7 +223,7 @@ trialSequence :: forall t m.MonadWidget t m
               => (Dynamic t Progress -> Event t () -> TaskPhase -> m (Event t (Int, Response)))
               -> (Assignment, Progress)
               -> m ()
-trialSequence phaseTask (Assignment _ s i, prog0@(Progress nFinished nTrials)) = do
+trialSequence phaseTask (Assignment _ s i _ _, prog0@(Progress nFinished nTrials)) = do
   doc <- askDocument
   pb <- getPostBuild
 
@@ -375,7 +375,7 @@ makeTrial _ _ TaskPhaseDone       = debrief >> return never
 makeTrial p r (TaskPhaseTrial n)  = mdo
   pb <- getPostBuild
   pos <- fmapMaybe id <$> getAndDecode ("/api/fullposinfo" <$ pb)
-  let ind = ffor pos $ \(Assignment _ _ ind, _, _) -> ind
+  let ind = ffor pos $ \(Assignment _ _ ind _ _, _, _) -> ind
   responses <- elClass "div" "interaction" $
     widgetHold awaitVideo (fmap (videoQuestion p r) pos)
     -- widgetHold (text "Waiting ..." >> return never) (fmap (videoQuestion r) pos)
@@ -397,7 +397,7 @@ videoQuestion :: forall t m.MonadWidget t m
               -> Event t ()
               -> (Assignment, StimulusSequence, StimSeqItem)
               -> m (Event t (Int,Response))
-videoQuestion progress resets (Assignment _ _ i, stimseq, ssi) = do
+videoQuestion progress resets (Assignment _ _ i _ _, stimseq, ssi) = do
   doc <- askDocument
   keyPresses <- wrapDomEvent doc (`on` keyPress) getKeyEvent
   let yKeys = ffilter (\k -> k == 121 || k == 89) keyPresses

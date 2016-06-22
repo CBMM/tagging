@@ -5,6 +5,9 @@
 
 module Server.Researcher where
 
+-------------------------------------------------------------------------------
+import Control.Error
+import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString.Char8 as B8
 import Data.Proxy
@@ -13,19 +16,18 @@ import Database.Groundhog
 import Database.Groundhog.Expression
 import Database.Groundhog.TH
 import GHC.Int
-import Control.Error
-import Control.Monad
 import Servant.API
 import qualified Servant.API.ResponseHeaders as H
 import qualified Network.HTTP.Types as H
 import Servant.Server
--- import Snap.Core
+import Snap.Core (logError, liftSnap)
 import Snap.Snaplet
-
+import Snap.Snaplet.Auth (AuthUser, UserId(..), currentUser,userId)
+-------------------------------------------------------------------------------
 import Tagging.User
 import Tagging.Stimulus
 import Tagging.Response
-
+-------------------------------------------------------------------------------
 import Server.Database
 import Server.Resources
 import Server.Utils hiding (intToKey)
@@ -34,43 +36,72 @@ import Tagging.API
 import Utils
 
 
+-------------------------------------------------------------------------------
+-- | API definition used by researchers for admining experiments
 researcherServer :: ServerT ResearcherAPI AppHandler
 researcherServer = assignUserSeqStart :<|> loadSequence
               :<|> subjectData        :<|> getSequence
 
 
 ------------------------------------------------------------------------------
-assignUserSeqStart :: Int64 -> Int64 -> Handler App App ()
-assignUserSeqStart userId seqId = do
-  let uKey   = intToKey (fromIntegral userId) :: DefaultKey TaggingUser
+{-| Assign a user to the first index of a @StimulusSequence@.
+    If the logged-in user is Admin or Researcher, they may
+    assign any user to any sequence.
+    Otherwise, the assignment will only work if the logged-in user's
+    id matches the user id being assigned, and the @StimulusSequence@
+    is marked self-assignable in the SubjectCanSelfAssign table.
+|-}
+assignUserSeqStart :: Maybe Int64 -- ^ User to assign
+                   -> Maybe Int64 -- ^ Stim Seq to assign
+                   -> Maybe Int64 -- ^ Optional assignment range start
+                   -> Maybe Int64 -- ^ Optional assignment range end
+                   -> Handler App App ()
+assignUserSeqStart (Just userIdParam) (Just seqId) seqStart seqEnd = do
+  let uKey   = intToKey (fromIntegral userIdParam) :: DefaultKey TaggingUser
       seqKey = intToKey (fromIntegral seqId)  :: DefaultKey StimulusSequence
-  assertRole [Admin,Researcher]
+
+  needsPrivileges <- do
+    noSelfAssign  <- runGH $ (== 0) <$> count (ScsaSequenceField ==. seqKey)
+    let targetParamId = Just $ UserId $ T.pack $ show userIdParam
+    wrongLogin    <- with auth $ (\mu -> targetParamId /= (userId =<< mu))
+                                 <$> currentUser
+    return $ noSelfAssign || wrongLogin
+  when needsPrivileges $ assertRole [Admin,Researcher]
+
   result <- runGH $ do
     uQury <- get uKey
     case uQury of
-      Nothing -> return $ Left ("Found no user with id " ++ show userId)
+      Nothing -> return $
+        Left ("Found no user with id " ++ show userIdParam)
       Just _  -> do
         nAsgn <- count (AUserField                 ==. uKey
                         &&. ASequenceField         ==. seqKey)
-        seqMin <- select $ (SsiStimulusSequenceField ==. seqKey)
-                           `orderBy` [Asc SsiIndexField]
-                           `limitTo` 1
-        case (seqMin :: [StimSeqItem]) of
-          []      -> return $ Left "No stimuli found for sequence"
-          [item0] -> case nAsgn of
-            0 -> insert (Assignment uKey seqKey (ssiIndex item0)) >>
-                 return (Right ())
-            _ -> do
-              update [AIndexField =. ssiIndex item0]
+        seqInds <- map ssiIndex <$>
+          select (SsiStimulusSequenceField ==. seqKey)
+        let (indMin, indMax) = (minimum seqInds, maximum seqInds)
+        let asgnStart = fromMaybe indMin (fmap fromIntegral seqStart)
+            asgnEnd   = fromMaybe indMax (fmap fromIntegral seqEnd)
+        case nAsgn of
+          0 -> insert (Assignment uKey seqKey asgnStart asgnStart asgnEnd)
+               >> return (Right ())
+          n -> do
+              update [AIndexField =. asgnStart
+                     ,AStartField =. asgnStart
+                     , AEndField  =. asgnEnd ]
                      (AUserField ==. uKey &&. ASequenceField ==. seqKey)
-              return (Right ())
-          _ -> return $ Left "Impossible case: too many matches"
+              return $ bool
+                (Left ("assignUserSeqStart encountered user/experiment combo "
+                      ++ "with more than 1 entry. Updating them all"))
+                (Right ())
+                (n == 1)
   case result of
     Left e   -> Server.Utils.err300 e
     Right () -> return ()
 
 
 ------------------------------------------------------------------------------
+{-| Insert a pair of @StimulusSequence@ and @[StimSeqItem]@ into their
+    respective tables |-}
 loadSequence :: (StimulusSequence, [StimSeqItem]) -> AppHandler Int64
 loadSequence (stimSeq, ssItems) = do
   assertRole [Admin, Researcher]
@@ -79,6 +110,9 @@ loadSequence (stimSeq, ssItems) = do
     forM_ ssItems $ \ssItem -> insert ssItem {ssiStimulusSequence = seqKey}
     return (fromIntegral $ Utils.keyToInt seqKey)
 
+
+------------------------------------------------------------------------------
+{-| Retrieve a @StimulusSequence@ and all its @StimSeqItem@s |-}
 getSequence :: Int64 -> AppHandler (StimulusSequence, [StimSeqItem])
 getSequence seqID = do
   assertRole [Admin, Researcher]
@@ -93,11 +127,14 @@ getSequence seqID = do
       return (sseq, items)
 
 ------------------------------------------------------------------------------
-subjectData :: Int64
-            -> Int64
-            -> AppHandler
-               (Headers '[Header "Content-Disposition" String]
-                [StimulusResponse])
+{-| Download all @StimulusResponse@ entries from a given user on a given
+    experiment
+|-}
+subjectData
+  :: Int64 -- ^ User ID
+  -> Int64 -- ^ StimulusSequence Id
+  -> AppHandler (Headers '[Header "Content-Disposition" String]
+                 [StimulusResponse])
 subjectData userId seqId = do
   assertRole [Admin, Researcher]
   let sKey = intToKey (fromIntegral seqId)  :: DefaultKey StimulusSequence

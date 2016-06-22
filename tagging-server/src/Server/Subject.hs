@@ -94,9 +94,10 @@ handleSubmitResponse advanceStim t = do
     tNow     <- lift $ liftIO getCurrentTime
     u                 <- getCurrentTaggingUser
     asgn <- noteT "No assignment" $ MaybeT getCurrentAssignment
-    let (Assignment aU s i) = asgn
+    let (Assignment aU s i rangeStart rangeEnd) = asgn
     let s'' = s :: DefaultKey StimulusSequence
     let i' = fromIntegral (i :: Int) :: Int64
+    checkStimulusBounds i (rangeStart, rangeEnd)
 
     thisReq  <- case i of
       -- Special-case for index '-1': There is no stim-seq-item
@@ -192,16 +193,23 @@ handleCurrentAssignment =
   $ MaybeT getCurrentAssignment
 
 
-handleProgress :: AppHandler Progress
+handleProgress :: Handler App App Progress
 handleProgress = do
   asgn <- getCurrentAssignment
   case asgn of
     Nothing -> Server.Utils.err300 "No assignment"
-    Just (Assignment u sID sIndex) -> do
-      nSequenceStims <- runGH $ count (SsiStimulusSequenceField ==. sID)
-      userResps     <- runGH $ count (SrUserField ==. (keyToInt u) &&.
-                              SrSequenceField ==. sID)
-      return $ Progress userResps nSequenceStims
+    Just (Assignment u sID sIndex rangeStart rangeEnd) ->
+      let nSequenceStims = rangeEnd - rangeStart + 1
+          userResps = sIndex - rangeStart
+      in return $ Progress userResps nSequenceStims
+
+
+checkStimulusBounds :: MonadSnap m => Int -> (Int, Int) -> m ()
+checkStimulusBounds i (rangeStart,rangeEnd) =
+  when (i < rangeStart || i > rangeEnd) $
+  logError $ "handleSubmitResponse called with index " <> B8.pack (show i)
+                 <> " and range (" <> B8.pack (show rangeStart)
+                 <> ", " <> B8.pack (show rangeEnd) <> ")"
 
 
 getCurrentStimSeqItem :: AppHandler (Maybe StimSeqItem)
@@ -209,7 +217,8 @@ getCurrentStimSeqItem = do
   res <- getCurrentAssignment
   case res of
     Nothing -> error "No PosInfo" -- TODO
-    Just (Assignment _ key i) -> do
+    Just (Assignment _ key i rangeStart rangeEnd) -> do
+      checkStimulusBounds i (rangeStart,rangeEnd)
       u <- exceptT (const $ error "Bad lookup") return getCurrentTaggingUser
       t <- liftIO getCurrentTime
       modifyResponse $ Snap.Core.addHeader "Cache-Control" "no-cache"
@@ -235,7 +244,7 @@ getCurrentStimulusSequence = do
   res    <- getCurrentAssignment
   case res of
     Nothing -> error "NoUser" -- TODO
-    Just (Assignment _ key i) -> do
+    Just (Assignment _ key i _ _) -> do
       ssi <- runGH $ get key
       return ssi
 
@@ -245,7 +254,7 @@ handleCurrentStimulusSequence =
   (MaybeT getCurrentStimulusSequence)
 
 handleFullPosInfo
-  :: (Maybe Int) -> AppHandler (Maybe (Assignment, StimulusSequence, StimSeqItem))
+  :: Maybe Int -> AppHandler (Maybe (Assignment, StimulusSequence, StimSeqItem))
 handleFullPosInfo indexRequest = do
   pInfo <- maybeT (return Nothing) (return . Just) $ (,,)
     <$> MaybeT getCurrentAssignment
@@ -265,9 +274,10 @@ handleFullPosInfo indexRequest = do
         return $ Just (asgn', ss, ssi)
 
   where userChooseIndex :: Int -> Assignment -> AppHandler Assignment
-        userChooseIndex i asgn@(Assignment aUsr aSeq aInd) = do
+        userChooseIndex i asgn@(Assignment aUsr aSeq aInd rangeStart rangeEnd) = do
+          checkStimulusBounds i (rangeStart, rangeEnd)
           runGH $ update [AIndexField =. i] (AUserField ==. aUsr &&. ASequenceField ==. aSeq)
-          return (Assignment aUsr aSeq i)
+          return (Assignment aUsr aSeq i rangeStart rangeEnd)
 
 -------------------------------------------------------------------------------
 handleAnswerKey :: Maybe Int -> AppHandler [StimSeqAnswer]
