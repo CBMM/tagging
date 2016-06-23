@@ -48,28 +48,30 @@ class (A.FromJSON v, A.ToJSON v) => Crud v where
   resourceName :: Proxy v -> String
 
   resourceWidget  :: MonadWidget t m
-                  => (Dynamic t v)
-                  -> (Dynamic t Bool)
+                  => (Dynamic t v) -- ^ External updates to value
+                  -> (Dynamic t Bool) -- ^ Editing toggle
                   -> m (Dynamic t (Either String v))
 
   resourceHeaders :: Proxy v -> [String]
 
-  inputWidget :: MonadWidget t m => v -> m (Dynamic t v)
-  outputWidget :: MonadWidget t m => Dynamic t v ->  m ()
+  -- inputWidget :: MonadWidget t m => v -> m (Dynamic t v)
+  -- outputWidget :: MonadWidget t m => Dynamic t v ->  m ()
 
-  getEntity :: MonadWidget t m => Proxy v -> Event t Int64 -> m (Event t (Maybe v))
-  getEntity p ks = getAndDecode (fmap toApi ks)
+
+getEntity :: (MonadWidget t m, Crud v, A.FromJSON v) => Proxy v -> Event t Int64 -> m (Event t (Maybe v))
+getEntity p ks = getAndDecode (fmap toApi ks)
       where toApi k = ("api/" <> resourceName p <> "/" <> show k)
 
-  getAllEntities :: MonadWidget t m => Proxy v -> Event t () -> m (Event t (Map Int64 v))
-  getAllEntities p triggers = do
+getAllEntities :: (MonadWidget t m, Crud v, A.FromJSON v) => Proxy v -> Event t () -> m (Event t (Map Int64 v))
+getAllEntities p triggers = do
     mJson <- getAndDecode (triggers $> "api/" <> resourceName p)
     return $ fmap (Map.mapKeys fromIntegral . Map.fromList . I.toList) $ fforMaybe mJson id
 
-  postEntity :: MonadWidget t m => Event t v ->  m (Event t Int64)
+-- TODO
+-- postEntity :: MonadWidget t m => Event t v ->  m (Event t Int64)
 
-  putEntity :: MonadWidget t m => Proxy v -> Event t (Int64,v) -> m (Event t ())
-  putEntity p kvEvent = do
+putEntity :: (MonadWidget t m, Crud v, A.ToJSON v) => Proxy v -> Event t (Int64,v) -> m (Event t ())
+putEntity p kvEvent = do
     let req = ffor kvEvent (\(k,v) ->
                 XhrRequest "PUT"
                 ("api/" <> resourceName p <> "/" <> show k <> "/")
@@ -77,12 +79,13 @@ class (A.FromJSON v, A.ToJSON v) => Crud v where
                      , _xhrRequestConfig_sendData = Just (BL.unpack $ A.encode v)}))
     fmap (() <$) $ performRequestAsync req
 
-  deleteEntity :: MonadWidget t m => Proxy v -> Event t Int64 -> m (Event t ())
-  deleteEntity p delEvent =
+deleteEntity :: (MonadWidget t m, Crud v) => Proxy v -> Event t Int64 -> m (Event t ())
+deleteEntity p delEvent =
     let req = ffor delEvent $ \k ->
                 XhrRequest "DELETE"
                 ("api/" <> resourceName p <> "/" <> show k) def
     in  fmap (() <$) $ performRequestAsync req
+
 
 
 -----------------------------------------------------------------------------
@@ -181,7 +184,8 @@ instance Crud TaggingUser where
 ------------------------------------------------------------------------------
 instance Crud Assignment where
   resourceName _ = "assignment"
-  resourceHeaders _ = ["Tagging Id","Sequence","Index","Start Index","End Index"]
+  resourceHeaders _ = ["Tagging Id","Sequence","Index","Start Index"
+                      ,"End Index","FinishURL"]
   resourceWidget dynVal dynB = do
     pb <- getPostBuild
     let pbV = tag (current dynVal) pb
@@ -193,17 +197,22 @@ instance Crud Assignment where
     f2 <- crudPieceField pbV
           (show . ssKey . aSequence)
           attrs
-    f3 <- crudPieceField pbV (show . aIndex) attrs
+    f3 <- crudPieceField pbV (maybe "" show . aIndex) attrs
     f4 <- crudPieceField pbV (show . aStart) attrs
     f5 <- crudPieceField pbV (show . aEnd) attrs
+    f6 <- crudPieceField pbV (maybe "" T.unpack . aFinished) attrs
     $(qDyn [| Assignment
               <$> fmap Utils.intToKey (readEither "No user id parse"
                                        $(unqDyn [|f1|]))
               <*> fmap Utils.intToKey (readEither "No sequence id parse"
                                        $(unqDyn [|f2|]))
-              <*> readEither "No index parse"       $(unqDyn [|f3|])
+              <*> (let s = $(unqDyn [|f3|])
+                  in bool (Just <$> readEither "No index parse" s) (Right Nothing) (null s)) --    $(unqDyn [|f3|])
               <*> readEither "No start index parse" $(unqDyn [|f4|])
               <*> readEither "No end index parse"   $(unqDyn [|f5|])
+              <*> (let s = $(unqDyn [|f6|])
+                  in Right $ Just $ bool (T.pack s) "" (null s))
+                     -- readEither "No url parse"         $(unqDyn [|f6|]) -- TODO actual url parse check
             |])
 
 
@@ -326,13 +335,13 @@ crudPieceField pbV proj attrs = el "td" $ do
                      , _textInputConfig_initialValue = "empty"})
 
 validatingCrudPieceField :: MonadWidget t m
-                         => Event t v
+                         => Event t v -- ^ External set string
                          -> (v -> String)
                          -> Dynamic t (Map.Map String String)
                          -> (String -> Either String a)
                          -> m (Dynamic t (Either String a))
 validatingCrudPieceField pbV proj attrs validate = el "td" $ mdo
-  tInput <- textInput (TextInputConfig 
+  tInput <- textInput (TextInputConfig
                         { _textInputConfig_setValue =
                             fmap (\v -> proj $ v) pbV
                         , _textInputConfig_attributes   = fullAttrs

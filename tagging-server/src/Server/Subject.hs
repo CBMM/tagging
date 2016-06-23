@@ -130,20 +130,18 @@ handleSubmitResponse advanceStim t = do
         SampleIncrement -> do
           let index' = maybe Nothing (\i -> bool (Just $ succ i) Nothing (i >= rngE)) maybeI
               asgn'  = asgn { aIndex = index' }
-
+          let u'' = tuId u :: Int64
           let x = tuId u :: Int64
+              k'  = Utils.integralToKey (tuId u) :: DefaultKey TaggingUser
+              answeredLastStimulus = i == rngE
 
-          if i == l - 1
-            then do
-              let u'' = tuId u :: Int64
-              deleteBy (Utils.integralToKey (tuId u) :: DefaultKey Assignment)
-              return ()
-            else do
-              let k'  = Utils.integralToKey (tuId u) :: DefaultKey TaggingUser
-                  -- a'  = Assignment k' s (succ i)
-              update [AIndexField =. index'] -- TODO
+          when answeredLastStimulus $
+              maybe (return ()) (liftIO . runFinishedURL) finishURL
+
+          update [AIndexField =. index'] -- TODO
                 (AUserField ==. k'
                  &&. ASequenceField ==. s)
+
         SampleRandomNoReplacement -> do
 
           let u'' = tuId u :: Int64
@@ -191,7 +189,11 @@ handleSubmitResponse advanceStim t = do
 
 ------------------------------------------------------------------------------
 runFinishedURL :: T.Text -> IO ()
-runFinishedURL url = C.postForm (T.encodeUtf8 url) [] (\_ _ -> return ())
+runFinishedURL url = do
+  print $ "POSTing to: " <> T.unpack url
+  C.postForm (T.encodeUtf8 url) [] (\_ _ -> return ())
+  -- TODO! next line
+  -- when (responseOk res) $ update [AFinishdURL .= Nothing] (justThisAssignment)
 
 -- ------------------------------------------------------------------------------
 -- -- | Check whether the logged-in user's assignment is finished
@@ -229,7 +231,7 @@ handleProgress = do
   posInfo <- handleFullPosInfo Nothing
   case posInfo of
     Nothing -> Server.Utils.err300 "No assignment"
-    Just (Assignment u sID sIndex rangeStart rangeEnd _, sSeq, _) ->
+    Just (FPI (Assignment u sID sIndex rangeStart rangeEnd _) sSeq _) ->
       case ssSampling sSeq of
         SampleIncrement -> do
           let nSequenceStims = rangeEnd - rangeStart + 1
@@ -254,7 +256,7 @@ getCurrentStimSeqItem = do
   res <- getCurrentAssignment
   case res of
     Nothing -> error "No PosInfo" -- TODO
-    Just (Assignment _ key Nothing _ _ _ ) -> error "Subject is finished" -- TODO proper error handling
+    Just (Assignment _ key Nothing _ _ _ ) -> return Nothing
     Just (Assignment _ key (Just i) rangeStart rangeEnd _) -> do
       checkStimulusBounds i (rangeStart,rangeEnd)
       u <- exceptT (const $ error "Bad lookup") return getCurrentTaggingUser
@@ -292,15 +294,15 @@ handleCurrentStimulusSequence =
   (MaybeT getCurrentStimulusSequence)
 
 handleFullPosInfo
-  :: Maybe Int -> AppHandler (Maybe (Assignment, StimulusSequence, StimSeqItem))
+  :: Maybe Int -> AppHandler (Maybe FullPosInfo) -- (Maybe (Assignment, StimulusSequence, StimSeqItem))
 handleFullPosInfo indexRequest = do
-  pInfo <- maybeT (return Nothing) (return . Just) $ (,,)
+  pInfo <- maybeT (return Nothing) (return . Just) $ FPI
     <$> MaybeT getCurrentAssignment
     <*> MaybeT getCurrentStimulusSequence
-    <*> MaybeT getCurrentStimSeqItem
+    <*> lift getCurrentStimSeqItem
   case pInfo of
     Nothing -> error "Bad decoding of fullposinfo" -- TODO
-    Just (asgn, ss, ssi) -> case indexRequest of
+    Just (FPI asgn ss ssi) -> case indexRequest of
       Nothing   -> case ssSampling ss of
         SampleIndex -> error "SamplingMethod is SampleIndex - client must set 'indexRequest' query parameter"
         _           -> return pInfo
@@ -309,7 +311,7 @@ handleFullPosInfo indexRequest = do
           SampleIndex              -> userChooseIndex iReq asgn
           SampleIndexNoReplacement -> error "Not Implemented" -- TODO implement
           _                        -> error "Tried to request a stimulus index when that's not allowed"
-        return $ Just (asgn', ss, ssi)
+        return $ Just $ FPI asgn' ss ssi
 
   where userChooseIndex :: Int -> Assignment -> AppHandler Assignment
         userChooseIndex i asgn@(Assignment aUsr aSeq aInd rangeStart rangeEnd finishURL) = do
