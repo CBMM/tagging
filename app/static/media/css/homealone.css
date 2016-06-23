@@ -1,10 +1,19 @@
 html, body {
   height: 100vh;
+    background: repeating-linear-gradient(
+      45deg, #FFC65F , #FFC65F 40px, #FFD280 40px, #ffd280 80px
+                    );
+
 }
 
 .content {
   height: 100%;
   width: 100%;
+}
+
+.stable-properties-widget, .clip-properties-widget, .movie-widget, .selections-widget, .bank-container {
+    margin:20px;
+    box-shadow: 5px 5px 5px rgba(0,0,0,0.1);
 }
 
 .left-half {
@@ -13,25 +22,39 @@ html, body {
   display:      -webkit-flex;
   flex-flow:       column nowrap;
   -webkit-flex-flow: column nowrap;
-  justify-content: flex-start;
+  justify-content: space-between;
 
-  padding: 20px;
+  // padding: 20px;
   width: 58%;
+  height:100%;
 }
 
 .right-half {
-  padding: 20px;
+  // padding: 20px;
   display: flex;
   flex-flow: column nowrap;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.left-child:first-child{
+    flex-grow:3;
 }
 
 .left-child {
   display: flex;
   flex-flow: row nowrap;
-    margin: 5px;
-    padding: 5px;
 }
 
+.right-child {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+}
+
+.left-child propoerties {
+    height: 300px;
+}
 
 .top-left {
   flex-grow: 1;
@@ -51,16 +74,59 @@ html, body {
 .movie-widget {
   order: 1;
   min-height: 400px;
+  width: 100%;
+  display: flex;
+  display: -webkit-flex;
+  flex-wrap: wrap;
+  -webkit-flex-wrap: wrap;
+  background-color: white;
+  padding: 5px;
+  // border: 1px solid gray;
+  border-radius: 3px;
+}
+
+.selections-container {
+  order: 1;
+  min-height: 400px;
+  width: 100%;
+  display: flex;
+  display: -webkit-flex;
+  flex-wrap: wrap;
+  -webkit-flex-wrap: wrap;
+  background-color: white;
+  padding: 5px;
+  // border: 2px solid black;
+  border-radius: 3px;
+}
+
+.success-thanks{
+    width:  100%;
+    background: repeating-radial-gradient(
+      circle, #FFC65F , #FFC65F 40px, #FFD280 40px, #ffd280 80px
+                    );
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+}
+
+.success-box {
+    background-color: white;
+    width: 75%;
+    box-shadow: 5px 5px 5px rgba(0,0,0,0.1);
+    font-family: 'Lobster', cursive;
+    text-align:center;
 }
 
 .selections-widget{
   order: 2;
   min-height: 70px;
+  width: 100%;
 }
 
 .choice-bank-widget{
   order: 1;
   flex: 1;
+  flex-grow:2;
   /* max-width:400px; 
   min-width:400px; */
 }
@@ -74,7 +140,7 @@ html, body {
   min-width:300px; */
 }
 
-.stable-properties-widget{
+.stable-properties-widget, .clip-properties-widget {
   order: 1;
   flex: 1;
   /* background-color: #9ff; */ /* cyan? */
@@ -82,14 +148,23 @@ html, body {
   max-height: 200px;
   min-width:400px;
   max-width:400px; */
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}
+
+.stable-props-div table td, .clip-properties-widget table td {
+    margin: 5px;
+    padding: 5px;
 }
 
 .stable-properties-widget, .clip-properties-widget {
-    border: 1px solid;
+    // border: 2px solid black;
+    background-color: white;
     border-radius: 3px;
-    border-color: rgba(230,230,230,1);
-    margin: 5px;
-    min-height:120px;
+    height: 300px;
+    max-height: 300px;
+    min-height: 300px;
 }
 
 .clip-properties-widget {
@@ -100,16 +175,16 @@ html, body {
  ************** Choice bank *************
  ****************************************/
 
-.bank-container, .selections-container, .movie-widget {
+.bank-container {
   display: flex;
   display: -webkit-flex;
   flex-wrap: wrap;
   -webkit-flex-wrap: wrap;
   background-color: white;
   padding: 5px;
-  border: 1px solid;
-  border-radius: 10px;
-  border-color: rgba(230,230,230,1);
+  //border: 2px solid black;
+  border-radius: 3px;
+  box-shadow: 5px 5px 5px rgba(0,0,0,0.1);
 }
 
 .selections-container {
@@ -126,7 +201,7 @@ html, body {
   width: 65px;
   height: 65px;
   margin: 5px;
-  border-radius: 5px;
+  border-radius: 3px;
 }
 
 .choice-bank-choice img, .selection-choice img {
@@ -136,7 +211,7 @@ html, body {
   color: black;
   top: 0px;
   left: 0px;
-  border-radius: 5px;
+  border-radius: 3px;
 }
 .choice-bank-choice-text, .selection-choice-text {
   position: absolute;
@@ -251,8 +326,8 @@ video {
 /* Admin dialog */
 dialog {
     background-color: white;
-    border-radius:2px;
-    border: 1px solid grey;
+    border-radius:3px;
+    // border: 2px solid black;
     max-width: 80%;
     z-index: 200;
 }
@@ -265,8 +340,8 @@ dialog .inp-group {
     display:block;
 }
 .instructions{
-    border-radius: 10px;
-    border: 1px solid rgba(0,0,255,0.2);
+    border-radius: 3px;
+    // border: 2px solid black;
     padding: 20px;
     font-size: 12pt;
 }
