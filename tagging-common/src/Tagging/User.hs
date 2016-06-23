@@ -16,7 +16,7 @@ import           Control.Error
 import           Control.Monad (mzero)
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as A
-import           Data.Aeson ((.:),(.=))
+import           Data.Aeson ((.:),(.=),(.:?))
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Base64 as Base64
@@ -72,30 +72,33 @@ data TaggingUser = TaggingUser
 data Assignment = Assignment
   { aUser     :: DefaultKey TaggingUser
   , aSequence :: DefaultKey StimulusSequence
-  , aIndex    :: Int
+  , aIndex    :: Maybe Int  -- |Nothing| = Finished,  |Just n| = working on n
   , aStart    :: Int
   , aEnd      :: Int
+  , aFinished :: Maybe T.Text -- A URL to POST to when user is finished
   } deriving (Generic)
 
 deriving instance Eq Assignment
 
 deriving instance Show Assignment
 instance A.ToJSON Assignment where
-  toJSON (Assignment u k i s e) = A.object
+  toJSON (Assignment u k i s e f) = A.object
     [ "user" .= keyToInt u
-    , "sequence" .= keyToInt k
-    , "index"    .= i
-    , "start"    .= s
-    , "end"      .= e
+    , "sequence"  .= keyToInt k
+    , "index"     .= i
+    , "start"     .= s
+    , "end"       .= e
+    , "finishURL" .= f
     ]
 
 instance A.FromJSON Assignment where
   parseJSON (A.Object o) = Assignment
     <$> fmap intToKey (o .: "user")
     <*> fmap intToKey (o .: "sequence")
-    <*> o .: "index"
+    <*> o .:? "index"
     <*> o .: "start"
     <*> o .: "end"
+    <*> o .:? "finishURL"
   parseJSON _ = mzero
 
 
@@ -163,7 +166,8 @@ instance ToSample TaggingUser where
 
 instance ToSample Assignment where
   toSamples _ = singleSample $
-    Assignment (intToKey 1) (intToKey 10) 1 1 1000
+    Assignment (intToKey 1) (intToKey 10) (Just 1) 1 1000
+    (Just "http://mturk.com/mturk/externalSubmit?assignmentId=123")
 
 data Progress = Progress
   { _progressNResponses :: Int

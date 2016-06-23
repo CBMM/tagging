@@ -22,6 +22,7 @@ import           Data.Proxy
 import qualified Data.Set                   as S
 import           Data.String                (fromString)
 import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as T
 import           Data.Time
 import           Database.Groundhog
 import qualified Database.Groundhog.Core    as G
@@ -30,6 +31,7 @@ import           Database.Groundhog.Postgresql
 import           Database.Groundhog.Postgresql.Array
 import           GHC.Generics
 import           GHC.Int
+import qualified Network.Http.Client as C
 import           System.Random
 ------------------------------------------------------------------------------
 import           Servant
@@ -83,21 +85,24 @@ subjectServer = handleCurrentStimSeqItem
 
 ------------------------------------------------------------------------------
 -- | Submit a response. Submission will update the user's current-stimulus
---   field to @Just@ `the next sequence stimulus` if there is one, or tno
+--   field to @Just@ `the next sequence stimulus` if there is one, or to
 --   @Nothing@ if the sequence is done
---handleSubmitResponse :: StimulusResponse -> Handler App App ()
 handleSubmitResponse :: Bool -> ResponsePayload -> Handler App App ()
 handleSubmitResponse advanceStim t = do
+
+  prog@(Progress nAnswers nQuestions) <- handleProgress
+  asgn@(Assignment aU s maybeI rngS rngE finishURL) <- handleCurrentAssignment
 
   exceptT Server.Utils.err300 (const $ return ()) $ do
 
     tNow     <- lift $ liftIO getCurrentTime
     u                 <- getCurrentTaggingUser
-    asgn <- noteT "No assignment" $ MaybeT getCurrentAssignment
-    let (Assignment aU s i rangeStart rangeEnd) = asgn
+    i <- case maybeI of
+      Nothing -> error "Unexpected no-assignment when submitting response" -- TODO proper error handling
+      Just i  -> return i
     let s'' = s :: DefaultKey StimulusSequence
     let i' = fromIntegral (i :: Int) :: Int64
-    checkStimulusBounds i (rangeStart, rangeEnd)
+    checkStimulusBounds i (rngS, rngE)
 
     thisReq  <- case i of
       -- Special-case for index '-1': There is no stim-seq-item
@@ -123,25 +128,22 @@ handleSubmitResponse advanceStim t = do
       when advanceStim $ case ssSampling thisSeq of
         SampleIndex -> error "No advance allowed for SampleIndex SamplingMethod experiments"
         SampleIncrement -> do
+          let index' = maybe Nothing (\i -> bool (Just $ succ i) Nothing (i >= rngE)) maybeI
+              asgn'  = asgn { aIndex = index' }
+          let u'' = tuId u :: Int64
           let x = tuId u :: Int64
-          if i == l - 1
-            then do
-              let u'' = tuId u :: Int64
-              deleteBy (Utils.integralToKey (tuId u) :: DefaultKey Assignment)
-              return ()
-            else do
-              let k'  = Utils.integralToKey (tuId u) :: DefaultKey TaggingUser
-                  a'  = Assignment k' s (succ i)
-              update [AIndexField =. succ i]
+              k'  = Utils.integralToKey (tuId u) :: DefaultKey TaggingUser
+              answeredLastStimulus = i == rngE
+
+          when answeredLastStimulus $
+              maybe (return ()) (liftIO . runFinishedURL) finishURL
+
+          update [AIndexField =. index'] -- TODO
                 (AUserField ==. k'
                  &&. ASequenceField ==. s)
+
         SampleRandomNoReplacement -> do
 
-          -- resps <- fmap (S.fromList . fmap srIndex) $
-          --          select (SrSequenceField ==. s'' &&.
-          --                  SrUserField ==. tuId u)
-          -- allInds <- (\n -> S.fromList $ take n [0..]) <$> count (SsiStimulusSequenceField ==. s'')
-          -- let remainingInds = S.difference allInds resps
           let u'' = tuId u :: Int64
               pxy = Proxy  :: Proxy Postgresql
 
@@ -170,13 +172,44 @@ handleSubmitResponse advanceStim t = do
 
           liftIO $ print $ "NEXT STIM: " ++ show nextStim
           case nextStim of
-            []    -> deleteBy (Utils.integralToKey (tuId u) :: DefaultKey Assignment)
+
+            -- TODO: This is a case of the one asgn per (user,experiment) assumption
+            [] -> do update [AIndexField =. (Nothing :: Maybe Int)]
+                            (AUserField ==. (Utils.integralToKey (tuId u) :: DefaultKey TaggingUser)
+                            &&. ASequenceField ==. s)
+                     maybe (return ()) (liftIO . runFinishedURL) finishURL
+            -- TODO Document this. Used to delete the Assignment row. Now ignoring
+            -- []    -> deleteBy (Utils.integralToKey (tuId u) :: DefaultKey Assignment)
             (n:_) -> do
               -- i <- liftIO $ randomRIO (0,S.size remainingInds)
               -- let newAssignmentInd = S.toList remainingInds !! i
-              update [AIndexField =. (fromIntegral n :: Int)]
+              update [AIndexField =. Just (fromIntegral n :: Int)]
                      (AUserField ==. (Utils.integralToKey (tuId u) :: DefaultKey TaggingUser)
                       &&. ASequenceField ==. s)
+
+------------------------------------------------------------------------------
+runFinishedURL :: T.Text -> IO ()
+runFinishedURL url = do
+  print $ "POSTing to: " <> T.unpack url
+  C.postForm (T.encodeUtf8 url) [] (\_ _ -> return ())
+  -- TODO! next line
+  -- when (responseOk res) $ update [AFinishdURL .= Nothing] (justThisAssignment)
+
+-- ------------------------------------------------------------------------------
+-- -- | Check whether the logged-in user's assignment is finished
+-- experimentIsOver :: AppHandler (Maybe Bool)
+-- experimentIsOver = do
+--   r <- handleFullPosInfo Nothing
+--   case r of
+--     Nothing -> error "No assignment" -- TODO proper error handling
+--     Just ((Assignment _ _ i _ e _),
+--           (StimulusSequence _ _ _ _ _ sampling),
+--           _) -> case sampling of
+--       SampleIncrement -> return $ fmap (> e) i
+--       SampleRandomNoReplacement -> do
+--         (Progress n nTotal) <- handleProgress
+--         return (n >= nTotal)
+
 
 
 ------------------------------------------------------------------------------
@@ -195,13 +228,19 @@ handleCurrentAssignment =
 
 handleProgress :: Handler App App Progress
 handleProgress = do
-  asgn <- getCurrentAssignment
-  case asgn of
+  posInfo <- handleFullPosInfo Nothing
+  case posInfo of
     Nothing -> Server.Utils.err300 "No assignment"
-    Just (Assignment u sID sIndex rangeStart rangeEnd) ->
-      let nSequenceStims = rangeEnd - rangeStart + 1
-          userResps = sIndex - rangeStart
-      in return $ Progress userResps nSequenceStims
+    Just (FPI (Assignment u sID sIndex rangeStart rangeEnd _) sSeq _) ->
+      case ssSampling sSeq of
+        SampleIncrement -> do
+          let nSequenceStims = rangeEnd - rangeStart + 1
+              userResps = maybe nSequenceStims (`subtract` rangeStart) sIndex
+            in return $ Progress userResps nSequenceStims
+        SampleRandomNoReplacement -> runGH $ do
+          let nSequenceStims = rangeEnd - rangeStart + 1
+          userResps <- count (SsiStimulusSequenceField ==. sID)
+          return (Progress userResps nSequenceStims)
 
 
 checkStimulusBounds :: MonadSnap m => Int -> (Int, Int) -> m ()
@@ -217,7 +256,8 @@ getCurrentStimSeqItem = do
   res <- getCurrentAssignment
   case res of
     Nothing -> error "No PosInfo" -- TODO
-    Just (Assignment _ key i rangeStart rangeEnd) -> do
+    Just (Assignment _ key Nothing _ _ _ ) -> return Nothing
+    Just (Assignment _ key (Just i) rangeStart rangeEnd _) -> do
       checkStimulusBounds i (rangeStart,rangeEnd)
       u <- exceptT (const $ error "Bad lookup") return getCurrentTaggingUser
       t <- liftIO getCurrentTime
@@ -244,7 +284,7 @@ getCurrentStimulusSequence = do
   res    <- getCurrentAssignment
   case res of
     Nothing -> error "NoUser" -- TODO
-    Just (Assignment _ key i _ _) -> do
+    Just (Assignment _ key _ _ _ _) -> do
       ssi <- runGH $ get key
       return ssi
 
@@ -254,15 +294,15 @@ handleCurrentStimulusSequence =
   (MaybeT getCurrentStimulusSequence)
 
 handleFullPosInfo
-  :: Maybe Int -> AppHandler (Maybe (Assignment, StimulusSequence, StimSeqItem))
+  :: Maybe Int -> AppHandler (Maybe FullPosInfo) -- (Maybe (Assignment, StimulusSequence, StimSeqItem))
 handleFullPosInfo indexRequest = do
-  pInfo <- maybeT (return Nothing) (return . Just) $ (,,)
+  pInfo <- maybeT (return Nothing) (return . Just) $ FPI
     <$> MaybeT getCurrentAssignment
     <*> MaybeT getCurrentStimulusSequence
-    <*> MaybeT getCurrentStimSeqItem
+    <*> lift getCurrentStimSeqItem
   case pInfo of
     Nothing -> error "Bad decoding of fullposinfo" -- TODO
-    Just (asgn, ss, ssi) -> case indexRequest of
+    Just (FPI asgn ss ssi) -> case indexRequest of
       Nothing   -> case ssSampling ss of
         SampleIndex -> error "SamplingMethod is SampleIndex - client must set 'indexRequest' query parameter"
         _           -> return pInfo
@@ -271,13 +311,13 @@ handleFullPosInfo indexRequest = do
           SampleIndex              -> userChooseIndex iReq asgn
           SampleIndexNoReplacement -> error "Not Implemented" -- TODO implement
           _                        -> error "Tried to request a stimulus index when that's not allowed"
-        return $ Just (asgn', ss, ssi)
+        return $ Just $ FPI asgn' ss ssi
 
   where userChooseIndex :: Int -> Assignment -> AppHandler Assignment
-        userChooseIndex i asgn@(Assignment aUsr aSeq aInd rangeStart rangeEnd) = do
+        userChooseIndex i asgn@(Assignment aUsr aSeq aInd rangeStart rangeEnd finishURL) = do
           checkStimulusBounds i (rangeStart, rangeEnd)
-          runGH $ update [AIndexField =. i] (AUserField ==. aUsr &&. ASequenceField ==. aSeq)
-          return (Assignment aUsr aSeq i rangeStart rangeEnd)
+          runGH $ update [AIndexField =. Just i] (AUserField ==. aUsr &&. ASequenceField ==. aSeq)
+          return (Assignment aUsr aSeq (Just i) rangeStart rangeEnd finishURL)
 
 -------------------------------------------------------------------------------
 handleAnswerKey :: Maybe Int -> AppHandler [StimSeqAnswer]

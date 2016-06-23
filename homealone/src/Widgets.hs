@@ -39,6 +39,7 @@ import           Reflex.Dom.Contrib.Widgets.Common
 import           Reflex.Dom.Time
 import           Reflex.Dom.Xhr
 ------------------------------------------------------------------------------
+import           Tagging.API
 import           Tagging.Response
 import           Tagging.Stimulus
 import           Tagging.User
@@ -73,14 +74,16 @@ choiceBankWidget allChars dynSelChars = mdo
                              else (c, Nothing))
     ) searchText' dynSelChars
 
-  ns <- elClass "div" "bank-container" $ oneFromMap <$>
-          listViewWithKey nameAndStatus choiceBankSingleChoice
+  (ns,searchText') <- elClass "div" "bank-container" $ do
+          oneFrom <- oneFromMap <$>
+            listViewWithKey nameAndStatus choiceBankSingleChoice
 
-  searchText' <- elClass "div" "search-div" $ mdo
-    tBox <- textInput (def {_textInputConfig_setValue = clearEvents})
-    (e, _) <- elAttr' "div" ("class" =: "search-clear-button") $ return ()
-    let clearEvents = const "" <$> domEvent Click e
-    return $ _textInput_value tBox
+          searchText' <- elClass "div" "search-div" $ mdo
+            tBox <- textInput (def {_textInputConfig_setValue = clearEvents})
+            (e, _) <- elAttr' "div" ("class" =: "search-clear-button") $ return ()
+            let clearEvents = const "" <$> domEvent Click e
+            return $ _textInput_value tBox
+          return (oneFrom, searchText')
 
   return ns
 
@@ -113,25 +116,39 @@ choiceBankSingleChoice n dynStatus = do
 -----------------------------------------------------------------------------
 -- | Show movie clip
 movieWidget :: MonadWidget t m
-            => Event t (Assignment, StimulusSequence, StimSeqItem)
+            => Event t (Maybe FullPosInfo) -- (Assignment, StimulusSequence, Maybe StimSeqItem)
             -- ^ Location within stimulus sequence
             -> m ()
 movieWidget pEvent = do
 
-  let movieSrcs (_, StimulusSequence{..}, StimSeqItem{..}) =
-        case ssiStimulus of
+  let movieSrcs (FPI _ _ Nothing) = Nothing
+      movieSrcs (FPI _ StimulusSequence{..} (Just StimSeqItem{..})) =
+        Just $ case ssiStimulus of
           A.Array fileNames -> ffor fileNames $ \(A.String fn) ->
-               "src"  =: (T.unpack ssBaseUrl <> "/" <> T.unpack fn)
-            <> "type" =: nameToMime (T.unpack fn)
+            ("src"  =: (T.unpack ssBaseUrl <> "/" <> T.unpack fn)
+             <> "type" =: nameToMime (T.unpack fn))
 
-  widgetHold (text "waiting")
-                (ffor pEvent $ \p ->
-                  elAttr "video" ("controls" =: "controls") $
-                   forM_ (movieSrcs p) $ \attrs ->
-                     elAttr "source" attrs (return ())
-                )
+  -- widgetHold (text "waiting")
+  --               (ffor pEvent $ \p ->
+  --                 elAttr "video" ("controls" =: "controls") $
+  --                  forM_ (movieSrcs p) $ \attrs ->
+  --                    elAttr "source" attrs (return ())
+  --               )
+  widgetHold (text "Waiting for video")
+    (ffor (fmap movieSrcs (fmapMaybe id pEvent)) $ \case
+        Nothing -> successThanks
+        Just fs -> elAttr "video" ("controls" =: "controls") $
+          forM_ fs $ \attrs ->
+            elAttr "source" attrs (return ())
+    )
 
   return ()
+
+successThanks :: MonadWidget t m => m ()
+successThanks = divClass "success-thanks" $ do
+  divClass "success-box" $ do
+    el "h1" (text "Experiment Complete")
+    el "h2" (text "Thank you!")
 
 
 type StableProps t = Map.Map CharacterName (Dynamic t StableProperties)

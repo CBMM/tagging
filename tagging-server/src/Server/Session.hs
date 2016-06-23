@@ -118,37 +118,28 @@ sessionServer = handleCurrentTaggingUser
     MTurk workers who already have accounts on tagging are force-logged-in.
     The worker is assigned to a stimulus sequence automatically
 |-}
-handleTurk :: Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text
+handleTurk :: Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text -> Maybe T.Text
            -> Maybe Int64 -> Maybe Int -> Maybe Int -> Maybe T.Text
            -> Handler App App ()
-handleTurk (Just assignmentId) (Just hitId) (Just workerId) (Just redirectUrl)
-           (Just taggingExptNum) rangeStart rangeEnd (Just extraData)  = do
+handleTurk (Just assignmentId) (Just hitId) (Just workerId)
+           (Just turkSubmitTo) (Just redirectUrl) (Just taggingExptNum)
+           rangeStart rangeEnd (Just extraData)  = do
 
   let fI = fromIntegral
-  turkLogin workerId taggingExptNum (fI <$> rangeStart) (fI <$> rangeEnd)
--- fmap :: (a -> b) -> (f a -> f b)
--- (fmap fromIntegral) = (f Int -> f Int64)
---   (Int -> I64)   (May Int)
-
-  -- writeText $ linkPage redirectUrl
+      -- ie: turkSubmitTo == https://www.mturk.com/
+      finishURL = turkSubmitTo <> "mturk/externalSubmit?assignmentId=" <> assignmentId
+  turkLogin workerId taggingExptNum (fI <$> rangeStart) (fI <$> rangeEnd) finishURL
   I.renderWithSplices "_turklink" ("turklink" ## I.textSplice (redirectUrl))
-handleTurk _ _ _ _ _ _ _ _ = do
+handleTurk _ _ _ _ _ _ _ _ _ = do
   ps <- getParams
   writeText ("Param problem. Params: " <> T.pack (show ps))
   -- TODO: Improve error message
 
 
-linkPage :: T.Text -> T.Text
-linkPage url =
-  T.unlines ["<html><head></head><body>"
-            ,"<a href=\"" <> url <> "\" target=\"_blank\">Tagging Experiment</a>"
-            ,"</body></html>"
-            ]
-
 
 -------------------------------------------------------------------------------
-turkLogin :: T.Text -> Int64 -> Maybe Int64 -> Maybe Int64 -> Handler App App ()
-turkLogin workerId taggingExptNum startInd endInd = do
+turkLogin :: T.Text -> Int64 -> Maybe Int64 -> Maybe Int64 -> T.Text -> Handler App App ()
+turkLogin workerId taggingExptNum startInd endInd finishURL = do
 
   -- We'll use the site_key to generate passwords for tagging users
   siteKey <- liftIO $ W.getKey "site_key.txt"
@@ -162,7 +153,8 @@ turkLogin workerId taggingExptNum startInd endInd = do
     bool (createTurker pw) (loginTurker workerId pw) uExist
 
   -- assignExperimentToUser userId taggingExptNum
-  assignUserSeqStart (Just userId) (Just taggingExptNum) startInd endInd
+
+  assignUserSeqStart (Just userId) (Just taggingExptNum) startInd endInd (Just finishURL)
 
   where
 

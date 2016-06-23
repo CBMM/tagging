@@ -69,7 +69,7 @@ contentWidget = elClass "div" "content" $ mdo
 
   (togs, stableUps) <- elClass "div" "right-half" $ mdo
 
-    togs <- elClass "div" "righc-child choice-bank-widget"
+    togs <- elClass "div" "right-child choice-bank-widget"
               (choiceBankWidget choices (constDyn []))
 
     stUps <- elClass "div" "stable-properties-widget" $

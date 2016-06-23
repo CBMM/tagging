@@ -4,6 +4,7 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Tagging.API where
 
@@ -36,6 +37,7 @@ type ResearcherAPI = "assignsequence" :> QueryParam "userid"   Int64
                                       :> QueryParam "sequence" Int64
                                       :> QueryParam "rangeStart" Int64
                                       :> QueryParam "rangeEnd" Int64
+                                      :> QueryParam "finishURL" T.Text
                                       :> Put '[JSON] ()
 
                 :<|> "loadSequence" :> ReqBody '[JSON] (StimulusSequence,
@@ -71,15 +73,17 @@ apiProxy = Proxy
 type SubjectAPI = "currentstim"       :> Get '[JSON] StimSeqItem
              :<|> "currentsequence"   :> Get '[JSON] StimulusSequence
              :<|> "currentassignment" :> Get '[JSON] Assignment
-             :<|> "fullposinfo"       :> QueryParam "indexRequest" Int
-                                      :> Get '[JSON] (Maybe
-                                         (Assignment,
-                                          StimulusSequence,
-                                          StimSeqItem))
+             :<|> "fullposinfo"       :> QueryParam "indexRequest" Int -- TODO seems like single-assignment per (user,expt) assumption is here
+                                      :> Get '[JSON] (Maybe FullPosInfo)
              :<|> "progress"          :> Get '[JSON] Progress
              :<|> "response"          :> QueryFlag "advance" :> ReqBody '[JSON] ResponsePayload :> Post '[JSON] ()
              :<|> "answerkey"         :> QueryParam "experiment" Int
                                       :> Get '[JSON] [StimSeqAnswer]
+
+data FullPosInfo = FPI { fpiAssignment :: Assignment
+                       , fpiStimulusSequence :: StimulusSequence
+                       , fpiStimSeqItem :: Maybe StimSeqItem
+                       } deriving (Eq, Show, Generic, A.ToJSON, A.FromJSON)
 
 ------------------------------------------------------------------------------
 type SessionAPI =
@@ -89,6 +93,7 @@ type SessionAPI =
    :<|> "turk"  :> QueryParam "assignmentId" T.Text
                 :> QueryParam "hitId" T.Text
                 :> QueryParam "workerId" T.Text
+                :> QueryParam "turkSubmitTo" T.Text
                 :> QueryParam "redirectURL" T.Text
                 :> QueryParam "taggingExperiment" Int64
                 :> QueryParam "rangeStart" Int
