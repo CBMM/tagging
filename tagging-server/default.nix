@@ -1,12 +1,12 @@
 { mkDerivation, aeson, base, bytestring, configurator, containers
 , directory, errors, filepath, groundhog, groundhog-postgresql
-, groundhog-th, heist, http-streams, http-types, lens, map-syntax, monad-logger
+, groundhog-th, heist, http-streams, http-types, io-streams, lens, map-syntax, monad-logger
 , MonadCatchIO-transformers, mtl, optparse-applicative
 , postgresql-simple, resource-pool, s3-signer, servant
 , servant-docs, servant-foreign, servant-js, servant-matlab
 , servant-snap, SHA, snap, snap-core, snap-loader-dynamic
 , snap-loader-static, snap-server, snaplet-postgresql-simple
-, stdenv, string-qq, tagging-common, text, time, transformers
+, stdenv, string-qq, tagging-common, text, time, transformers, uri-bytestring
 , unordered-containers, uuid, wreq
 }:
 mkDerivation {
@@ -17,17 +17,17 @@ mkDerivation {
   isExecutable = true;
   libraryHaskellDepends = [
     aeson base bytestring configurator containers errors filepath
-    groundhog groundhog-postgresql groundhog-th heist http-streams http-types lens
+    groundhog groundhog-postgresql groundhog-th heist http-streams http-types io-streams lens
     map-syntax monad-logger MonadCatchIO-transformers mtl
     postgresql-simple resource-pool servant servant-docs servant-snap
     SHA snap snap-core snap-loader-dynamic snap-loader-static
     snap-server snaplet-postgresql-simple tagging-common text time
-    transformers unordered-containers uuid
+    transformers uri-bytestring unordered-containers uuid
   ];
   executableHaskellDepends = [
     aeson base bytestring configurator containers directory errors
     filepath groundhog groundhog-postgresql groundhog-th heist http-streams
-    http-types lens map-syntax monad-logger MonadCatchIO-transformers
+    http-types io-streams lens map-syntax monad-logger MonadCatchIO-transformers
     mtl optparse-applicative postgresql-simple resource-pool s3-signer
     servant servant-docs servant-foreign servant-js servant-matlab
     servant-snap snap snap-core snap-loader-dynamic snap-loader-static

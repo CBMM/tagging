@@ -31,8 +31,10 @@ import           Database.Groundhog.Postgresql
 import           Database.Groundhog.Postgresql.Array
 import           GHC.Generics
 import           GHC.Int
-import qualified Network.Http.Client as C
+import qualified Network.Http.Client        as C
 import           System.Random
+import qualified System.IO.Streams          as S
+import qualified URI.ByteString             as URI
 ------------------------------------------------------------------------------
 import           Servant
 import           Servant.Docs
@@ -187,13 +189,16 @@ handleSubmitResponse advanceStim t = do
                      (AUserField ==. (Utils.integralToKey (tuId u) :: DefaultKey TaggingUser)
                       &&. ASequenceField ==. s)
 
-------------------------------------------------------------------------------
 runFinishedURL :: T.Text -> IO ()
 runFinishedURL url = do
-  print $ "POSTing to: " <> T.unpack url
-  C.postForm (T.encodeUtf8 url) [] (\_ _ -> return ())
-  -- TODO! next line
-  -- when (responseOk res) $ update [AFinishdURL .= Nothing] (justThisAssignment)
+
+  let (Right pieces) = URI.parseURI URI.strictURIParserOptions (T.encodeUtf8 url)
+      pairs          = URI.queryPairs (URI.uriQuery pieces)
+  print $ "POSTing to: " <> T.unpack url -- TODO this is not an error. How to log non-errors?
+  r <- C.postForm (T.encodeUtf8 url) pairs (\_ b -> S.read b) -- TOOD this assumes b is small (one stream chunk)
+  print "RESPONSE:"
+  print r
+
 
 -- ------------------------------------------------------------------------------
 -- -- | Check whether the logged-in user's assignment is finished
