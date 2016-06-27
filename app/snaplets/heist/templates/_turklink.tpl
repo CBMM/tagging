@@ -114,6 +114,8 @@
       }
 
       function handleProgress(p){
+        var nDone = p['_progressNResponses'];
+        var nTotal = p['_progressNTotal'];
         var progressNumber = $('#progressNumber');
         var submitButton = $('#submitButton');
         progressNumber.text( progressText(p) );
@@ -163,9 +165,9 @@
           <div class="button" onclick="checkprogress()">
             <span>Check progress</span>
           </div>
-          <div id="submission-form" hidden disabled>
+          <div id="submission-form" >
             <form action="${finishurl}" method="post">
-              <input type="submit" id="submitButton" value="Submit" class="button"/>
+              <input type="submit" id="submitButton" value="Submit" class="button" hidden disabled/>
             </form>
           </div>
         </div>
