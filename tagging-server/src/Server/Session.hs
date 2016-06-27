@@ -29,7 +29,7 @@ import           GHC.Generics
 import           GHC.Int
 import           Servant
 import           Servant.Docs
-import           Snap.Core       (redirect, writeText, getParams)
+import           Snap.Core       (redirect, writeText, getParams, urlEncode)
 import           Snap.Snaplet
 import           Snap.Snaplet.Auth
 import qualified Web.ClientSession as W
@@ -126,8 +126,9 @@ handleTurk (Just assignmentId) (Just hitId) (Just workerId)
            rangeStart rangeEnd (Just extraData)  = do
 
   let fI = fromIntegral
+      uEncode = T.decodeUtf8 . urlEncode . T.encodeUtf8
       -- ie: turkSubmitTo == https://www.mturk.com/
-      finishURL = turkSubmitTo <> "/mturk/externalSubmit?assignmentId=" <> assignmentId
+      finishURL = turkSubmitTo <> "/mturk/externalSubmit?assignmentId=" <> assignmentId <> "&workerId=" <> workerId
   turkLogin workerId taggingExptNum (fI <$> rangeStart) (fI <$> rangeEnd) finishURL
   I.renderWithSplices "_turklink" $ do
     "turklink"  ## I.textSplice redirectUrl
