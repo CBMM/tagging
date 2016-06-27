@@ -240,7 +240,7 @@ handleProgress = do
       case ssSampling sSeq of
         SampleIncrement -> do
           let nSequenceStims = rangeEnd - rangeStart + 1
-              userResps = maybe nSequenceStims (`subtract` rangeStart) sIndex
+              userResps = maybe nSequenceStims (rangeStart `subtract`) sIndex
             in return $ Progress userResps nSequenceStims
         SampleRandomNoReplacement -> runGH $ do
           let nSequenceStims = rangeEnd - rangeStart + 1
