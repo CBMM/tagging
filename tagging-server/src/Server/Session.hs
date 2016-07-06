@@ -133,12 +133,21 @@ handleTurk (Just assignmentId) (Just hitId) (Just workerId)
   I.renderWithSplices "_turklink" $ do
     "turklink"  ## I.textSplice redirectUrl
     "finishurl" ## I.textSplice finishURL
-handleTurk _ _ _ _ _ _ _ _ _ = do
+handleTurk _ _ _ _ _ e _ _ _ = do
   ps <- getParams
-  writeText ("Param problem. Params: " <> T.pack (show ps))
-  -- TODO: Improve error message
+  liftIO $ print ("Turk handler. Params: " <> T.pack (show ps))
+  case e of
+    Nothing -> liftIO $ print ("Param problem. Params: " <> T.pack (show ps))
+    Just n  -> writeText $ turkPicturePreview n
 
-
+turkPicturePreview :: Int64 -> T.Text
+turkPicturePreview expt =
+  T.unlines ["<html><head></head>"
+            ,"  <body style=\"display:flex;align-items:center;justify-content:space-around;\"/>"
+            ,("    <img src=\"/media/img/experiment" <> n <> ".png\"/>")
+            ,"  </body></html>"
+            ]
+  where n = T.pack $ show expt
 
 -------------------------------------------------------------------------------
 turkLogin :: T.Text -> Int64 -> Maybe Int64 -> Maybe Int64 -> T.Text -> Handler App App ()
