@@ -85,7 +85,52 @@
 
     </style>
 
+  </head>
+  <body>
+
+    <div class="content">
+
+      <div class="linkbox">
+        <div class="top-half">
+
+          <div class="imgdiv">
+            <img src="https://raw.githubusercontent.com/CBMM/tagging/master/app/static/media/img/camera.png"/>
+          </div>
+
+          <div class="info">
+            <span class="title">
+              Start labeling movie actors
+            </span>
+
+            <span class="progressNumber" id="progressNumber">
+            </span>
+
+          </div>
+
+          <a href="${turklink}" target="_blank">
+	    <div class="button">
+              <span>Click here &#9658;</span>
+            </div>
+          </a>
+
+        </div>
+        <hr/>
+        <div class="bottom-half">
+          <div class="button" onclick="checkprogress()">
+            <span>Check progress</span>
+          </div>
+          <div id="submission-form" >
+            <form action="${finishurl}" method="post">
+              <input type="submit" id="submitButton" value="Submit" class="button submit-button"/>
+            </form>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
     <script>
+
       function checkprogress(){
         $.ajax('/api/progress',
                {success: function(d, t, x) {
@@ -119,61 +164,23 @@
         var progressNumber = $('#progressNumber');
         var submitButton = $('#submitButton');
         progressNumber.text( progressText(p) );
-
+        console.log("submitButton: " + $('#submitButton').length );
         if (nDone >= nTotal) {
+          console.log('IS DONE');
           submitButton.disabled = false;
           submitButton.hidden = false;
+          submitButton.show();
         } else {
+          console.log('NOT DONE');
           submitButton.disabled = true;
           submitButton.hidden = true;
         }
       }
 
+      $(document).ready( $('#submitButton').hide() );
     </script>
 
-  </head>
-  <body>
 
-    <div class="content">
-
-      <div class="linkbox">
-        <div class="top-half">
-
-          <div class="imgdiv">
-            <img src="https://raw.githubusercontent.com/CBMM/tagging/master/app/static/media/img/camera.png"/>
-          </div>
-
-          <div class="info">
-            <span class="title">
-              Start labeling movie actors
-            </span>
-
-            <span class="progressNumber" id="progressNumber">
-            </span>
-
-          </div>
-
-          <a href="${turklink}" target="_blank">
-            <div class="button">
-              <span>Click here &#9658;</span>
-            </div>
-          </a>
-
-        </div>
-        <hr/>
-        <div class="bottom-half">
-          <div class="button" onclick="checkprogress()">
-            <span>Check progress</span>
-          </div>
-          <div id="submission-form" >
-            <form action="${finishurl}" method="post">
-              <input type="submit" id="submitButton" value="Submit" class="button" hidden disabled/>
-            </form>
-          </div>
-        </div>
-
-      </div>
-    </div>
   </body>
 
 </html>
