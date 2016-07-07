@@ -11,6 +11,7 @@ import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString.Char8 as B8
 import Data.Proxy
+import Data.Monoid ((<>))
 import qualified Data.Text as T
 import Database.Groundhog
 import Database.Groundhog.Expression
@@ -20,9 +21,10 @@ import Servant.API
 import qualified Servant.API.ResponseHeaders as H
 import qualified Network.HTTP.Types as H
 import Servant.Server
-import Snap.Core (logError, liftSnap)
+import Snap.Core (logError, liftSnap, writeText)
 import Snap.Snaplet
-import Snap.Snaplet.Auth (AuthUser, UserId(..), currentUser,userId)
+import Snap.Snaplet.Auth (AuthUser, UserId(..), currentUser,userId, unUid)
+import Text.Read hiding (get)
 -------------------------------------------------------------------------------
 import Tagging.User
 import Tagging.Stimulus
@@ -30,6 +32,7 @@ import Tagging.Response
 -------------------------------------------------------------------------------
 import Server.Database
 import Server.Resources
+import qualified Server.GroundhogAuth as G
 import Server.Utils hiding (intToKey)
 import Server.Application
 import Tagging.API
@@ -39,8 +42,8 @@ import Utils
 -------------------------------------------------------------------------------
 -- | API definition used by researchers for admining experiments
 researcherServer :: ServerT ResearcherAPI AppHandler
-researcherServer = assignUserSeqStart :<|> loadSequence
-              :<|> subjectData        :<|> getSequence
+researcherServer = assignUserSeqStart :<|> loadSequence :<|> subjectDataId
+              :<|> subjectDataLogin   :<|> getSequence
 
 
 ------------------------------------------------------------------------------
@@ -132,22 +135,38 @@ getSequence seqID = do
 {-| Download all @StimulusResponse@ entries from a given user on a given
     experiment
 |-}
-subjectData
+subjectDataId
   :: Int64 -- ^ User ID
   -> Int64 -- ^ StimulusSequence Id
   -> AppHandler (Headers '[Header "Content-Disposition" String]
                  [StimulusResponse])
-subjectData userId seqId = do
+subjectDataId userId seqId = do
   assertRole [Admin, Researcher]
-  let sKey = intToKey (fromIntegral seqId)  :: DefaultKey StimulusSequence
-      disposition = B8.concat
-                    [ "attachment; filename=\"taggingdata-"
-                    , B8.pack (show (userId :: Int64))
-                    , "-"
-                    , B8.pack (show (seqId :: Int64))
-                    , ".json\""
-                    ]
-  res <- runGH $ select $ (SrUserField         ==. userId
-                          &&. SrSequenceField ==. sKey)
-                          `orderBy` [Asc SrIndexField]
-  return $ H.addHeader (B8.unpack disposition) res
+  let sKey = integralToKey seqId :: DefaultKey StimulusSequence
+      q    = (SrUserField ==. userId &&. SrSequenceField ==. sKey)
+      hdr  = B8.concat [ "attachment; filename=\"taggingdata-"
+                       , B8.pack (show (userId :: Int64)) , "-"
+                       , B8.pack (show (seqId :: Int64)) , ".json\""
+                       ]
+  res <- runGH $ select $ q `orderBy` [Asc SrIndexField]
+  return $ H.addHeader (B8.unpack hdr) res
+
+
+subjectDataLogin
+  :: Maybe T.Text -- ^ User Login
+  -> Maybe Int64  -- ^ StimulusSequence Id
+  -> AppHandler (Headers '[Header "Content-Disposition" String]
+                 [StimulusResponse])
+subjectDataLogin (Just userLogin) (Just seqId) = do
+  let sKey = integralToKey seqId :: DefaultKey StimulusSequence
+  userIds <- runGH $ select (G.UserLoginField ==. userLogin)
+  case userIds of
+    []  -> Server.Utils.err300 . T.unpack $ "No users with login: " <> userLogin
+    [u] -> maybe (error "No userid parse")
+                 (\i -> subjectDataId i seqId)
+                 (authUserId u)
+    _   -> error "Impossible case: Multiple users with the same login"
+subejctDataLogin _ _ = error "Pass a userlogin and sequence query param"
+
+authUserId :: AuthUser -> Maybe Int64
+authUserId a = join $ ((readMaybe . T.unpack . unUid) <$>) (userId a)

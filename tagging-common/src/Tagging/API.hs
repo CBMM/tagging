@@ -44,11 +44,19 @@ type ResearcherAPI = "assignsequence" :> QueryParam "userid"   Int64
                                                         [StimSeqItem])
                                     :> Post '[JSON] Int64
 
-                :<|> "subjectdata"  :> Capture "userid"     Int64
+                :<|> "subjectdata"  :> Capture "userid"   Int64
                                     :> Capture "sequence" Int64
                                     :> Get '[JSON] (Headers
                                                     '[Header "Content-Disposition" String]
                                                     [StimulusResponse])
+
+                :<|> "subjectdata" :> QueryParam "userlogin" T.Text
+                                   :> QueryParam "sequence"  Int64
+                                   :> Get '[JSON] (Headers
+                                                   '[Header "Content-Disposition" String]
+                                                   [StimulusResponse])
+
+
                 :<|> "sequence" :> Capture "sequence" Int64
                                 :> Get '[JSON] (StimulusSequence,
                                                 [StimSeqItem])
