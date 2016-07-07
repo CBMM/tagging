@@ -43,9 +43,7 @@ automatically be created for you the first time you run your application.
 
 -}
 
-module Server.GroundhogAuth
-  ( initGroundhogAuth
-  ) where
+module Server.GroundhogAuth where
 
 ------------------------------------------------------------------------------
 import           Prelude
