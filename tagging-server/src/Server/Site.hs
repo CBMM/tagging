@@ -59,7 +59,7 @@ import           Tagging.Response
 import           APIDocs
 import           Server.Application
 import           Server.Crud
-import           Server.GroundhogAuth
+import           Server.GroundhogAuth hiding (runGH)
 import           Server.Researcher
 import           Server.Resources
 import           Server.Session
