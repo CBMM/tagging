@@ -100,7 +100,7 @@ contentWidget = elClass "div" "content" $ mdo
           \(cp,n) -> XhrRequest "POST" "/api/response?advance" $
                        XhrRequestConfig ("Content-Type" =: "application/json")
                        Nothing Nothing Nothing (Just . BSL.unpack $ A.encode
-                                               (ResponsePayload (A.toJSON (PerClip (cp,n)))))
+                                               (ResponsePayload (A.toJSON (PerClip (ClipData n cp)))))
   clipXhr <- performRequestAsync clipResponses
 
   return ()

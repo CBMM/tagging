@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Types where
 
@@ -11,6 +12,7 @@ import Control.Error
 import Control.Monad (mzero)
 import qualified Data.Aeson as A
 import Data.Aeson.Types
+import Data.Aeson.Types as A
 import Data.Char
 import qualified Data.Text as T
 import qualified Data.UUID.Types as U
@@ -40,7 +42,7 @@ instance Experiment HomeAloneExperiment where
 -- | The responses from the user have this type: Either a per-clip
 --   response (one is required per stimulus), or a Sporadic
 --   update to relatively stable character properties
-data HomeAloneResponse = PerClip ([ClipProperties],Int)
+data HomeAloneResponse = PerClip ClipData -- ([ClipProperties],Int)
                        -- ^ Every clip needs a list of Character data,
                        --   Who is in the clip, are they talking?
                        | Sporadic StableProperties
@@ -51,34 +53,30 @@ data HomeAloneResponse = PerClip ([ClipProperties],Int)
                        --   subject and their relation to the movie
                      deriving (Eq, Show, Generic)
 
-instance ToJSON HomeAloneResponse
+instance ToJSON HomeAloneResponse where
+  toJSON = haToJSON 0
 
--- instance ToJSON   HomeAloneResponse where
---   toJSON (PerClip (ppl, nUnknown)) =
---     A.object ["PerClip" .= (ppl,nUnknown)]
---   toJSON (Sporadic sProps) =
---     A.object ["Sporadic" .= toJSON sProps]
---   toJSON (Survey v) =
---     A.object ["Survey" .= v]
+instance FromJSON HomeAloneResponse where
+  parseJSON = haParseJSON 0
 
-instance FromJSON HomeAloneResponse
+data ClipData = ClipData { _cdNOthers        :: Int
+                         , _cdClipProperties :: [ClipProperties]
+                         }
+                deriving (Eq, Show, Generic)
 
--- instance FromJSON HomeAloneResponse where
---   parseJSON (A.Object o) =
---     parsePerClip o
---     <|> fmap Sporadic (o .: "Sporadic")
---     <|> fmap Survey   (o .: "Survey")
---     where parsePerClip (A.Object o') = do
---             v <- o' .: "PerClip"
---             
---             
---             [charClipProps, A.Number n] ->
---              (,) <$> parseJSON charClipProps <$> pure (realToFrac n)
---            [charClipProps] ->
---              (,) <$> parseJSON charClipProps <$> pure 0
---             _ -> mzero
+instance ToJSON ClipData where
+  toJSON = haToJSON 3
 
+instance FromJSON ClipData where
+  parseJSON = haParseJSON 3
 
+haToJSON :: (ToJSON a, Generic a, GToJSON (Rep a)) => Int -> a -> A.Value
+haToJSON n = A.genericToJSON A.defaultOptions
+  { A.fieldLabelModifier = map toLower . drop n }
+
+haParseJSON :: (ToJSON a, Generic a, GFromJSON (Rep a)) => Int -> A.Value -> Parser a
+haParseJSON n = A.genericParseJSON A.defaultOptions
+  { A.fieldLabelModifier = map toLower . drop n }
 
 data ClipProperties = ClipProperties
   { _cpCharacterName :: CharacterName
