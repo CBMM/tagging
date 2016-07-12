@@ -152,7 +152,10 @@ instance IAuthBackend GroundhogAuthManager where
     save GroundhogAuthManager{..} u@AuthUser{..} = do
       case fromText . unUid =<< userId of
         Nothing -> do
-          k <- runGH gamPool $ insert u
+          k <- runGH gamPool $ do
+            k <- insert u
+            replace k (setUid k u)
+            return k
           return $ Right $ setUid k u
         Just uid -> do
           let go = runGH gamPool $ do
